@@ -1,0 +1,530 @@
+import { useState, useMemo } from 'react';
+import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import type { Cliente, Renovacao, SeguroNovo, Usuario } from '../types';
+import { formatCpfCnpj, formatDate, generateId } from '../utils/formatters';
+import { validateCpfCnpj } from '../utils/validators';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+
+interface Props {
+  clientes: Cliente[];
+  setClientes: (c: Cliente[]) => void;
+  renovacoes: Renovacao[];
+  segurosNovos: SeguroNovo[];
+  usuarios: Usuario[];
+}
+
+type FormCliente = Omit<Cliente, 'id' | 'criadoEm' | 'atualizadoEm' | 'tipo'>;
+
+const formVazio: FormCliente = {
+  cpfCnpj: '', nome: '', email: '', telefone: '', dataNascimento: '',
+  observacaoImportante: '',
+  cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
+};
+
+export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Props) {
+  const { usuario } = useAuth();
+  const navigate = useNavigate();
+  const isAdmin = usuario?.role === 'admin';
+
+  const [busca, setBusca] = useState('');
+  const [modalForm, setModalForm] = useState(false);
+  const [editando, setEditando] = useState<Cliente | null>(null);
+  const [visualizando, setVisualizando] = useState<Cliente | null>(null);
+  const [form, setForm] = useState<FormCliente>(formVazio);
+  const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState('');
+
+  const tipoCpfCnpj = validateCpfCnpj(form.cpfCnpj).tipo ?? 'PF';
+
+  const filtered = useMemo(() => {
+    const q = busca.toLowerCase();
+    return clientes
+      .filter(c =>
+        !q ||
+        c.nome.toLowerCase().includes(q) ||
+        c.cpfCnpj.includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        c.telefone.includes(q) ||
+        c.cidade.toLowerCase().includes(q)
+      )
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [clientes, busca]);
+
+  async function buscarCep(cep: string) {
+    const digits = cep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setBuscandoCep(true);
+    setErroCep('');
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await resp.json();
+      if (data.erro) { setErroCep('CEP não encontrado.'); return; }
+      setForm(f => ({
+        ...f,
+        logradouro: data.logradouro ?? f.logradouro,
+        bairro: data.bairro ?? f.bairro,
+        cidade: data.localidade ?? f.cidade,
+        uf: data.uf ?? f.uf,
+      }));
+    } catch {
+      setErroCep('Erro ao buscar CEP.');
+    } finally {
+      setBuscandoCep(false);
+    }
+  }
+
+  function abrirCriacao() {
+    setForm(formVazio);
+    setEditando(null);
+    setModalForm(true);
+  }
+
+  function abrirEdicao(c: Cliente) {
+    setForm({
+      cpfCnpj: c.cpfCnpj, nome: c.nome, email: c.email, telefone: c.telefone,
+      dataNascimento: c.dataNascimento ?? '',
+      observacaoImportante: c.observacaoImportante ?? '',
+      cep: c.cep, logradouro: c.logradouro,
+      numero: c.numero, complemento: c.complemento, bairro: c.bairro, cidade: c.cidade, uf: c.uf,
+    });
+    setEditando(c);
+    setModalForm(true);
+  }
+
+  function salvar() {
+    const cpfDigits = form.cpfCnpj.replace(/\D/g, '');
+    const { tipo } = validateCpfCnpj(cpfDigits);
+    if (!tipo) { alert('CPF (11 dígitos) ou CNPJ (14 dígitos) inválido.'); return; }
+    if (!form.nome.trim()) { alert('Nome é obrigatório.'); return; }
+
+    const duplicado = clientes.find(c => c.cpfCnpj === cpfDigits && c.id !== editando?.id);
+    if (duplicado) { alert('Já existe um cliente com este CPF/CNPJ.'); return; }
+
+    if (editando) {
+      const updated: Cliente = {
+        ...editando,
+        cpfCnpj: cpfDigits,
+        tipo,
+        nome: form.nome.trim(),
+        email: form.email,
+        telefone: form.telefone,
+        dataNascimento: tipo === 'PF' ? form.dataNascimento : undefined,
+        observacaoImportante: form.observacaoImportante?.trim() || undefined,
+        cep: form.cep.replace(/\D/g, ''),
+        logradouro: form.logradouro,
+        numero: form.numero,
+        complemento: form.complemento,
+        bairro: form.bairro,
+        cidade: form.cidade,
+        uf: form.uf,
+        atualizadoEm: new Date().toISOString(),
+      };
+      setClientes(clientes.map(c => c.id === updated.id ? updated : c));
+    } else {
+      const novo: Cliente = {
+        id: generateId(),
+        cpfCnpj: cpfDigits,
+        tipo,
+        nome: form.nome.trim(),
+        email: form.email,
+        telefone: form.telefone,
+        dataNascimento: tipo === 'PF' ? form.dataNascimento : undefined,
+        observacaoImportante: form.observacaoImportante?.trim() || undefined,
+        cep: form.cep.replace(/\D/g, ''),
+        logradouro: form.logradouro,
+        numero: form.numero,
+        complemento: form.complemento,
+        bairro: form.bairro,
+        cidade: form.cidade,
+        uf: form.uf,
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString(),
+      };
+      setClientes([...clientes, novo]);
+    }
+    setModalForm(false);
+    setEditando(null);
+  }
+
+  function excluir(id: string) {
+    const temRen = renovacoes.some(r => r.clienteId === id);
+    const temSn = segurosNovos.some(s => s.clienteId === id);
+    if (temRen || temSn) {
+      alert('Não é possível excluir este cliente pois está vinculado a renovações ou seguros.');
+      return;
+    }
+    setConfirmExcluir(id);
+  }
+
+  function exportarCSV() {
+    const headers = ['CPF/CNPJ','Tipo','Nome','Email','Telefone','Data Nasc','CEP','Logradouro','Número','Complemento','Bairro','Cidade','UF'];
+    const rows = clientes.map(c => [c.cpfCnpj, c.tipo, c.nome, c.email, c.telefone, c.dataNascimento ?? '', c.cep, c.logradouro, c.numero, c.complemento, c.bairro, c.cidade, c.uf]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
+    a.download = `clientes_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+  }
+
+  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      const novos: Cliente[] = lines.slice(1).map(line => {
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const [cpfCnpj, , nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf] = cols;
+        const digits = cpfCnpj?.replace(/\D/g, '') ?? '';
+        const { tipo } = validateCpfCnpj(digits);
+        return {
+          id: generateId(),
+          cpfCnpj: digits,
+          tipo: tipo ?? 'PF',
+          nome: nome ?? '',
+          email: email ?? '',
+          telefone: telefone ?? '',
+          dataNascimento: dataNascimento || undefined,
+          cep: cep?.replace(/\D/g, '') ?? '',
+          logradouro: logradouro ?? '',
+          numero: numero ?? '',
+          complemento: complemento ?? '',
+          bairro: bairro ?? '',
+          cidade: cidade ?? '',
+          uf: uf ?? '',
+          criadoEm: new Date().toISOString(),
+          atualizadoEm: new Date().toISOString(),
+        };
+      }).filter(c => c.nome);
+      setClientes([...clientes, ...novos]);
+      alert(`${novos.length} cliente(s) importado(s).`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
+  const clienteRenovacoes = visualizando
+    ? renovacoes.filter(r => r.clienteId === visualizando.id || r.cpfCnpjCliente === visualizando.cpfCnpj)
+    : [];
+  const clienteSeguros = visualizando
+    ? segurosNovos.filter(s => s.clienteId === visualizando.id || s.cpfCnpjCliente === visualizando.cpfCnpj)
+    : [];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+            <Download size={14} /> Exportar
+          </button>
+          {isAdmin && (
+            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
+              <Upload size={14} /> Importar
+              <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+            </label>
+          )}
+          <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+            <Plus size={14} /> Novo Cliente
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+          <input
+            type="text"
+            placeholder="Buscar por nome, CPF/CNPJ, email..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="mt-2 text-sm text-gray-500">{filtered.length} cliente(s)</div>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {['CPF/CNPJ','Tipo','Nome','Email','Telefone','Cidade/UF','Ações'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filtered.length === 0 ? (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nenhum cliente encontrado</td></tr>
+              ) : filtered.map(c => (
+                <tr key={c.id} onDoubleClick={() => setVisualizando(c)} className="hover:bg-gray-50 cursor-pointer select-none" title="Duplo clique para ver detalhes">
+                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap font-mono text-xs">{formatCpfCnpj(c.cpfCnpj)}</td>
+                  <td className="px-4 py-2.5">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c.tipo === 'PF' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                      {c.tipo}
+                    </span>
+                  </td>
+                  <td className="px-4 py-2.5 font-medium text-gray-800">
+                    <div className="flex items-center gap-1.5">
+                      {c.nome}
+                      {c.observacaoImportante && (
+                        <span className="relative group inline-flex shrink-0">
+                          <Bell size={13} className="text-amber-500 cursor-help" />
+                          <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 hidden group-hover:block w-60 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                            {c.observacaoImportante}
+                            <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                          </span>
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-600">{c.email}</td>
+                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{c.telefone}</td>
+                  <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{c.cidade}/{c.uf}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => setVisualizando(c)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Ver detalhes">
+                        <Eye size={14} />
+                      </button>
+                      <button onClick={() => abrirEdicao(c)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                        <Edit2 size={14} />
+                      </button>
+                      <button onClick={() => excluir(c.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Excluir">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal Form */}
+      {modalForm && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="font-bold text-gray-900">{editando ? 'Editar Cliente' : 'Novo Cliente'}</h2>
+              <button onClick={() => setModalForm(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ <span className="text-red-500">*</span></label>
+                  <input
+                    value={form.cpfCnpj}
+                    onChange={e => setForm(f => ({...f, cpfCnpj: e.target.value.replace(/\D/g, '')}))}
+                    placeholder="Somente números"
+                    maxLength={14}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div className="text-xs text-gray-400 mt-1">
+                    {form.cpfCnpj.replace(/\D/g,'').length} dígitos — {tipoCpfCnpj === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
+                  <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value}))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <input value={form.telefone} onChange={e => setForm(f => ({...f, telefone: e.target.value}))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                {tipoCpfCnpj === 'PF' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
+                    <input type="date" value={form.dataNascimento} onChange={e => setForm(f => ({...f, dataNascimento: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                )}
+              </div>
+
+              {/* Observação importante */}
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 flex items-center gap-1.5">
+                  <Bell size={13} className="text-amber-500" />
+                  Observação Importante
+                </h3>
+                <p className="text-xs text-gray-400 mb-2">
+                  Informação que o responsável precisa saber antes de falar com este cliente. Será exibida como alerta nas renovações e seguros novos vinculados.
+                </p>
+                <textarea
+                  value={form.observacaoImportante ?? ''}
+                  onChange={e => setForm(f => ({ ...f, observacaoImportante: e.target.value }))}
+                  placeholder="Ex.: Cliente prefere contato por WhatsApp · Não ligar antes das 9h · Aguardar retorno sobre sinistro em aberto..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-amber-200 bg-amber-50 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none placeholder:text-gray-400"
+                />
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Endereço</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+                    <div className="flex gap-2">
+                      <input
+                        value={form.cep}
+                        onChange={e => setForm(f => ({...f, cep: e.target.value.replace(/\D/g, '')}))}
+                        onBlur={e => buscarCep(e.target.value)}
+                        maxLength={8}
+                        placeholder="00000000"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button type="button" onClick={() => buscarCep(form.cep)} disabled={buscandoCep}
+                        className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 disabled:opacity-60">
+                        {buscandoCep ? '...' : 'Buscar'}
+                      </button>
+                    </div>
+                    {erroCep && <div className="text-xs text-red-500 mt-1">{erroCep}</div>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Logradouro</label>
+                    <input value={form.logradouro} onChange={e => setForm(f => ({...f, logradouro: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Número</label>
+                    <input value={form.numero} onChange={e => setForm(f => ({...f, numero: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Complemento</label>
+                    <input value={form.complemento} onChange={e => setForm(f => ({...f, complemento: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bairro</label>
+                    <input value={form.bairro} onChange={e => setForm(f => ({...f, bairro: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+                    <input value={form.cidade} onChange={e => setForm(f => ({...f, cidade: e.target.value}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
+                    <input value={form.uf} onChange={e => setForm(f => ({...f, uf: e.target.value.toUpperCase().slice(0,2)}))}
+                      maxLength={2}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+              <button onClick={() => setModalForm(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button onClick={salvar} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                <Save size={14} /> {editando ? 'Salvar' : 'Criar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Visualização */}
+      {visualizando && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
+              <div>
+                <h2 className="font-bold text-gray-900">{visualizando.nome}</h2>
+                <div className="text-sm text-gray-500">{formatCpfCnpj(visualizando.cpfCnpj)} · {visualizando.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</div>
+              </div>
+              <button onClick={() => setVisualizando(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-5">
+              {/* Observação importante em destaque */}
+              {visualizando.observacaoImportante && (
+                <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
+                  <Bell size={15} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observação Importante</p>
+                    <p className="text-sm text-amber-900">{visualizando.observacaoImportante}</p>
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><div className="text-xs text-gray-400">Email</div><div className="text-gray-700">{visualizando.email || '—'}</div></div>
+                <div><div className="text-xs text-gray-400">Telefone</div><div className="text-gray-700">{visualizando.telefone || '—'}</div></div>
+                {visualizando.dataNascimento && <div><div className="text-xs text-gray-400">Nascimento</div><div className="text-gray-700">{formatDate(visualizando.dataNascimento)}</div></div>}
+                <div><div className="text-xs text-gray-400">Endereço</div><div className="text-gray-700">{visualizando.logradouro}, {visualizando.numero} {visualizando.complemento} — {visualizando.bairro}, {visualizando.cidade}/{visualizando.uf}</div></div>
+              </div>
+
+              {clienteRenovacoes.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Renovações ({clienteRenovacoes.length})</h3>
+                  <div className="space-y-1.5">
+                    {clienteRenovacoes.map(r => (
+                      <div
+                        key={r.id}
+                        onDoubleClick={() => { setVisualizando(null); navigate('/renovacoes', { state: { openId: r.id } }); }}
+                        className="flex items-center justify-between py-2 px-3 bg-gray-50 hover:bg-blue-50 rounded-lg text-sm cursor-pointer select-none"
+                        title="Duplo clique para abrir"
+                      >
+                        <span className="text-gray-700">{r.ramo} · {r.seguradoraAnterior}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">{formatDate(r.fimVigencia)}</span>
+                          <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">{r.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clienteSeguros.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Seguros Novos ({clienteSeguros.length})</h3>
+                  <div className="space-y-1.5">
+                    {clienteSeguros.map(s => (
+                      <div
+                        key={s.id}
+                        onDoubleClick={() => { setVisualizando(null); navigate('/seguros-novos', { state: { openId: s.id } }); }}
+                        className="flex items-center justify-between py-2 px-3 bg-gray-50 hover:bg-blue-50 rounded-lg text-sm cursor-pointer select-none"
+                        title="Duplo clique para abrir"
+                      >
+                        <span className="text-gray-700">{s.ramo} · {s.seguradora}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">{formatDate(s.inicioVigencia)}</span>
+                          <span className="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">{s.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clienteRenovacoes.length === 0 && clienteSeguros.length === 0 && (
+                <div className="text-sm text-gray-400 text-center py-4">Nenhuma apólice vinculada a este cliente.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmExcluir}
+        title="Excluir cliente"
+        message="Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita."
+        onConfirm={() => { setClientes(clientes.filter(c => c.id !== confirmExcluir)); setConfirmExcluir(null); }}
+        onCancel={() => setConfirmExcluir(null)}
+      />
+    </div>
+  );
+}

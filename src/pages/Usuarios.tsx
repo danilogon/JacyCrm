@@ -1,0 +1,410 @@
+import { useState, useMemo } from 'react';
+import { Plus, Edit2, X, Save, Check, CheckSquare, Square } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario } from '../types';
+import { generateId } from '../utils/formatters';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+
+interface Props {
+  usuarios: Usuario[];
+  setUsuarios: (u: Usuario[]) => void;
+  metas: ConfiguracoesMetas;
+  tiposUsuario: TipoUsuario[];
+}
+
+type FormUsuario = {
+  nome: string;
+  email: string;
+  senha: string;
+  role: Role;
+  acessoRenovacoes: boolean;
+  acessoSegurosNovos: boolean;
+  acessoProspeccao: boolean;
+  podeDescartarProspeccao: boolean;
+  visualizarDashboard: boolean;
+  visualizarProducao: boolean;
+  visualizarMetas: boolean;
+  visualizarComissoes: boolean;
+  camposRestritos: { renovacoes: string[]; segurosNovos: string[]; prospeccoes: string[] };
+  recebeRemuneracaoRenovacoes: boolean;
+  planoMetaRenovacaoId: string;
+  recebeRemuneracaoTaxaRenovacoes: boolean;
+  recebeRemuneracaoAumentoComissao: boolean;
+  recebeRemuneracaoSegurosNovos: boolean;
+  planoMetaSeguroNovoId: string;
+  recebeRemuneracaoSnComissao: boolean;
+  recebeRemuneracaoSnTaxa: boolean;
+  ativo: boolean;
+};
+
+const ROLE_LABELS: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
+const ROLE_COLORS: Record<Role, string> = {
+  admin: 'bg-red-100 text-red-700',
+  gestor: 'bg-blue-100 text-blue-700',
+  usuario: 'bg-gray-100 text-gray-700',
+};
+
+const formVazio: FormUsuario = {
+  nome: '', email: '', senha: '', role: 'usuario',
+  acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true,
+  podeDescartarProspeccao: false,
+  visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
+  camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
+  recebeRemuneracaoRenovacoes: false, planoMetaRenovacaoId: '',
+  recebeRemuneracaoTaxaRenovacoes: true, recebeRemuneracaoAumentoComissao: true,
+  recebeRemuneracaoSegurosNovos: false, planoMetaSeguroNovoId: '',
+  recebeRemuneracaoSnComissao: true, recebeRemuneracaoSnTaxa: true,
+  ativo: true,
+};
+
+function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
+  return (
+    <button type="button" onClick={() => onChange(!v)} className="flex items-center gap-2 text-sm text-gray-700">
+      {v ? <CheckSquare size={16} className="text-blue-600" /> : <Square size={16} className="text-gray-400" />}
+      {label}
+    </button>
+  );
+}
+
+export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) {
+  const { usuario: me } = useAuth();
+  const [editando, setEditando] = useState<Usuario | null>(null);
+  const [criando, setCriando] = useState(false);
+  const [form, setForm] = useState<FormUsuario>(formVazio);
+  const [confirmToggle, setConfirmToggle] = useState<string | null>(null);
+
+  const sorted = useMemo(() => [...usuarios].sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
+
+  function abrirCriacao() {
+    const firstRen = metas.planosRenovacao[0]?.id ?? '';
+    const firstSn = metas.planosSeguroNovo[0]?.id ?? '';
+    setForm({ ...formVazio, planoMetaRenovacaoId: firstRen, planoMetaSeguroNovoId: firstSn });
+    setEditando(null);
+    setCriando(true);
+  }
+
+  function abrirEdicao(u: Usuario) {
+    setForm({
+      nome: u.nome, email: u.email, senha: '', role: u.role,
+      acessoRenovacoes: u.acessoRenovacoes, acessoSegurosNovos: u.acessoSegurosNovos, acessoProspeccao: u.acessoProspeccao ?? true,
+      podeDescartarProspeccao: u.podeDescartarProspeccao ?? false,
+      visualizarDashboard: u.visualizarDashboard ?? true,
+      visualizarProducao: u.visualizarProducao ?? false,
+      visualizarMetas: u.visualizarMetas ?? true,
+      visualizarComissoes: u.visualizarComissoes ?? false,
+      camposRestritos: u.camposRestritos ?? { renovacoes: [], segurosNovos: [], prospeccoes: [] },
+      recebeRemuneracaoRenovacoes: u.recebeRemuneracaoRenovacoes,
+      planoMetaRenovacaoId: u.planoMetaRenovacaoId ?? metas.planosRenovacao[0]?.id ?? '',
+      recebeRemuneracaoTaxaRenovacoes: u.recebeRemuneracaoTaxaRenovacoes ?? true,
+      recebeRemuneracaoAumentoComissao: u.recebeRemuneracaoAumentoComissao ?? true,
+      recebeRemuneracaoSegurosNovos: u.recebeRemuneracaoSegurosNovos,
+      planoMetaSeguroNovoId: u.planoMetaSeguroNovoId ?? metas.planosSeguroNovo[0]?.id ?? '',
+      recebeRemuneracaoSnComissao: u.recebeRemuneracaoSnComissao ?? true,
+      recebeRemuneracaoSnTaxa: u.recebeRemuneracaoSnTaxa ?? true,
+      ativo: u.ativo,
+    });
+    setEditando(u);
+    setCriando(false);
+  }
+
+  function salvar() {
+    if (!form.nome.trim() || !form.email.trim()) { alert('Nome e email são obrigatórios.'); return; }
+    if (criando && !form.senha) { alert('Senha é obrigatória para novos usuários.'); return; }
+    const emailDup = usuarios.find(u => u.email === form.email && u.id !== editando?.id);
+    if (emailDup) { alert('Este email já está em uso.'); return; }
+
+    const dados: Omit<Usuario, 'id'> = {
+      nome: form.nome, email: form.email, senha: form.senha || (editando?.senha ?? ''),
+      role: form.role,
+      acessoRenovacoes: form.acessoRenovacoes,
+      acessoSegurosNovos: form.acessoSegurosNovos,
+      acessoProspeccao: form.acessoProspeccao,
+      podeDescartarProspeccao: form.podeDescartarProspeccao,
+      visualizarDashboard: form.visualizarDashboard,
+      visualizarProducao: form.visualizarProducao,
+      visualizarMetas: form.visualizarMetas,
+      visualizarComissoes: form.visualizarComissoes,
+      camposRestritos: form.camposRestritos,
+      recebeRemuneracaoRenovacoes: form.recebeRemuneracaoRenovacoes,
+      planoMetaRenovacaoId: form.recebeRemuneracaoRenovacoes ? form.planoMetaRenovacaoId || undefined : undefined,
+      recebeRemuneracaoTaxaRenovacoes: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoTaxaRenovacoes : false,
+      recebeRemuneracaoAumentoComissao: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoAumentoComissao : false,
+      recebeRemuneracaoSegurosNovos: form.recebeRemuneracaoSegurosNovos,
+      planoMetaSeguroNovoId: form.recebeRemuneracaoSegurosNovos ? form.planoMetaSeguroNovoId || undefined : undefined,
+      recebeRemuneracaoSnComissao: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnComissao : false,
+      recebeRemuneracaoSnTaxa: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnTaxa : false,
+      ativo: form.ativo,
+    };
+
+    if (criando) {
+      setUsuarios([...usuarios, { id: generateId(), ...dados }]);
+    } else if (editando) {
+      setUsuarios(usuarios.map(u => u.id === editando.id ? { ...editando, ...dados } : u));
+    }
+    setCriando(false);
+    setEditando(null);
+  }
+
+  function toggleAtivo(id: string) {
+    if (id === me?.id) { alert('Você não pode desativar sua própria conta.'); return; }
+    setConfirmToggle(id);
+  }
+
+  function confirmarToggle() {
+    if (!confirmToggle) return;
+    setUsuarios(usuarios.map(u => u.id === confirmToggle ? { ...u, ativo: !u.ativo } : u));
+    setConfirmToggle(null);
+  }
+
+  function nomeRen(id?: string) {
+    return metas.planosRenovacao.find(p => p.id === id)?.nome ?? '—';
+  }
+  function nomeSn(id?: string) {
+    return metas.planosSeguroNovo.find(p => p.id === id)?.nome ?? '—';
+  }
+
+  const modalAberto = editando !== null || criando;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Usuários</h1>
+        <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+          <Plus size={14} /> Novo Usuário
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              {['Nome','Email','Perfil','Renovações','Seg. Novos','Remuneração / Plano','Status','Ações'].map(h => (
+                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {sorted.map(u => (
+              <tr key={u.id} className={`hover:bg-gray-50 ${!u.ativo ? 'opacity-60' : ''}`}>
+                <td className="px-4 py-2.5">
+                  <div className="font-medium text-gray-800">{u.nome}</div>
+                  {u.id === me?.id && <div className="text-xs text-blue-500">Você</div>}
+                </td>
+                <td className="px-4 py-2.5 text-gray-600">{u.email}</td>
+                <td className="px-4 py-2.5">
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[u.role]}`}>{ROLE_LABELS[u.role]}</span>
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  {u.acessoRenovacoes ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-2.5 text-center">
+                  {u.acessoSegurosNovos ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-2.5 text-xs text-gray-500 space-y-0.5">
+                  {u.recebeRemuneracaoRenovacoes && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-blue-600 font-medium">Ren.</span>
+                      <span className="text-gray-400">— {nomeRen(u.planoMetaRenovacaoId)}</span>
+                    </div>
+                  )}
+                  {u.recebeRemuneracaoSegurosNovos && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-indigo-600 font-medium">Seg.</span>
+                      <span className="text-gray-400">— {nomeSn(u.planoMetaSeguroNovoId)}</span>
+                    </div>
+                  )}
+                  {!u.recebeRemuneracaoRenovacoes && !u.recebeRemuneracaoSegurosNovos && <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-2.5">
+                  <button onClick={() => toggleAtivo(u.id)} className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                    {u.ativo ? 'Ativo' : 'Inativo'}
+                  </button>
+                </td>
+                <td className="px-4 py-2.5">
+                  <button onClick={() => abrirEdicao(u)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
+                    <Edit2 size={14} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Modal */}
+      {modalAberto && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h2 className="font-bold text-gray-900">{criando ? 'Novo Usuário' : 'Editar Usuário'}</h2>
+              <button onClick={() => { setEditando(null); setCriando(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              {/* Seletor de tipo — apenas na criação ou como atalho na edição */}
+              {tiposUsuario.filter(t => t.ativo).length > 0 && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Aplicar tipo de usuário</p>
+                  <div className="flex gap-2">
+                    <select
+                      defaultValue=""
+                      onChange={e => {
+                        const tipo = tiposUsuario.find(t => t.id === e.target.value);
+                        if (!tipo) return;
+                        setForm(f => ({
+                          ...f,
+                          role: tipo.role,
+                          acessoRenovacoes: tipo.acessoRenovacoes,
+                          acessoSegurosNovos: tipo.acessoSegurosNovos,
+                          acessoProspeccao: tipo.acessoProspeccao ?? true,
+                          podeDescartarProspeccao: tipo.podeDescartarProspeccao ?? false,
+                          visualizarDashboard: tipo.visualizarDashboard ?? true,
+                          visualizarProducao: tipo.visualizarProducao ?? false,
+                          visualizarMetas: tipo.visualizarMetas,
+                          visualizarComissoes: tipo.visualizarComissoes,
+                          camposRestritos: tipo.camposRestritos,
+                        }));
+                        e.target.value = '';
+                      }}
+                      className="flex-1 px-3 py-1.5 border border-blue-300 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">— Selecione um tipo para preencher —</option>
+                      {tiposUsuario.filter(t => t.ativo).map(t => (
+                        <option key={t.id} value={t.id}>{t.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-blue-500">Selecionar um tipo preenche as permissões abaixo automaticamente. Você pode ajustar depois.</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
+                <input value={form.nome} onChange={e => setForm(f => ({...f, nome: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email <span className="text-red-500">*</span></label>
+                <input type="email" value={form.email} onChange={e => setForm(f => ({...f, email: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Senha {criando ? <span className="text-red-500">*</span> : <span className="text-gray-400 font-normal">(deixe em branco para manter)</span>}</label>
+                <input type="password" value={form.senha} onChange={e => setForm(f => ({...f, senha: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Perfil</label>
+                <select value={form.role} onChange={e => setForm(f => ({...f, role: e.target.value as Role}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="usuario">Usuário</option>
+                  <option value="gestor">Gestor</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Permissões de Acesso</div>
+                <Ck v={form.acessoRenovacoes} label="Acesso a Renovações" onChange={v => setForm(f => ({...f, acessoRenovacoes: v}))} />
+                <Ck v={form.acessoSegurosNovos} label="Acesso a Seguros Novos" onChange={v => setForm(f => ({...f, acessoSegurosNovos: v}))} />
+                <Ck v={form.acessoProspeccao} label="Acesso a Prospecção" onChange={v => setForm(f => ({...f, acessoProspeccao: v}))} />
+                <Ck v={form.podeDescartarProspeccao} label="Pode descartar prospecções" onChange={v => setForm(f => ({...f, podeDescartarProspeccao: v}))} />
+              </div>
+
+              <div className="border-t border-gray-100 pt-4 space-y-3">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Páginas do Dashboard</div>
+                <Ck v={form.visualizarDashboard}  label="Dashboard Principal"       onChange={v => setForm(f => ({...f, visualizarDashboard: v}))} />
+                <Ck v={form.visualizarProducao}   label="Produção (Administrativo)" onChange={v => setForm(f => ({...f, visualizarProducao: v}))} />
+                <Ck v={form.visualizarMetas}      label="Metas"                     onChange={v => setForm(f => ({...f, visualizarMetas: v}))} />
+                <Ck v={form.visualizarComissoes}  label="Comissões a Pagar"         onChange={v => setForm(f => ({...f, visualizarComissoes: v}))} />
+              </div>
+
+              <div className="border-t border-gray-100 pt-4 space-y-4">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Remuneração</div>
+
+                {/* Renovações */}
+                <div className="space-y-2">
+                  <Ck v={form.recebeRemuneracaoRenovacoes} label="Recebe Remuneração por Renovações"
+                    onChange={v => setForm(f => ({...f, recebeRemuneracaoRenovacoes: v}))} />
+                  {form.recebeRemuneracaoRenovacoes && (
+                    <div className="ml-6 space-y-3">
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Categorias incluídas</p>
+                        <Ck v={form.recebeRemuneracaoTaxaRenovacoes} label="Taxa de Conversão de Renovações"
+                          onChange={v => setForm(f => ({...f, recebeRemuneracaoTaxaRenovacoes: v}))} />
+                        <Ck v={form.recebeRemuneracaoAumentoComissao} label="Aumento de Comissão"
+                          onChange={v => setForm(f => ({...f, recebeRemuneracaoAumentoComissao: v}))} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Plano de Metas</label>
+                        {metas.planosRenovacao.length === 0 ? (
+                          <p className="text-xs text-amber-600">Nenhum plano cadastrado. Crie um em Configurações → Metas.</p>
+                        ) : (
+                          <select value={form.planoMetaRenovacaoId}
+                            onChange={e => setForm(f => ({...f, planoMetaRenovacaoId: e.target.value}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">— Selecione um plano —</option>
+                            {metas.planosRenovacao.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Seguros Novos */}
+                <div className="space-y-2">
+                  <Ck v={form.recebeRemuneracaoSegurosNovos} label="Recebe Remuneração por Seguros Novos"
+                    onChange={v => setForm(f => ({...f, recebeRemuneracaoSegurosNovos: v}))} />
+                  {form.recebeRemuneracaoSegurosNovos && (
+                    <div className="ml-6 space-y-3">
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Categorias incluídas</p>
+                        <Ck v={form.recebeRemuneracaoSnComissao} label="Comissão Gerada"
+                          onChange={v => setForm(f => ({...f, recebeRemuneracaoSnComissao: v}))} />
+                        <Ck v={form.recebeRemuneracaoSnTaxa} label="Taxa de Conversão"
+                          onChange={v => setForm(f => ({...f, recebeRemuneracaoSnTaxa: v}))} />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Plano de Metas</label>
+                        {metas.planosSeguroNovo.length === 0 ? (
+                          <p className="text-xs text-amber-600">Nenhum plano cadastrado. Crie um em Configurações → Metas.</p>
+                        ) : (
+                          <select value={form.planoMetaSeguroNovoId}
+                            onChange={e => setForm(f => ({...f, planoMetaSeguroNovoId: e.target.value}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">— Selecione um plano —</option>
+                            {metas.planosSeguroNovo.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-gray-100 pt-4">
+                <Ck v={form.ativo} label="Usuário ativo" onChange={v => setForm(f => ({...f, ativo: v}))} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+              <button onClick={() => { setEditando(null); setCriando(false); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button onClick={salvar} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                <Save size={14} /> {criando ? 'Criar' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmToggle}
+        title="Alterar status do usuário"
+        message={`Deseja ${usuarios.find(u => u.id === confirmToggle)?.ativo ? 'desativar' : 'ativar'} este usuário?`}
+        onConfirm={confirmarToggle}
+        onCancel={() => setConfirmToggle(null)}
+        confirmLabel="Confirmar"
+        danger={false}
+      />
+    </div>
+  );
+}
