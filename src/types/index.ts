@@ -49,6 +49,12 @@ export interface Usuario {
   recebeRemuneracaoSnComissao: boolean;
   recebeRemuneracaoSnTaxa: boolean;
   ativo: boolean;
+  /** Horário mínimo permitido para login, ex: "07:00". Null = sem restrição. */
+  horarioLoginInicio?: string;
+  /** Horário máximo permitido para login, ex: "17:00". Null = sem restrição. */
+  horarioLoginFim?: string;
+  /** Requer código 2FA enviado por e-mail a cada login */
+  exigir2FA?: boolean;
 }
 
 export type StatusRenovacao =

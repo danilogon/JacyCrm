@@ -35,6 +35,9 @@ type FormUsuario = {
   recebeRemuneracaoSnComissao: boolean;
   recebeRemuneracaoSnTaxa: boolean;
   ativo: boolean;
+  horarioLoginInicio: string;
+  horarioLoginFim: string;
+  exigir2FA: boolean;
 };
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -55,6 +58,7 @@ const formVazio: FormUsuario = {
   recebeRemuneracaoSegurosNovos: false, planoMetaSeguroNovoId: '',
   recebeRemuneracaoSnComissao: true, recebeRemuneracaoSnTaxa: true,
   ativo: true,
+  horarioLoginInicio: '', horarioLoginFim: '', exigir2FA: false,
 };
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
@@ -102,6 +106,9 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       recebeRemuneracaoSnComissao: u.recebeRemuneracaoSnComissao ?? true,
       recebeRemuneracaoSnTaxa: u.recebeRemuneracaoSnTaxa ?? true,
       ativo: u.ativo,
+      horarioLoginInicio: u.horarioLoginInicio ?? '',
+      horarioLoginFim:    u.horarioLoginFim    ?? '',
+      exigir2FA:          u.exigir2FA          ?? false,
     });
     setEditando(u);
     setCriando(false);
@@ -134,6 +141,9 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       recebeRemuneracaoSnComissao: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnComissao : false,
       recebeRemuneracaoSnTaxa: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnTaxa : false,
       ativo: form.ativo,
+      horarioLoginInicio: form.horarioLoginInicio || undefined,
+      horarioLoginFim:    form.horarioLoginFim    || undefined,
+      exigir2FA:          form.exigir2FA,
     };
 
     if (criando) {
@@ -379,6 +389,68 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                       </div>
                     </div>
                   )}
+                </div>
+              </div>
+
+              {/* Segurança de acesso */}
+              <div className="border-t border-gray-100 pt-4 space-y-4">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Segurança de Acesso</p>
+
+                {/* Horário de login */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Horário permitido para login</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">Das</label>
+                      <input
+                        type="time"
+                        value={form.horarioLoginInicio}
+                        onChange={e => setForm(f => ({ ...f, horarioLoginInicio: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs text-gray-500 mb-1">Até</label>
+                      <input
+                        type="time"
+                        value={form.horarioLoginFim}
+                        onChange={e => setForm(f => ({ ...f, horarioLoginFim: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    {(form.horarioLoginInicio || form.horarioLoginFim) && (
+                      <button
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, horarioLoginInicio: '', horarioLoginFim: '' }))}
+                        className="mt-5 text-xs text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        Limpar
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {form.horarioLoginInicio && form.horarioLoginFim
+                      ? `Acesso permitido das ${form.horarioLoginInicio.replace(':', 'h')} às ${form.horarioLoginFim.replace(':', 'h')}`
+                      : 'Sem restrição de horário'}
+                  </p>
+                </div>
+
+                {/* 2FA */}
+                <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <div className="pt-0.5">
+                    <Ck
+                      v={form.exigir2FA}
+                      label=""
+                      onChange={v => setForm(f => ({ ...f, exigir2FA: v }))}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Verificação em duas etapas (2FA)</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Ao fazer login, um código de 6 dígitos será enviado ao e-mail do usuário para confirmação.
+                      Requer configuração do EmailJS.
+                    </p>
+                  </div>
                 </div>
               </div>
 
