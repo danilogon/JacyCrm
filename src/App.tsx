@@ -171,7 +171,9 @@ function AppRoutes() {
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
     setMetasState(newMetas);
-    db.upsertMetas(newMetas);
+    db.upsertMetas(newMetas).catch((err: Error) => {
+      alert('Erro ao salvar as configurações de metas: ' + err.message);
+    });
   }, []);
 
   const setEmpresa = useCallback((newEmpresa: ConfiguracaoEmpresa) => {

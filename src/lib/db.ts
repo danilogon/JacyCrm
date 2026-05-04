@@ -184,7 +184,10 @@ export const db = {
     const { error } = await supabase
       .from('configuracoes_metas')
       .upsert({ id: 1, ...objToSnake(metas as unknown as Record<string, unknown>) });
-    if (error) console.error('[db] upsert configuracoes_metas:', error.message);
+    if (error) {
+      console.error('[db] upsert configuracoes_metas:', error.message);
+      throw new Error(error.message);
+    }
   },
 
   // Configuração da empresa (singleton id=1)
