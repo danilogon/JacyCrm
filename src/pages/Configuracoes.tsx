@@ -435,7 +435,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    {['Nome','Tipo Com.','Valor','Para Taxa SN','Novos p/ Taxa Ren.','Com. Individual','Status','Ações'].map(h => (
+                    {['Nome','Para Taxa SN','Novos p/ Taxa Ren.','Remuneração','Status','Ações'].map(h => (
                       <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -444,14 +444,14 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                   {ramosOrd.map(r => (
                     <tr key={r.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2.5 font-medium text-gray-800">{r.nome}</td>
-                      <td className="px-3 py-2.5 text-gray-600">{r.tipoComissaoSegurosNovos === 'percentual' ? 'Percentual' : 'Valor Fixo'}</td>
-                      <td className="px-3 py-2.5 text-gray-700">{r.tipoComissaoSegurosNovos === 'percentual' ? `${r.percentualComissao}%` : formatCurrency(r.valorFixo)}</td>
                       <td className="px-3 py-2.5 text-center">{r.considerarParaTaxaSegurosNovos ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-center">{r.considerarParaTaxaConversao ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-center">
                         {r.remuneracaoIndividual
-                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Individual</span>
-                          : <span className="text-gray-300">—</span>}
+                          ? <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              Individual · {r.tipoComissaoSegurosNovos === 'percentual' ? `${r.percentualComissao}%` : formatCurrency(r.valorFixo)}
+                            </span>
+                          : <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Via meta</span>}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => setRamos(ramos.map(x => x.id === r.id ? {...x, ativo: !x.ativo} : x))}
@@ -486,29 +486,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     <input value={formRamo.nome} onChange={e => setFormRamo(f => ({...f, nome: e.target.value}))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Comissão (Seguros Novos)</label>
-                    <select value={formRamo.tipoComissaoSegurosNovos} onChange={e => setFormRamo(f => ({...f, tipoComissaoSegurosNovos: e.target.value as 'percentual' | 'valor_fixo'}))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="percentual">Percentual sobre comissão</option>
-                      <option value="valor_fixo">Valor fixo por seguro</option>
-                    </select>
-                  </div>
-                  {formRamo.tipoComissaoSegurosNovos === 'percentual' ? (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Percentual (%)</label>
-                      <input type="number" step="0.01" min="0" max="100" value={formRamo.percentualComissao}
-                        onChange={e => setFormRamo(f => ({...f, percentualComissao: parseFloat(e.target.value) || 0}))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                  ) : (
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Valor Fixo (R$)</label>
-                      <input type="number" step="0.01" min="0" value={formRamo.valorFixo}
-                        onChange={e => setFormRamo(f => ({...f, valorFixo: parseFloat(e.target.value) || 0}))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
-                  )}
                   <div className="space-y-2 pt-2">
                     <Ck v={formRamo.considerarParaTaxaSegurosNovos} label="Considerar para taxa de seguros novos"
                       onChange={v => setFormRamo(f => ({...f, considerarParaTaxaSegurosNovos: v}))} />
@@ -518,9 +495,36 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       onChange={v => setFormRamo(f => ({...f, remuneracaoIndividual: v}))} />
                     <Ck v={formRamo.ativo} label="Ramo ativo" onChange={v => setFormRamo(f => ({...f, ativo: v}))} />
                   </div>
+
+                  {/* Campos de comissão — só visíveis quando remuneração individual ativada */}
                   {formRamo.remuneracaoIndividual && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 text-xs text-purple-700 leading-relaxed">
-                      A comissão deste ramo será paga <strong>por venda</strong>, usando o valor configurado acima. Não entra na somatória de produção mensal para cálculo de metas.
+                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-3">
+                      <p className="text-xs font-medium text-purple-700">
+                        Comissão paga <strong>por venda</strong> — não entra na meta de produção mensal.
+                      </p>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Comissão</label>
+                        <select value={formRamo.tipoComissaoSegurosNovos} onChange={e => setFormRamo(f => ({...f, tipoComissaoSegurosNovos: e.target.value as 'percentual' | 'valor_fixo'}))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <option value="percentual">Percentual sobre comissão (%)</option>
+                          <option value="valor_fixo">Valor fixo por seguro (R$)</option>
+                        </select>
+                      </div>
+                      {formRamo.tipoComissaoSegurosNovos === 'percentual' ? (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Percentual (%)</label>
+                          <input type="number" step="0.01" min="0" max="100" value={formRamo.percentualComissao}
+                            onChange={e => setFormRamo(f => ({...f, percentualComissao: parseFloat(e.target.value) || 0}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Valor Fixo (R$)</label>
+                          <input type="number" step="0.01" min="0" value={formRamo.valorFixo}
+                            onChange={e => setFormRamo(f => ({...f, valorFixo: parseFloat(e.target.value) || 0}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white" />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
