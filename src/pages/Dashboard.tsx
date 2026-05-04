@@ -77,8 +77,8 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   const rv = filtrar(renovacoes, 'fimVigencia');
   const sn = filtrar(segurosNovos, 'inicioVigencia');
 
-  const motivosRen = motivos.filter(m => m.tipo === 'renovacao');
-  const motivosSn = motivos.filter(m => m.tipo === 'seguro_novo');
+  const motivosRen = motivos.filter(m => m.tipo === 'negocio' && m.aplicaRenovacoes);
+  const motivosSn = motivos.filter(m => m.tipo === 'negocio' && m.aplicaSegurosNovos);
 
   // Resolve antecipadamente se SN deve entrar na taxa de renovações (depende do plano do usuário)
   const _uParaMeta = responsavelId ? usuarios.find(u => u.id === responsavelId) : (usuario?.role === 'usuario' ? usuario : null);

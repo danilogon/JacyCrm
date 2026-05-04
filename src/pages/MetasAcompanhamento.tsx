@@ -181,8 +181,8 @@ function calcularDadosUsuario(
     return d.getFullYear() === ano && d.getMonth() + 1 === mes && s.responsavelId === u.id;
   });
 
-  const motivosRen = motivos.filter(m => m.tipo === 'renovacao');
-  const motivosSn  = motivos.filter(m => m.tipo === 'seguro_novo');
+  const motivosRen = motivos.filter(m => m.tipo === 'negocio' && m.aplicaRenovacoes);
+  const motivosSn  = motivos.filter(m => m.tipo === 'negocio' && m.aplicaSegurosNovos);
   const ramoByNome = (nome: string) => ramos.find(r => r.nome === nome);
 
   const taxaSn          = calcularTaxaConversaoSegurosNovos(sn, ramos, motivosSn);

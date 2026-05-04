@@ -176,10 +176,10 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [confirmDelPlanoSn, setConfirmDelPlanoSn] = useState<string | null>(null);
 
   // Motivos state
-  const [subTabMotivos, setSubTabMotivos] = useState<'renovacao' | 'seguro_novo' | 'prospeccao'>('renovacao');
+  const [subTabMotivos, setSubTabMotivos] = useState<'negocio' | 'prospeccao'>('negocio');
   const [editMotivo, setEditMotivo] = useState<MotivoPerda | null>(null);
   const [criandoMotivo, setCriandoMotivo] = useState(false);
-  const [formMotivo, setFormMotivo] = useState<Omit<MotivoPerda, 'id'>>({ nome: '', tipo: 'renovacao', ativo: true, ordem: 1, considerarTaxaConversaoRenovacoes: true, considerarTaxaConversaoSegurosNovos: false, considerarCalculoMetas: true, geraProspeccao: true });
+  const [formMotivo, setFormMotivo] = useState<Omit<MotivoPerda, 'id'>>({ nome: '', tipo: 'negocio', aplicaRenovacoes: true, aplicaSegurosNovos: true, ativo: true, ordem: 1, considerarTaxaConversaoRenovacoes: true, considerarTaxaConversaoSegurosNovos: true, considerarCalculoMetas: true, geraProspeccao: true });
   const [confirmDelMotivo, setConfirmDelMotivo] = useState<string | null>(null);
 
   // Campos state
@@ -239,13 +239,17 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
 
   // --- Motivos ---
   function abrirNovMotivo() {
+    const isNegocio = subTabMotivos === 'negocio';
     setFormMotivo({
-      nome: '', tipo: subTabMotivos, ativo: true,
+      nome: '', tipo: subTabMotivos,
+      aplicaRenovacoes: isNegocio,
+      aplicaSegurosNovos: isNegocio,
+      ativo: true,
       ordem: motivos.filter(m => m.tipo === subTabMotivos).length + 1,
-      considerarTaxaConversaoRenovacoes: subTabMotivos === 'renovacao',
-      considerarTaxaConversaoSegurosNovos: subTabMotivos === 'seguro_novo',
-      considerarCalculoMetas: subTabMotivos !== 'prospeccao',
-      geraProspeccao: subTabMotivos !== 'prospeccao',
+      considerarTaxaConversaoRenovacoes: isNegocio,
+      considerarTaxaConversaoSegurosNovos: isNegocio,
+      considerarCalculoMetas: isNegocio,
+      geraProspeccao: isNegocio,
     });
     setCriandoMotivo(true); setEditMotivo(null);
   }
@@ -310,6 +314,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   };
 
   const motivosTab = motivos.filter(m => m.tipo === subTabMotivos).sort((a, b) => a.ordem - b.ordem);
+
 
   return (
     <div className="space-y-4">
@@ -763,7 +768,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
         <div className="space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
-              {[{ k: 'renovacao' as const, l: 'Renovação' }, { k: 'seguro_novo' as const, l: 'Seguro Novo' }, { k: 'prospeccao' as const, l: 'Prospecção' }].map(t => (
+              {([{ k: 'negocio' as const, l: 'Negócios (Ren. / Seg. Novos)' }, { k: 'prospeccao' as const, l: 'Prospecção' }] as const).map(t => (
                 <button key={t.k} onClick={() => setSubTabMotivos(t.k)}
                   className={`px-3 py-1 rounded text-sm font-medium ${subTabMotivos === t.k ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'}`}>
                   {t.l}
@@ -781,9 +786,10 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     {['Ordem','Nome',
-                      subTabMotivos !== 'prospeccao' ? 'Considerar Conv.' : null,
-                      subTabMotivos !== 'prospeccao' ? 'Considerar Metas' : null,
-                      subTabMotivos !== 'prospeccao' ? 'Gera Prospecção' : null,
+                      subTabMotivos === 'negocio' ? 'Aplicável a' : null,
+                      subTabMotivos === 'negocio' ? 'Considerar Conv.' : null,
+                      subTabMotivos === 'negocio' ? 'Considerar Metas' : null,
+                      subTabMotivos === 'negocio' ? 'Gera Prospecção' : null,
                       'Status','Ações',
                     ].filter(Boolean).map(h => (
                       <th key={h as string} className="px-3 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
@@ -795,19 +801,28 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     <tr key={m.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2.5 text-gray-500 text-center">{m.ordem}</td>
                       <td className="px-3 py-2.5 font-medium text-gray-800">{m.nome}</td>
-                      {subTabMotivos !== 'prospeccao' && (
+                      {subTabMotivos === 'negocio' && (
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-col gap-0.5 text-xs">
+                            {m.aplicaRenovacoes   && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-medium">Renovação</span>}
+                            {m.aplicaSegurosNovos && <span className="px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">Seg. Novo</span>}
+                            {!m.aplicaRenovacoes && !m.aplicaSegurosNovos && <span className="text-gray-300">—</span>}
+                          </div>
+                        </td>
+                      )}
+                      {subTabMotivos === 'negocio' && (
                         <td className="px-3 py-2.5 text-center">
-                          {(subTabMotivos === 'renovacao' ? m.considerarTaxaConversaoRenovacoes : m.considerarTaxaConversaoSegurosNovos)
+                          {(m.considerarTaxaConversaoRenovacoes || m.considerarTaxaConversaoSegurosNovos)
                             ? <Check size={14} className="text-green-600 mx-auto" />
                             : <span className="text-gray-300">—</span>}
                         </td>
                       )}
-                      {subTabMotivos !== 'prospeccao' && (
+                      {subTabMotivos === 'negocio' && (
                         <td className="px-3 py-2.5 text-center">
                           {m.considerarCalculoMetas ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}
                         </td>
                       )}
-                      {subTabMotivos !== 'prospeccao' && (
+                      {subTabMotivos === 'negocio' && (
                         <td className="px-3 py-2.5 text-center">
                           {m.geraProspeccao ? <Check size={14} className="text-blue-600 mx-auto" /> : <span className="text-gray-300">—</span>}
                         </td>
@@ -820,7 +835,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
-                          <button onClick={() => { setFormMotivo({nome: m.nome, tipo: m.tipo, ativo: m.ativo, ordem: m.ordem, considerarTaxaConversaoRenovacoes: m.considerarTaxaConversaoRenovacoes, considerarTaxaConversaoSegurosNovos: m.considerarTaxaConversaoSegurosNovos, considerarCalculoMetas: m.considerarCalculoMetas, geraProspeccao: m.geraProspeccao ?? false}); setEditMotivo(m); setCriandoMotivo(false); }}
+                          <button onClick={() => { setFormMotivo({ nome: m.nome, tipo: m.tipo, aplicaRenovacoes: m.aplicaRenovacoes, aplicaSegurosNovos: m.aplicaSegurosNovos, ativo: m.ativo, ordem: m.ordem, considerarTaxaConversaoRenovacoes: m.considerarTaxaConversaoRenovacoes, considerarTaxaConversaoSegurosNovos: m.considerarTaxaConversaoSegurosNovos, considerarCalculoMetas: m.considerarCalculoMetas, geraProspeccao: m.geraProspeccao ?? false }); setEditMotivo(m); setCriandoMotivo(false); }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={13} /></button>
                           <button onClick={() => setConfirmDelMotivo(m.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={13} /></button>
                         </div>
@@ -851,8 +866,14 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="space-y-2 pt-1">
-                    {formMotivo.tipo !== 'prospeccao' && (
+                    {formMotivo.tipo === 'negocio' && (
                       <>
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">Aplica a</p>
+                        <Ck v={formMotivo.aplicaRenovacoes} label="Renovações"
+                          onChange={v => setFormMotivo(f => ({...f, aplicaRenovacoes: v}))} />
+                        <Ck v={formMotivo.aplicaSegurosNovos} label="Seguros Novos"
+                          onChange={v => setFormMotivo(f => ({...f, aplicaSegurosNovos: v}))} />
+                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide pt-1">Cálculos</p>
                         <Ck v={formMotivo.considerarTaxaConversaoRenovacoes} label="Considerar na taxa de conversão de renovações"
                           onChange={v => setFormMotivo(f => ({...f, considerarTaxaConversaoRenovacoes: v}))} />
                         <Ck v={formMotivo.considerarTaxaConversaoSegurosNovos} label="Considerar na taxa de conversão de seguros novos"

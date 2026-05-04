@@ -186,8 +186,8 @@ function AppRoutes() {
   if (loading)   return <LoadingScreen />;
   if (loadError) return <ErrorScreen message={loadError} />;
 
-  const motivosRenovacao  = motivos.filter(m => m.tipo === 'renovacao');
-  const motivosSeguroNovo = motivos.filter(m => m.tipo === 'seguro_novo');
+  const motivosRenovacao  = motivos.filter(m => m.tipo === 'negocio'    && m.aplicaRenovacoes);
+  const motivosSeguroNovo = motivos.filter(m => m.tipo === 'negocio'    && m.aplicaSegurosNovos);
 
   if (!usuario) {
     return (

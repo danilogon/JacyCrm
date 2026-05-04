@@ -254,7 +254,12 @@ export interface ConfiguracoesMetas {
 export interface MotivoPerda {
   id: string;
   nome: string;
-  tipo: 'renovacao' | 'seguro_novo' | 'prospeccao';
+  /** 'negocio' = aparece em renovações/seguros novos; 'prospeccao' = aparece ao descartar prospecções */
+  tipo: 'negocio' | 'prospeccao';
+  /** Exibir este motivo ao marcar renovação como perdida */
+  aplicaRenovacoes: boolean;
+  /** Exibir este motivo ao marcar seguro novo como perdido */
+  aplicaSegurosNovos: boolean;
   ativo: boolean;
   ordem: number;
   considerarTaxaConversaoRenovacoes: boolean;
