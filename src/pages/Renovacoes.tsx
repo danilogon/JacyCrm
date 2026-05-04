@@ -848,30 +848,39 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       </div>
                     ))}
                   </div>
-                  {/* Campos anteriores — editáveis com restrição */}
+                  {/* Campos anteriores — apenas Admin e Gestor podem editar */}
                   <div className="grid grid-cols-2 gap-3 mt-3">
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora Anterior</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Seguradora Anterior
+                        {!isAdmin && !isGestor && <span className="ml-1 text-xs text-gray-400">(somente admin/gestor)</span>}
+                      </label>
                       <select value={form.seguradoraAnterior} onChange={e => setForm(f => ({...f, seguradoraAnterior: e.target.value}))}
-                        disabled={bloqueado || isCampoRestrito('seguradoraAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('seguradoraAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                        disabled={bloqueado || (!isAdmin && !isGestor)}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || (!isAdmin && !isGestor)) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                         <option value="">Selecione...</option>
                         {seguradOrd.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Prêmio Anterior (R$)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Prêmio Anterior (R$)
+                        {!isAdmin && !isGestor && <span className="ml-1 text-xs text-gray-400">(somente admin/gestor)</span>}
+                      </label>
                       <input type="number" step="0.01" min="0" value={form.premioAnterior}
                         onChange={e => setForm(f => ({...f, premioAnterior: e.target.value}))}
-                        disabled={bloqueado || isCampoRestrito('premioAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('premioAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                        disabled={bloqueado || (!isAdmin && !isGestor)}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || (!isAdmin && !isGestor)) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">% Comissão Anterior</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        % Comissão Anterior
+                        {!isAdmin && !isGestor && <span className="ml-1 text-xs text-gray-400">(somente admin/gestor)</span>}
+                      </label>
                       <input type="number" step="0.01" min="0" max="100" value={form.percentComissaoAnterior}
                         onChange={e => setForm(f => ({...f, percentComissaoAnterior: e.target.value}))}
-                        disabled={bloqueado || isCampoRestrito('percentComissaoAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('percentComissaoAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                        disabled={bloqueado || (!isAdmin && !isGestor)}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || (!isAdmin && !isGestor)) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                     </div>
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Comissão Anterior (calc.)</label>

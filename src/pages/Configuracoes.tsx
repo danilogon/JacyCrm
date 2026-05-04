@@ -200,7 +200,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [criandoTipo, setCriandoTipo] = useState(false);
   const [formTipo, setFormTipo] = useState<Omit<TipoUsuario, 'id'>>(tipoVazio);
   const [confirmDelTipo, setConfirmDelTipo] = useState<string | null>(null);
-  const [subTabCampos, setSubTabCampos] = useState<'renovacoes' | 'segurosNovos' | 'prospeccoes'>('renovacoes');
 
   const segsOrd = useMemo(() => [...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome)), [seguradoras]);
   const ramosOrd = useMemo(() => [...ramos].sort((a, b) => a.nome.localeCompare(b.nome)), [ramos]);
@@ -1123,75 +1122,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     <Ck v={formTipo.visualizarComissoes}  label="Comissões a Pagar"      onChange={v => setFormTipo(f => ({...f, visualizarComissoes: v}))} />
                   </div>
 
-                  {(() => {
-                    const CAMPOS_RENOVACOES = [
-                      { key: 'responsavelId', label: 'Responsável' },
-                      { key: 'status', label: 'Status' },
-                      { key: 'seguradoraAnterior', label: 'Seguradora Anterior' },
-                      { key: 'premioAnterior', label: 'Prêmio Anterior' },
-                      { key: 'percentComissaoAnterior', label: '% Comissão Anterior' },
-                      { key: 'seguradoraNova', label: 'Seguradora Nova' },
-                      { key: 'premioNovo', label: 'Prêmio Novo' },
-                      { key: 'percentComissaoNova', label: '% Comissão Nova' },
-                      { key: 'motivoPerdaId', label: 'Motivo de Perda' },
-                    ];
-                    const CAMPOS_SEGUROS_NOVOS = [
-                      { key: 'responsavelId', label: 'Responsável' },
-                      { key: 'status', label: 'Status' },
-                      { key: 'seguradora', label: 'Seguradora' },
-                      { key: 'premioLiquido', label: 'Prêmio Líquido' },
-                      { key: 'percentComissao', label: '% Comissão' },
-                      { key: 'motivoPerdaId', label: 'Motivo de Perda' },
-                    ];
-                    const CAMPOS_PROSPECCOES = [
-                      { key: 'responsavelId', label: 'Responsável' },
-                      { key: 'status', label: 'Status' },
-                      { key: 'seguradora', label: 'Seguradora' },
-                      { key: 'ramo', label: 'Ramo' },
-                      { key: 'premioReferencia', label: 'Prêmio de Referência' },
-                      { key: 'motivoPerdaId', label: 'Motivo de Perda' },
-                    ];
-                    return (
-                      <div className="border-t border-gray-100 pt-4 space-y-3">
-                        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Restrições de Edição por Campo</div>
-                        <p className="text-xs text-gray-400">Campos marcados só poderão ser editados por Administradores.</p>
-                        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-                          {([['renovacoes','Renovações'],['segurosNovos','Seguros Novos'],['prospeccoes','Prospecções']] as const).map(([k,l]) => (
-                            <button key={k} type="button" onClick={() => setSubTabCampos(k)}
-                              className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${subTabCampos === k ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>
-                              {l}
-                            </button>
-                          ))}
-                        </div>
-                        {(() => {
-                          const campos = subTabCampos === 'renovacoes' ? CAMPOS_RENOVACOES : subTabCampos === 'segurosNovos' ? CAMPOS_SEGUROS_NOVOS : CAMPOS_PROSPECCOES;
-                          const modulo = subTabCampos as 'renovacoes' | 'segurosNovos' | 'prospeccoes';
-                          return (
-                            <div className="space-y-2">
-                              {campos.map(({ key, label }) => {
-                                const isRestrito = formTipo.camposRestritos[modulo].includes(key);
-                                return (
-                                  <button key={key} type="button"
-                                    onClick={() => setFormTipo(f => {
-                                      const arr = f.camposRestritos[modulo];
-                                      const next = isRestrito ? arr.filter(k => k !== key) : [...arr, key];
-                                      return { ...f, camposRestritos: { ...f.camposRestritos, [modulo]: next } };
-                                    })}
-                                    className="flex items-center gap-2 text-sm text-gray-700">
-                                    {isRestrito
-                                      ? <CheckSquare size={16} className="text-red-500" />
-                                      : <Square size={16} className="text-gray-400" />}
-                                    <span>{label}</span>
-                                    {isRestrito && <span className="text-xs text-red-500 ml-1">somente admin</span>}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    );
-                  })()}
 
                   <div className="border-t border-gray-100 pt-3">
                     <Ck v={formTipo.ativo} label="Tipo ativo" onChange={v => setFormTipo(f => ({...f, ativo: v}))} />
