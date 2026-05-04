@@ -35,6 +35,7 @@ type FormUsuario = {
   recebeRemuneracaoSnComissao: boolean;
   recebeRemuneracaoSnTaxa: boolean;
   ativo: boolean;
+  tipoUsuarioId: string;
   horarioLoginInicio: string;
   horarioLoginFim: string;
   exigir2FA: boolean;
@@ -58,6 +59,7 @@ const formVazio: FormUsuario = {
   recebeRemuneracaoSegurosNovos: false, planoMetaSeguroNovoId: '',
   recebeRemuneracaoSnComissao: true, recebeRemuneracaoSnTaxa: true,
   ativo: true,
+  tipoUsuarioId: '',
   horarioLoginInicio: '', horarioLoginFim: '', exigir2FA: false,
 };
 
@@ -106,6 +108,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       recebeRemuneracaoSnComissao: u.recebeRemuneracaoSnComissao ?? true,
       recebeRemuneracaoSnTaxa: u.recebeRemuneracaoSnTaxa ?? true,
       ativo: u.ativo,
+      tipoUsuarioId:      u.tipoUsuarioId      ?? '',
       horarioLoginInicio: u.horarioLoginInicio ?? '',
       horarioLoginFim:    u.horarioLoginFim    ?? '',
       exigir2FA:          u.exigir2FA          ?? false,
@@ -141,6 +144,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       recebeRemuneracaoSnComissao: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnComissao : false,
       recebeRemuneracaoSnTaxa: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnTaxa : false,
       ativo: form.ativo,
+      tipoUsuarioId:      form.tipoUsuarioId      || undefined,
       horarioLoginInicio: form.horarioLoginInicio || undefined,
       horarioLoginFim:    form.horarioLoginFim    || undefined,
       exigir2FA:          form.exigir2FA,
@@ -203,6 +207,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                 <td className="px-4 py-2.5 text-gray-600">{u.email}</td>
                 <td className="px-4 py-2.5">
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${ROLE_COLORS[u.role]}`}>{ROLE_LABELS[u.role]}</span>
+                  {u.tipoUsuarioId && (() => { const t = tiposUsuario.find(t => t.id === u.tipoUsuarioId); return t ? <div className="text-xs text-gray-400 mt-0.5">{t.nome}</div> : null; })()}
                 </td>
                 <td className="px-4 py-2.5 text-center">
                   {u.acessoRenovacoes ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}
@@ -253,15 +258,20 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
               {/* Seletor de tipo — apenas na criação ou como atalho na edição */}
               {tiposUsuario.filter(t => t.ativo).length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
-                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Aplicar tipo de usuário</p>
+                  <p className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Tipo de usuário</p>
                   <div className="flex gap-2">
                     <select
-                      defaultValue=""
+                      value={form.tipoUsuarioId}
                       onChange={e => {
-                        const tipo = tiposUsuario.find(t => t.id === e.target.value);
-                        if (!tipo) return;
+                        const id = e.target.value;
+                        const tipo = tiposUsuario.find(t => t.id === id);
+                        if (!tipo) {
+                          setForm(f => ({ ...f, tipoUsuarioId: '' }));
+                          return;
+                        }
                         setForm(f => ({
                           ...f,
+                          tipoUsuarioId: id,
                           role: tipo.role,
                           acessoRenovacoes: tipo.acessoRenovacoes,
                           acessoSegurosNovos: tipo.acessoSegurosNovos,
@@ -273,17 +283,16 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                           visualizarComissoes: tipo.visualizarComissoes,
                           camposRestritos: tipo.camposRestritos,
                         }));
-                        e.target.value = '';
                       }}
                       className="flex-1 px-3 py-1.5 border border-blue-300 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="">— Selecione um tipo para preencher —</option>
+                      <option value="">— Sem tipo definido —</option>
                       {tiposUsuario.filter(t => t.ativo).map(t => (
                         <option key={t.id} value={t.id}>{t.nome}</option>
                       ))}
                     </select>
                   </div>
-                  <p className="text-xs text-blue-500">Selecionar um tipo preenche as permissões abaixo automaticamente. Você pode ajustar depois.</p>
+                  <p className="text-xs text-blue-500">Selecionar um tipo aplica as permissões automaticamente. Você pode ajustar individualmente depois.</p>
                 </div>
               )}
 

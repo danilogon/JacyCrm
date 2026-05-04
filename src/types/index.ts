@@ -49,6 +49,8 @@ export interface Usuario {
   recebeRemuneracaoSnComissao: boolean;
   recebeRemuneracaoSnTaxa: boolean;
   ativo: boolean;
+  /** ID do tipo de usuário aplicado (referência a TipoUsuario) */
+  tipoUsuarioId?: string;
   /** Horário mínimo permitido para login, ex: "07:00". Null = sem restrição. */
   horarioLoginInicio?: string;
   /** Horário máximo permitido para login, ex: "17:00". Null = sem restrição. */
