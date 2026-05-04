@@ -178,6 +178,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
   const [editando, setEditando] = useState<SeguroNovo | null>(null);
   const [criando, setCriando] = useState(false);
   const isFinalizado = !criando && (editando?.status === 'fechado' || editando?.status === 'perdido');
+  // Admin pode reeditar mesmo após fechado/perdido
+  const bloqueado = isFinalizado && !isAdmin;
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [form, setForm] = useState<FormState>(formVazio(usuario?.id ?? ''));
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
@@ -306,8 +308,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
   }
 
   function salvar() {
-    // Negócio finalizado: apenas salvar observação
-    if (isFinalizado && editando) {
+    // Negócio finalizado e sem permissão de admin: apenas salvar observação
+    if (bloqueado && editando) {
       if (form.novaObservacao.trim() || form.novosArquivos.length > 0) {
         const obs = [...editando.observacoes, { id: generateId(), texto: form.novaObservacao.trim(), autor: usuario?.nome ?? '', data: new Date().toISOString(), arquivos: form.novosArquivos }];
         setSegurosNovos(segurosNovos.map(s => s.id === editando.id ? { ...editando, observacoes: obs, atualizadoEm: new Date().toISOString() } : s));
@@ -649,10 +651,16 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             {/* Full-width banners */}
             <div className="shrink-0 px-5 pt-4 space-y-3">
               {/* Banner de negócio finalizado */}
-              {isFinalizado && (
+              {isFinalizado && bloqueado && (
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                   <Lock size={14} className="shrink-0" />
                   <span>Negócio finalizado — campos bloqueados. Somente observações podem ser adicionadas.</span>
+                </div>
+              )}
+              {isFinalizado && !bloqueado && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  <Lock size={14} className="shrink-0" />
+                  <span>Negócio finalizado — como administrador, você pode alterar o status e os dados.</span>
                 </div>
               )}
             </div>
@@ -707,7 +715,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       <input
                         value={form.nomeCliente}
                         onChange={e => setForm(f => ({...f, nomeCliente: e.target.value}))}
-                        disabled={isFinalizado || !!clienteSelecionado}
+                        disabled={bloqueado || !!clienteSelecionado}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
@@ -717,7 +725,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         type="email"
                         value={form.emailCliente}
                         onChange={e => setForm(f => ({...f, emailCliente: e.target.value}))}
-                        disabled={isFinalizado || !!clienteSelecionado}
+                        disabled={bloqueado || !!clienteSelecionado}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
@@ -726,7 +734,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       <input
                         value={form.telefoneCliente}
                         onChange={e => setForm(f => ({...f, telefoneCliente: e.target.value}))}
-                        disabled={isFinalizado || !!clienteSelecionado}
+                        disabled={bloqueado || !!clienteSelecionado}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
@@ -735,7 +743,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       <input
                         value={form.cpfCnpjCliente}
                         onChange={e => setForm(f => ({...f, cpfCnpjCliente: e.target.value}))}
-                        disabled={isFinalizado || !!clienteSelecionado}
+                        disabled={bloqueado || !!clienteSelecionado}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
                       />
                     </div>
@@ -777,8 +785,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         <label className="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
                         <select value={form.responsavelId}
                           onChange={e => setForm(f => ({...f, responsavelId: e.target.value}))}
-                          disabled={isFinalizado || isCampoRestrito('responsavelId')}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('responsavelId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                          disabled={bloqueado || isCampoRestrito('responsavelId')}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('responsavelId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                           {usuariosVisiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                         </select>
                       </div>
@@ -801,10 +809,10 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         {form.status === 'fechado' && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       <select value={form.seguradora} onChange={e => setForm(f => ({...f, seguradora: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('seguradora')}
+                        disabled={bloqueado || isCampoRestrito('seguradora')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('seguradora')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
-                          : (!isFinalizado && form.status === 'fechado' && !form.seguradora) ? 'border-red-400 bg-red-50'
+                          (bloqueado || isCampoRestrito('seguradora')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          : (!bloqueado && form.status === 'fechado' && !form.seguradora) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`}>
                         <option value="">Selecione...</option>
@@ -819,9 +827,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       </label>
                       <input type="number" step="0.01" min="0" value={form.premioLiquido}
                         onChange={e => setForm(f => ({...f, premioLiquido: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('premioLiquido')}
+                        disabled={bloqueado || isCampoRestrito('premioLiquido')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('premioLiquido')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          (bloqueado || isCampoRestrito('premioLiquido')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
                           : (!isFinalizado && form.status === 'fechado' && !(parseFloat(form.premioLiquido) > 0)) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`} />
@@ -834,10 +842,10 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       </label>
                       <input type="number" step="0.01" min="0" max="100" value={form.percentComissao}
                         onChange={e => setForm(f => ({...f, percentComissao: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('percentComissao')}
+                        disabled={bloqueado || isCampoRestrito('percentComissao')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('percentComissao')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
-                          : (!isFinalizado && form.status === 'fechado' && !(parseFloat(form.percentComissao) > 0)) ? 'border-red-400 bg-red-50'
+                          (bloqueado || isCampoRestrito('percentComissao')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          : (!bloqueado && form.status === 'fechado' && !(parseFloat(form.percentComissao) > 0)) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`} />
                     </div>
@@ -853,8 +861,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <select value={form.status}
                         onChange={e => setForm(f => ({...f, status: e.target.value as StatusSeguroNovo, motivoPerdaId: ''}))}
-                        disabled={isFinalizado || isCampoRestrito('status')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('status')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                        disabled={bloqueado || isCampoRestrito('status')}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('status')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                         {(Object.keys(STATUS_LABELS) as StatusSeguroNovo[]).map(s =>
                           <option key={s} value={s}>{STATUS_LABELS[s]}</option>
                         )}
@@ -868,8 +876,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         </label>
                         <select value={form.motivoPerdaId}
                           onChange={e => setForm(f => ({...f, motivoPerdaId: e.target.value}))}
-                          disabled={isFinalizado || isCampoRestrito('motivoPerdaId')}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('motivoPerdaId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                          disabled={bloqueado || isCampoRestrito('motivoPerdaId')}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('motivoPerdaId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                           <option value="">Selecione o motivo</option>
                           {motivos.filter(m => m.ativo).sort((a,b) => a.ordem - b.ordem).map(m =>
                             <option key={m.id} value={m.id}>{m.nome}</option>
@@ -913,7 +921,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                 Cancelar
               </button>
               <button onClick={salvar} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
-                <Save size={14} /> {criando ? 'Criar' : isFinalizado ? 'Salvar Observação' : 'Salvar'}
+                <Save size={14} /> {criando ? 'Criar' : bloqueado ? 'Salvar Observação' : 'Salvar'}
               </button>
             </div>
           </div>

@@ -168,6 +168,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
   const [editando, setEditando] = useState<Renovacao | null>(null);
   const [clienteEditando, setClienteEditando] = useState<Cliente | null>(null);
   const isFinalizado = editando?.status === 'renovado' || editando?.status === 'nao_renovada';
+  // Admin pode reeditar mesmo após renovado/não renovada
+  const bloqueado = isFinalizado && !isAdmin;
   const [form, setForm] = useState<FormState>({
     responsavelId: '', status: 'a_trabalhar',
     seguradoraAnterior: '', premioAnterior: '', percentComissaoAnterior: '',
@@ -245,8 +247,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
   function salvar() {
     if (!editando) return;
-    // Negócio finalizado: apenas salvar observação
-    if (isFinalizado) {
+    // Negócio finalizado e sem permissão de admin: apenas salvar observação
+    if (bloqueado) {
       if (form.novaObservacao.trim() || form.novosArquivos.length > 0) {
         const obs = [...editando.observacoes, { id: generateId(), texto: form.novaObservacao.trim(), autor: usuario?.nome ?? '', data: new Date().toISOString(), arquivos: form.novosArquivos }];
         setRenovacoes(renovacoes.map(r => r.id === editando.id ? { ...editando, observacoes: obs, atualizadoEm: new Date().toISOString() } : r));
@@ -753,10 +755,16 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
             {/* Full-width banners */}
             <div className="shrink-0 px-5 pt-4 space-y-3">
               {/* Banner de negócio finalizado */}
-              {isFinalizado && (
+              {isFinalizado && bloqueado && (
                 <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                   <Lock size={14} className="shrink-0" />
                   <span>Negócio finalizado — campos bloqueados. Somente observações podem ser adicionadas.</span>
+                </div>
+              )}
+              {isFinalizado && !bloqueado && (
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+                  <Lock size={14} className="shrink-0" />
+                  <span>Negócio finalizado — como administrador, você pode alterar o status e os dados.</span>
                 </div>
               )}
               {/* Aviso de cliente com dados incompletos */}
@@ -845,8 +853,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora Anterior</label>
                       <select value={form.seguradoraAnterior} onChange={e => setForm(f => ({...f, seguradoraAnterior: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('seguradoraAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('seguradoraAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                        disabled={bloqueado || isCampoRestrito('seguradoraAnterior')}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('seguradoraAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                         <option value="">Selecione...</option>
                         {seguradOrd.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                       </select>
@@ -855,15 +863,15 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       <label className="block text-sm font-medium text-gray-700 mb-1">Prêmio Anterior (R$)</label>
                       <input type="number" step="0.01" min="0" value={form.premioAnterior}
                         onChange={e => setForm(f => ({...f, premioAnterior: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('premioAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('premioAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                        disabled={bloqueado || isCampoRestrito('premioAnterior')}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('premioAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">% Comissão Anterior</label>
                       <input type="number" step="0.01" min="0" max="100" value={form.percentComissaoAnterior}
                         onChange={e => setForm(f => ({...f, percentComissaoAnterior: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('percentComissaoAnterior')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('percentComissaoAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                        disabled={bloqueado || isCampoRestrito('percentComissaoAnterior')}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('percentComissaoAnterior')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                     </div>
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Comissão Anterior (calc.)</label>
@@ -895,8 +903,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       <div className="col-span-2">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Responsável</label>
                         <select value={form.responsavelId} onChange={e => setForm(f => ({...f, responsavelId: e.target.value}))}
-                          disabled={isFinalizado || isCampoRestrito('responsavelId')}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('responsavelId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                          disabled={bloqueado || isCampoRestrito('responsavelId')}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('responsavelId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                           {usuariosVisiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
                         </select>
                       </div>
@@ -905,8 +913,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                       <select value={form.status} onChange={e => setForm(f => ({...f, status: e.target.value as StatusRenovacao, motivoPerdaId: ''}))}
-                        disabled={isFinalizado || isCampoRestrito('status')}
-                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('status')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                        disabled={bloqueado || isCampoRestrito('status')}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('status')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                         {(Object.keys(STATUS_LABELS) as StatusRenovacao[]).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
                       </select>
                     </div>
@@ -917,8 +925,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                           Motivo de Perda <span className="text-red-500">*</span>
                         </label>
                         <select value={form.motivoPerdaId} onChange={e => setForm(f => ({...f, motivoPerdaId: e.target.value}))}
-                          disabled={isFinalizado || isCampoRestrito('motivoPerdaId')}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(isFinalizado || isCampoRestrito('motivoPerdaId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                          disabled={bloqueado || isCampoRestrito('motivoPerdaId')}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${(bloqueado || isCampoRestrito('motivoPerdaId')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                           <option value="">Selecione o motivo</option>
                           {motivos.filter(m => m.ativo).sort((a,b) => a.ordem - b.ordem).map(m => (
                             <option key={m.id} value={m.id}>{m.nome}</option>
@@ -933,9 +941,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                         {form.status === 'renovado' && <span className="text-red-500 ml-1">*</span>}
                       </label>
                       <select value={form.seguradoraNova} onChange={e => setForm(f => ({...f, seguradoraNova: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('seguradoraNova')}
+                        disabled={bloqueado || isCampoRestrito('seguradoraNova')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('seguradoraNova')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          (bloqueado || isCampoRestrito('seguradoraNova')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
                           : (form.status === 'renovado' && !form.seguradoraNova) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`}>
@@ -951,9 +959,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       </label>
                       <input type="number" step="0.01" min="0" value={form.premioNovo}
                         onChange={e => setForm(f => ({...f, premioNovo: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('premioNovo')}
+                        disabled={bloqueado || isCampoRestrito('premioNovo')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('premioNovo')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          (bloqueado || isCampoRestrito('premioNovo')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
                           : (form.status === 'renovado' && !(parseFloat(form.premioNovo) > 0)) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`} />
@@ -966,9 +974,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       </label>
                       <input type="number" step="0.01" min="0" max="100" value={form.percentComissaoNova}
                         onChange={e => setForm(f => ({...f, percentComissaoNova: e.target.value}))}
-                        disabled={isFinalizado || isCampoRestrito('percentComissaoNova')}
+                        disabled={bloqueado || isCampoRestrito('percentComissaoNova')}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          (isFinalizado || isCampoRestrito('percentComissaoNova')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
+                          (bloqueado || isCampoRestrito('percentComissaoNova')) ? 'bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300'
                           : (form.status === 'renovado' && !(parseFloat(form.percentComissaoNova) > 0)) ? 'border-red-400 bg-red-50'
                           : 'border-gray-300'
                         }`} />
@@ -1026,7 +1034,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                 Cancelar
               </button>
               <button onClick={salvar} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
-                <Save size={14} /> {isFinalizado ? 'Salvar Observação' : 'Salvar'}
+                <Save size={14} /> {bloqueado ? 'Salvar Observação' : 'Salvar'}
               </button>
             </div>
           </div>
