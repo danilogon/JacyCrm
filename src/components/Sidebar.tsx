@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCw, PlusCircle, Target, Users, Settings,
@@ -10,7 +10,7 @@ import type { Tarefa } from '../types';
 const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao'];
 const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao'];
 
-export function Sidebar() {
+export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
   const { usuario } = useAuth();
   const location = useLocation();
 
@@ -48,26 +48,13 @@ export function Sidebar() {
   }
 
   // Conta tarefas pendentes do usuário atual para o badge
-  const [tarefasPendentes, setTarefasPendentes] = useState(0);
-  useEffect(() => {
-    function calcular() {
-      try {
-        const raw = localStorage.getItem('tarefas');
-        if (!raw) return setTarefasPendentes(0);
-        const all: Tarefa[] = JSON.parse(raw);
-        const count = all.filter(t =>
-          t.status === 'pendente' &&
-          (usuario.role !== 'usuario' || t.responsavelId === usuario.id)
-        ).length;
-        setTarefasPendentes(count);
-      } catch { setTarefasPendentes(0); }
-    }
-    calcular();
-    window.addEventListener('storage', calcular);
-    // Polling leve para capturar mudanças dentro da mesma aba
-    const iv = setInterval(calcular, 3000);
-    return () => { window.removeEventListener('storage', calcular); clearInterval(iv); };
-  }, [usuario]);
+  const tarefasPendentes = useMemo(() => {
+    if (!usuario) return 0;
+    return tarefas.filter(t =>
+      t.status === 'pendente' &&
+      (usuario.role !== 'usuario' || t.responsavelId === usuario.id)
+    ).length;
+  }, [tarefas, usuario]);
 
   if (!usuario) return null;
 

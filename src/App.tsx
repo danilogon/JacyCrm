@@ -207,7 +207,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route element={<Layout renovacoes={renovacoes} segurosNovos={segurosNovos} />}>
+      <Route element={<Layout renovacoes={renovacoes} segurosNovos={segurosNovos} tarefas={tarefas} />}>
 
         {podeVerMetas && (
           <Route path="/metas" element={

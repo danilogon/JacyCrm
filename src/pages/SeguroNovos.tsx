@@ -408,6 +408,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             dataContato: novo.inicioVigencia || new Date().toISOString().split('T')[0],
             status: 'a_contatar',
             observacoes: [],
+            camposCustomizados: [],
             criadoEm: new Date().toISOString(),
             atualizadoEm: new Date().toISOString(),
           };
@@ -459,6 +460,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
               dataContato: updated.inicioVigencia || new Date().toISOString().split('T')[0],
               status: 'a_contatar',
               observacoes: [],
+              camposCustomizados: [],
               criadoEm: new Date().toISOString(),
               atualizadoEm: new Date().toISOString(),
             };
@@ -549,7 +551,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                 <td className="px-2 py-2 max-w-[160px]">
                   <div className="flex items-center gap-1">
                     <span className="font-medium text-gray-800 truncate">{s.nomeCliente}</span>
-                    {s.clienteId && <UserCheck size={10} className="text-blue-500 shrink-0" title="Cliente vinculado" />}
+                    {s.clienteId && <UserCheck size={10} className="text-blue-500 shrink-0" aria-label="Cliente vinculado" />}
                     {(() => {
                       const obs = clientes.find(c => c.id === s.clienteId)?.observacaoImportante;
                       if (!obs) return null;

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
@@ -77,7 +77,7 @@ export function ProspeccaoPage({
   prospeccoes, setProspeccoes,
   segurosNovos, setSegurosNovos,
   clientes, setClientes,
-  usuarios, seguradoras, ramos, motivos,
+  usuarios, seguradoras, ramos, motivos: _motivos,
   tarefas, setTarefas,
   podeDescartar,
 }: Props) {
@@ -98,7 +98,7 @@ export function ProspeccaoPage({
   const [formNova, setFormNova] = useState<FormNova>(formNovaVazio());
   const [confirmDescarte, setConfirmDescarte] = useState<string | null>(null);
 
-  const usuariosVisiveis = useMemo(() =>
+  const _usuariosVisiveis = useMemo(() =>
     usuarios.filter(u => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
 
   const ramosOrd = useMemo(() =>
@@ -323,8 +323,8 @@ export function ProspeccaoPage({
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1.5">
                     <span className="font-medium text-gray-800">{p.nomeCliente}</span>
-                    {p.clienteId && <UserCheck size={11} className="text-blue-500 shrink-0" title="Cliente cadastrado" />}
-                    {p.assumidoPor && <CheckCircle2 size={11} className="text-green-500 shrink-0" title={`Assumida por ${nomeUsuario(p.assumidoPor)}`} />}
+                    {p.clienteId && <UserCheck size={11} className="text-blue-500 shrink-0" aria-label="Cliente cadastrado" />}
+                    {p.assumidoPor && <CheckCircle2 size={11} className="text-green-500 shrink-0" aria-label={`Assumida por ${nomeUsuario(p.assumidoPor)}`} />}
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">{formatCpfCnpj(p.cpfCnpjCliente)}</div>
                 </td>

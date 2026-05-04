@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Phone, Mail, Users, MapPin, CheckSquare, Plus, CheckCircle2, Circle, Calendar, Clock, X, ChevronDown } from 'lucide-react';
+import { Phone, Mail, Users, MapPin, CheckSquare, Plus, CheckCircle2, Circle, Calendar, X, ChevronDown } from 'lucide-react';
 import type { Tarefa, TipoTarefa } from '../types';
 import { generateId } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
@@ -46,7 +46,7 @@ function isAtrasada(dataAgendada: string): boolean {
 }
 
 export function TarefasPanel({ origemTipo, origemId, nomeCliente, responsavelId, tarefas, setTarefas }: Props) {
-  const { usuario } = useAuth();
+  const { usuario: _usuario } = useAuth();
   const [adicionando, setAdicionando] = useState(false);
   const [concluidasAbertas, setConcluidasAbertas] = useState(true);
   const [form, setForm] = useState({

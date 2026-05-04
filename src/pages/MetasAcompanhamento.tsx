@@ -46,7 +46,7 @@ function BarraSegmentada({ valor, faixas, fmt }: { valor: number; faixas: FaixaM
 
   // Cada faixa ocupa uma fatia igual da barra (mais fácil de ler que escala linear)
   // A última faixa sempre representa "atingiu o máximo e além"
-  const n = faixas.length;
+  void faixas.length; // usado implicitamente via segmentos
 
   // Para cada faixa calculamos: qual a fração do valor dentro dela (0–1)
   const segmentos = faixas.map((f, i) => {
@@ -90,7 +90,7 @@ function BarraSegmentada({ valor, faixas, fmt }: { valor: number; faixas: FaixaM
 
       {/* Rótulos: threshold e bônus de cada faixa */}
       <div className="flex gap-0.5 mt-1">
-        {segmentos.map(({ f, col, atingida, atual }) => (
+        {segmentos.map(({ f, atingida, atual }) => (
           <div key={f.id} className="flex-1 flex flex-col items-center gap-0.5">
             <span className="text-[9px] text-gray-400">{fmt(f.minimo)}+</span>
             {(atingida || atual) && (

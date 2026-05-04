@@ -331,6 +331,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
             dataContato,
             status: 'a_contatar',
             observacoes: [],
+            camposCustomizados: [],
             criadoEm: new Date().toISOString(),
             atualizadoEm: new Date().toISOString(),
           };
@@ -634,7 +635,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                 <td className="px-2 py-2 max-w-[160px]">
                   <div className="flex items-center gap-1">
                     <span className="font-medium text-gray-800 truncate">{r.nomeCliente}</span>
-                    {r.clienteId && <UserCheck size={10} className="text-blue-500 shrink-0" title="Cliente vinculado" />}
+                    {r.clienteId && <UserCheck size={10} className="text-blue-500 shrink-0" aria-label="Cliente vinculado" />}
                     {(() => {
                       const obs = clientes.find(c => c.id === r.clienteId)?.observacaoImportante;
                       if (!obs) return null;

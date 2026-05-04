@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { DollarSign, ChevronDown, ChevronRight, RefreshCw, PlusCircle, Star } from 'lucide-react';
+import { DollarSign, ChevronDown, ChevronRight, Star } from 'lucide-react';
 import type { Renovacao, SeguroNovo, Usuario, Ramo, MotivoPerda, ConfiguracoesMetas } from '../types';
 import { formatCurrency, formatPercent } from '../utils/formatters';
 import {
