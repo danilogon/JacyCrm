@@ -48,12 +48,18 @@ export const SEGURADORAS_INICIAIS: Seguradora[] = [
 ];
 
 export const RAMOS_INICIAIS: Ramo[] = [
-  { id: 'r1', nome: 'Auto', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 50, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false },
-  { id: 'r2', nome: 'Residencial', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 50, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false },
-  { id: 'r3', nome: 'Vida', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 50, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false },
-  { id: 'r4', nome: 'Empresarial', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 50, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false },
-  { id: 'r5', nome: 'Saúde', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 50, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false },
-  { id: 'r6', nome: 'Viagem', ativo: true, tipoComissaoSegurosNovos: 'valor_fixo', percentualComissao: 0, valorFixo: 50, considerarParaTaxaSegurosNovos: false, considerarParaTaxaConversao: false, remuneracaoIndividual: true },
+  { id: 'r01', nome: 'Automovel',       ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0,  valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: false },
+  { id: 'r02', nome: 'Bike',            ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r03', nome: 'Cartão Porto',    ativo: true, tipoComissaoSegurosNovos: 'valor_fixo',  percentualComissao: 0,  valorFixo: 20, considerarParaTaxaSegurosNovos: false, considerarParaTaxaConversao: false, remuneracaoIndividual: true  },
+  { id: 'r04', nome: 'Condomínio',      ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r05', nome: 'Empresarial',     ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r06', nome: 'RC Profissional', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r07', nome: 'RD Equip',        ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r08', nome: 'Residencial',     ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r09', nome: 'Viagem',          ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r10', nome: 'Vida AP',         ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r11', nome: 'Vida Individual', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 80, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
+  { id: 'r12', nome: 'Vida PME',        ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 80, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
 ];
 
 export const MOTIVOS_PERDA_RENOVACAO: MotivoPerda[] = [
