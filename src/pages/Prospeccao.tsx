@@ -98,8 +98,7 @@ export function ProspeccaoPage({
   const [formNova, setFormNova] = useState<FormNova>(formNovaVazio());
   const [confirmDescarte, setConfirmDescarte] = useState<string | null>(null);
 
-  const _usuariosVisiveis = useMemo(() =>
-    usuarios.filter(u => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
+  // usuariosVisiveis removido — não utilizado na renderização atual
 
   const ramosOrd = useMemo(() =>
     ramos.filter(r => r.ativo).sort((a, b) => a.nome.localeCompare(b.nome)), [ramos]);

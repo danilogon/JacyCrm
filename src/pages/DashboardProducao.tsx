@@ -148,7 +148,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prospeccoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo]);
 
-  const _prospConvertidas = useMemo(() => prospFiltradas.filter(p => p.status === 'convertido'),  [prospFiltradas]);
+  // prospConvertidas removido — não utilizado nos rankings atuais
   const prospDescartadas  = useMemo(() => prospFiltradas.filter(p => p.status === 'descartado'),  [prospFiltradas]);
 
   // Seguros Novos fechados originados de prospecções filtradas (para rankings no filtro prospeccoes)
