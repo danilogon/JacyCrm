@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Plus, Download, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle } from 'lucide-react';
+import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
@@ -494,6 +494,156 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     a.click();
   }
 
+  function baixarCSV(conteudo: string, nomeArquivo: string) {
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + conteudo);
+    a.download = nomeArquivo;
+    a.click();
+  }
+
+  function baixarModeloCSV() {
+    const headers = [
+      'Responsavel',
+      'Nome do Cliente',
+      'Email do Cliente',
+      'Telefone do Cliente',
+      'Inicio de Vigencia',
+      'Ramo',
+      'Seguradora',
+      'Premio Liquido',
+      'Percentual Comissao',
+      'CPF/CNPJ Cliente',
+      'Status',
+    ];
+    const exemplo = [
+      'João Silva',
+      'Maria da Silva',
+      'maria@email.com',
+      '11999990000',
+      '2025-01-15',
+      'Auto',
+      'Porto Seguro',
+      '2500.00',
+      '10',
+      '12345678901',
+      'A Trabalhar',
+    ];
+    const csv = [headers, exemplo].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    baixarCSV(csv, 'modelo_importacao_seguros_novos.csv');
+  }
+
+  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      const dataLines = lines.slice(1);
+
+      const clientesAtualizados = [...clientes];
+      const clientesCriados: string[] = [];
+      const clientesIncompletos: string[] = [];
+      type LinhaRejeitada = { linha: number; nome: string; motivo: string };
+      const rejeitadas: LinhaRejeitada[] = [];
+      const novas: SeguroNovo[] = [];
+
+      dataLines.forEach((line, idx) => {
+        const lineNum = idx + 2;
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const [respNome, nomeCliente, emailCliente, telefoneCliente, inicioVigencia, ramo, seguradora, premioStr, percentStr, cpfCnpj, statusCsv] = cols;
+
+        const nome = nomeCliente?.trim() ?? '';
+        const cpfDigits = cpfCnpj?.replace(/\D/g, '') ?? '';
+        const cpfValido = cpfDigits.length === 11 || cpfDigits.length === 14;
+
+        const erros: string[] = [];
+        if (!nome) erros.push('nome ausente');
+        if (!cpfDigits) erros.push('CPF/CNPJ ausente');
+        else if (!cpfValido) erros.push(`CPF/CNPJ inválido (${cpfDigits.length} dígitos)`);
+
+        if (erros.length > 0) {
+          rejeitadas.push({ linha: lineNum, nome: nome || '(sem nome)', motivo: erros.join(' · ') });
+          return;
+        }
+
+        const resp = usuarios.find(u => u.nome === respNome);
+        const premioLiquido = parseFloat(premioStr) || 0;
+        const percentComissao = parseFloat(percentStr) || 0;
+        const comissao = premioLiquido * percentComissao / 100;
+
+        const statusImportado = ((): StatusSeguroNovo => {
+          const labelMap: Record<string, StatusSeguroNovo> = {
+            'a trabalhar': 'a_trabalhar', 'em negociação': 'em_negociacao',
+            'em negociacao': 'em_negociacao', 'pendente': 'pendente',
+            'a transmitir': 'a_transmitir', 'fechado': 'fechado', 'perdido': 'perdido',
+          };
+          return labelMap[(statusCsv ?? '').toLowerCase().trim()] ?? 'a_trabalhar';
+        })();
+
+        let clienteVinc = clientesAtualizados.find(c => c.cpfCnpj === cpfDigits);
+        if (!clienteVinc) {
+          const tipo: 'PF' | 'PJ' = cpfDigits.length === 11 ? 'PF' : 'PJ';
+          const novoCliente: Cliente = {
+            id: generateId(),
+            cpfCnpj: cpfDigits,
+            tipo,
+            nome,
+            email: emailCliente?.trim() ?? '',
+            telefone: telefoneCliente?.trim() ?? '',
+            cep: '', logradouro: '', numero: '', complemento: '',
+            bairro: '', cidade: '', uf: '',
+            criadoEm: new Date().toISOString(),
+            atualizadoEm: new Date().toISOString(),
+          };
+          clientesAtualizados.push(novoCliente);
+          clientesCriados.push(nome);
+          if (!novoCliente.email || !novoCliente.telefone) clientesIncompletos.push(nome);
+          clienteVinc = novoCliente;
+        } else {
+          if (!clienteVinc.email || !clienteVinc.telefone) {
+            if (!clientesIncompletos.includes(clienteVinc.nome)) clientesIncompletos.push(clienteVinc.nome);
+          }
+        }
+
+        novas.push({
+          id: generateId(),
+          responsavelId: resp?.id ?? usuario?.id ?? '',
+          clienteId: clienteVinc?.id,
+          nomeCliente: clienteVinc?.nome ?? nome,
+          emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
+          telefoneCliente: clienteVinc?.telefone ?? telefoneCliente?.trim() ?? '',
+          cpfCnpjCliente: cpfDigits,
+          inicioVigencia: inicioVigencia?.trim() ?? '',
+          ramo: ramo?.trim() ?? '',
+          seguradora: seguradora?.trim() ?? '',
+          premioLiquido,
+          percentComissao,
+          comissao,
+          comissaoAReceber: comissao,
+          status: statusImportado,
+          observacoes: [], camposCustomizados: [],
+          criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
+        });
+      });
+
+      if (clientesCriados.length > 0) setClientes(clientesAtualizados);
+      if (novas.length > 0) setSegurosNovos([...segurosNovos, ...novas]);
+
+      const partes: string[] = [];
+      partes.push(`✅ ${novas.length} seguro(s) novo(s) importado(s) com sucesso.`);
+      if (clientesCriados.length > 0) partes.push(`\n🆕 ${clientesCriados.length} cliente(s) criado(s) automaticamente:\n  • ${clientesCriados.join('\n  • ')}`);
+      if (clientesIncompletos.length > 0) partes.push(`\n⚠️ ${clientesIncompletos.length} cliente(s) com dados incompletos (sem email e/ou telefone):\n  • ${clientesIncompletos.join('\n  • ')}\n  → Ao abrir esses negócios um aviso será exibido.`);
+      if (rejeitadas.length > 0) {
+        const detalhe = rejeitadas.map(r => `  • Linha ${r.linha} — "${r.nome}": ${r.motivo}`).join('\n');
+        partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s):\n${detalhe}`);
+      }
+      alert(partes.join('\n'));
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   const { comissao: formComissao } = calcCom(form);
   const responsavelNome = (id: string) => usuarios.find(u => u.id === id)?.nome ?? id;
   const modalAberto = editando !== null || criando;
@@ -503,12 +653,27 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">Seguros Novos</h1>
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-            <Download size={14} /> Exportar
-          </button>
-          <button onClick={() => setImportandoPdf(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100">
-            <FileUp size={14} /> Importar PDF
-          </button>
+          {isAdmin && (
+            <>
+              <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Exportar
+              </button>
+              <button
+                onClick={baixarModeloCSV}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100"
+                title="Baixar planilha modelo para preenchimento e importação"
+              >
+                <Download size={14} /> Modelo CSV
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
+                <Upload size={14} /> Importar CSV
+                <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+              </label>
+              <button onClick={() => setImportandoPdf(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100">
+                <FileUp size={14} /> Importar PDF
+              </button>
+            </>
+          )}
           <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
             <Plus size={14} /> Novo Seguro
           </button>

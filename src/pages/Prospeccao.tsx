@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Download, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
@@ -250,6 +250,152 @@ export function ProspeccaoPage({
 
   const prosp = visualizando ? prospeccoes.find(p => p.id === visualizando.id) ?? visualizando : null;
 
+  function baixarCSVHelper(conteudo: string, nomeArquivo: string) {
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + conteudo);
+    a.download = nomeArquivo;
+    a.click();
+  }
+
+  function exportarCSV() {
+    const headers = ['ID','Responsável','Cliente','Email','Telefone','CPF/CNPJ','Ramo','Seguradora','Prêmio Referência','Data Contato','Status','Origem'];
+    const rows = prospeccoes.map(p => [
+      p.id,
+      nomeUsuario(p.responsavelId),
+      p.nomeCliente, p.emailCliente, p.telefoneCliente, p.cpfCnpjCliente,
+      p.ramo, p.seguradora, p.premioReferencia, p.dataContato,
+      STATUS_LABELS[p.status], ORIGEM_LABELS[p.origem] ?? p.origem,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    baixarCSVHelper(csv, `prospeccoes_${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  function baixarModeloCSV() {
+    const headers = [
+      'Responsavel',
+      'Nome do Cliente',
+      'Email do Cliente',
+      'Telefone do Cliente',
+      'CPF/CNPJ Cliente',
+      'Ramo',
+      'Seguradora',
+      'Premio Referencia',
+      'Data Contato',
+    ];
+    const exemplo = [
+      'João Silva',
+      'Maria da Silva',
+      'maria@email.com',
+      '11999990000',
+      '12345678901',
+      'Auto',
+      'Porto Seguro',
+      '2500.00',
+      '2025-06-30',
+    ];
+    const csv = [headers, exemplo].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
+    baixarCSVHelper(csv, 'modelo_importacao_prospeccoes.csv');
+  }
+
+  function importarCSVProspeccao(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target?.result as string;
+      const lines = text.split('\n').filter(l => l.trim());
+      const dataLines = lines.slice(1);
+
+      const clientesAtualizados = [...clientes];
+      const clientesCriados: string[] = [];
+      const clientesIncompletos: string[] = [];
+      type LinhaRejeitada = { linha: number; nome: string; motivo: string };
+      const rejeitadas: LinhaRejeitada[] = [];
+      const novas: Prospeccao[] = [];
+
+      dataLines.forEach((line, idx) => {
+        const lineNum = idx + 2;
+        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
+        const [respNome, nomeCliente, emailCliente, telefoneCliente, cpfCnpj, ramo, seguradora, premioStr, dataContato] = cols;
+
+        const nome = nomeCliente?.trim() ?? '';
+        const cpfDigits = cpfCnpj?.replace(/\D/g, '') ?? '';
+        const cpfValido = cpfDigits.length === 11 || cpfDigits.length === 14;
+
+        const erros: string[] = [];
+        if (!nome) erros.push('nome ausente');
+        if (!cpfDigits) erros.push('CPF/CNPJ ausente');
+        else if (!cpfValido) erros.push(`CPF/CNPJ inválido (${cpfDigits.length} dígitos)`);
+        if (!ramo?.trim()) erros.push('ramo ausente');
+
+        if (erros.length > 0) {
+          rejeitadas.push({ linha: lineNum, nome: nome || '(sem nome)', motivo: erros.join(' · ') });
+          return;
+        }
+
+        const resp = usuarios.find(u => u.nome === respNome);
+
+        let clienteVinc = clientesAtualizados.find(c => c.cpfCnpj === cpfDigits);
+        if (!clienteVinc) {
+          const tipo: 'PF' | 'PJ' = cpfDigits.length === 11 ? 'PF' : 'PJ';
+          const novoCliente: Cliente = {
+            id: generateId(),
+            cpfCnpj: cpfDigits,
+            tipo,
+            nome,
+            email: emailCliente?.trim() ?? '',
+            telefone: telefoneCliente?.trim() ?? '',
+            cep: '', logradouro: '', numero: '', complemento: '',
+            bairro: '', cidade: '', uf: '',
+            criadoEm: new Date().toISOString(),
+            atualizadoEm: new Date().toISOString(),
+          };
+          clientesAtualizados.push(novoCliente);
+          clientesCriados.push(nome);
+          if (!novoCliente.email || !novoCliente.telefone) clientesIncompletos.push(nome);
+          clienteVinc = novoCliente;
+        } else {
+          if (!clienteVinc.email || !clienteVinc.telefone) {
+            if (!clientesIncompletos.includes(clienteVinc.nome)) clientesIncompletos.push(clienteVinc.nome);
+          }
+        }
+
+        novas.push({
+          id: generateId(),
+          origem: 'manual' as const,
+          responsavelId: resp?.id ?? usuario?.id ?? '',
+          clienteId: clienteVinc?.id,
+          nomeCliente: clienteVinc?.nome ?? nome,
+          emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
+          telefoneCliente: clienteVinc?.telefone ?? telefoneCliente?.trim() ?? '',
+          cpfCnpjCliente: cpfDigits,
+          ramo: ramo.trim(),
+          seguradora: seguradora?.trim() ?? '',
+          premioReferencia: parseFloat(premioStr) || 0,
+          dataContato: dataContato?.trim() || new Date().toISOString().split('T')[0],
+          status: 'a_contatar' as const,
+          observacoes: [], camposCustomizados: [],
+          criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
+        });
+      });
+
+      if (clientesCriados.length > 0) setClientes(clientesAtualizados);
+      if (novas.length > 0) setProspeccoes([...prospeccoes, ...novas]);
+
+      const partes: string[] = [];
+      partes.push(`✅ ${novas.length} prospecção(ões) importada(s) com sucesso.`);
+      if (clientesCriados.length > 0) partes.push(`\n🆕 ${clientesCriados.length} cliente(s) criado(s) automaticamente:\n  • ${clientesCriados.join('\n  • ')}`);
+      if (clientesIncompletos.length > 0) partes.push(`\n⚠️ ${clientesIncompletos.length} cliente(s) com dados incompletos:\n  • ${clientesIncompletos.join('\n  • ')}`);
+      if (rejeitadas.length > 0) {
+        const detalhe = rejeitadas.map(r => `  • Linha ${r.linha} — "${r.nome}": ${r.motivo}`).join('\n');
+        partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s):\n${detalhe}`);
+      }
+      alert(partes.join('\n'));
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  }
+
   return (
     <div className="space-y-4">
 
@@ -259,12 +405,32 @@ export function ProspeccaoPage({
           <h1 className="text-xl font-bold text-gray-900">Prospecção</h1>
           <p className="text-sm text-gray-500 mt-0.5">{totalAtivas} oportunidade{totalAtivas !== 1 ? 's' : ''} ativa{totalAtivas !== 1 ? 's' : ''}</p>
         </div>
-        {(isAdmin || isGestor) && (
-          <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
-            <Plus size={14} /> Nova Prospecção
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {isAdmin && (
+            <>
+              <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Exportar
+              </button>
+              <button
+                onClick={baixarModeloCSV}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100"
+                title="Baixar planilha modelo para preenchimento e importação"
+              >
+                <Download size={14} /> Modelo CSV
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
+                <Upload size={14} /> Importar CSV
+                <input type="file" accept=".csv" className="hidden" onChange={importarCSVProspeccao} />
+              </label>
+            </>
+          )}
+          {(isAdmin || isGestor) && (
+            <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+              <Plus size={14} /> Nova Prospecção
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filtros */}

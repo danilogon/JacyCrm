@@ -561,11 +561,11 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">Renovações</h1>
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-            <Download size={14} /> Exportar
-          </button>
           {isAdmin && (
             <>
+              <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Exportar
+              </button>
               <button
                 onClick={baixarModeloCSV}
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100"
