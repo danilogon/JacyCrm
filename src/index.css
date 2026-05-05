@@ -1,1 +1,126 @@
 @import "tailwindcss";
+
+/* ─── Modo escuro via classe .dark no <html> ─────────────────────────────── */
+
+/* Habilita variante dark: baseada em classe para uso futuro com utilitários Tailwind */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Overrides globais de dark mode ────────────────────────────────────────
+   Ficam fora de qualquer @layer, portanto têm precedência sobre @layer utilities
+   do Tailwind sem precisar de !important.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Corpo da página */
+.dark body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+/* ── Backgrounds ─────────────────────────────────────────────────────────── */
+.dark .bg-white           { background-color: #1e293b; }
+.dark .bg-gray-50         { background-color: #0f172a; }
+.dark .bg-gray-100        { background-color: #1e293b; }
+.dark .bg-gray-200        { background-color: #334155; }
+
+/* Backgrounds coloridos leves (badges / alertas) */
+.dark .bg-blue-50         { background-color: #172554; }
+.dark .bg-green-50        { background-color: #052e16; }
+.dark .bg-red-50          { background-color: #450a0a; }
+.dark .bg-orange-50       { background-color: #431407; }
+.dark .bg-yellow-50       { background-color: #422006; }
+.dark .bg-amber-50        { background-color: #451a03; }
+.dark .bg-purple-50       { background-color: #2e1065; }
+
+.dark .bg-blue-100        { background-color: #1e3a8a; }
+.dark .bg-green-100       { background-color: #14532d; }
+.dark .bg-red-100         { background-color: #7f1d1d; }
+.dark .bg-orange-100      { background-color: #7c2d12; }
+.dark .bg-yellow-100      { background-color: #713f12; }
+.dark .bg-amber-100       { background-color: #78350f; }
+.dark .bg-purple-100      { background-color: #4a1d96; }
+
+/* ── Texto principal ─────────────────────────────────────────────────────── */
+.dark .text-gray-900      { color: #f1f5f9; }
+.dark .text-gray-800      { color: #e2e8f0; }
+.dark .text-gray-700      { color: #cbd5e1; }
+.dark .text-gray-600      { color: #94a3b8; }
+.dark .text-gray-500      { color: #64748b; }
+.dark .text-gray-400      { color: #475569; }
+.dark .text-gray-300      { color: #334155; }
+
+/* Texto colorido leve */
+.dark .text-blue-700      { color: #93c5fd; }
+.dark .text-blue-800      { color: #bfdbfe; }
+.dark .text-green-700     { color: #86efac; }
+.dark .text-green-800     { color: #bbf7d0; }
+.dark .text-red-700       { color: #fca5a5; }
+.dark .text-red-800       { color: #fecaca; }
+.dark .text-orange-700    { color: #fdba74; }
+.dark .text-orange-800    { color: #fed7aa; }
+.dark .text-yellow-700    { color: #fde047; }
+.dark .text-amber-700     { color: #fcd34d; }
+.dark .text-amber-900     { color: #fef3c7; }
+.dark .text-purple-700    { color: #d8b4fe; }
+
+/* ── Bordas ──────────────────────────────────────────────────────────────── */
+.dark .border-gray-100    { border-color: #1e293b; }
+.dark .border-gray-200    { border-color: #334155; }
+.dark .border-gray-300    { border-color: #475569; }
+.dark .border-amber-200   { border-color: #78350f; }
+.dark .border-amber-300   { border-color: #92400e; }
+.dark .border-blue-200    { border-color: #1e3a8a; }
+
+/* ── Divisores (divide-y, divide-gray-*) ─────────────────────────────────── */
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
+.dark .divide-y > :not([hidden]) ~ :not([hidden])        { border-color: #334155; }
+
+/* ── Hover states ────────────────────────────────────────────────────────── */
+.dark .hover\:bg-gray-50:hover   { background-color: #334155; }
+.dark .hover\:bg-gray-100:hover  { background-color: #334155; }
+.dark .hover\:bg-blue-50:hover   { background-color: #1e3a8a; }
+.dark .hover\:bg-red-50:hover    { background-color: #7f1d1d; }
+
+/* ── Formulários: inputs, textareas, selects ─────────────────────────────── */
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+.dark textarea,
+.dark select {
+  background-color: #1e293b;
+  color: #e2e8f0;
+  border-color: #475569;
+}
+
+.dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b;
+}
+
+/* Inputs desabilitados / read-only */
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  background-color: #0f172a;
+  color: #64748b;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+.dark ::-webkit-scrollbar          { width: 6px; height: 6px; }
+.dark ::-webkit-scrollbar-track    { background: #0f172a; }
+.dark ::-webkit-scrollbar-thumb    { background: #334155; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* ── Sombras ─────────────────────────────────────────────────────────────── */
+.dark .shadow-lg   { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4); }
+.dark .shadow-2xl  { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7); }
+.dark .shadow-xl   { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5); }
+
+/* ── Tela de login ───────────────────────────────────────────────────────── */
+.dark .from-blue-600 { --tw-gradient-from: #1e3a8a; }
+.dark .to-blue-800   { --tw-gradient-to: #0f172a; }
