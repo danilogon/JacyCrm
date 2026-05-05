@@ -88,10 +88,10 @@ function ErrorScreen({ message }: { message: string }) {
 // ─── Rotas e estado principal ────────────────────────────────────────────────
 
 function AppRoutes() {
-  const { usuario } = useAuth();
+  const { usuario, authLoading } = useAuth();
 
   // Controle de carregamento
-  const [loading,   setLoading]   = useState(true);
+  const [loading,   setLoading]   = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   // Estado local (espelho do banco)
@@ -110,8 +110,10 @@ function AppRoutes() {
   const [tarefas,      setTarefasState]      = useState<Tarefa[]>([]);
   const [origensProspeccao, setOrigensProspeccaoState] = useState<OrigemProspeccao[]>([]);
 
-  // Carrega todos os dados ao montar
+  // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
+    if (!usuario) return;
+    setLoading(true);
     fetchAll()
       .then(data => {
         setUsuariosState(data.usuarios);
@@ -135,7 +137,7 @@ function AppRoutes() {
         setLoadError(err.message || 'Erro desconhecido ao carregar os dados.');
         setLoading(false);
       });
-  }, []);
+  }, [usuario]);
 
   // ── Setters sincronizados com Supabase ──────────────────────────────────────
 
@@ -190,20 +192,23 @@ function AppRoutes() {
 
   // ── Renderização ────────────────────────────────────────────────────────────
 
+  // Aguarda Supabase Auth restaurar a sessão (evita flash da tela de login no refresh)
+  if (authLoading) return <LoadingScreen />;
+
+  if (!usuario) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
   if (loading)   return <LoadingScreen />;
   if (loadError) return <ErrorScreen message={loadError} />;
 
   const motivosRenovacao  = motivos.filter(m => m.tipo === 'negocio'    && m.aplicaRenovacoes);
   const motivosSeguroNovo = motivos.filter(m => m.tipo === 'negocio'    && m.aplicaSegurosNovos);
-
-  if (!usuario) {
-    return (
-      <Routes>
-        <Route path="/login" element={<Login usuarios={usuarios} />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
 
   const podeRenovacoes           = usuario.role !== 'usuario' || usuario.acessoRenovacoes;
   const podeSegurosNovos         = usuario.role !== 'usuario' || usuario.acessoSegurosNovos;

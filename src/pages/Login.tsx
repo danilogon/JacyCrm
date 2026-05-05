@@ -2,10 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Mail, Clock, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { enviarCodigo2FA, gerarCodigo, emailJsConfigurado } from '../lib/email';
 import type { Usuario } from '../types';
-
-interface Props { usuarios: Usuario[]; }
 
 type Fase = 'credenciais' | 'verificacao';
 
@@ -32,8 +31,8 @@ function dentroDoHorario(u: Usuario): boolean {
 
 const fmtHora = (h: string) => h.replace(':', 'h');
 
-export function Login({ usuarios }: Props) {
-  const { login, usuario } = useAuth();
+export function Login() {
+  const { login, completarLogin, usuario } = useAuth();
   const navigate = useNavigate();
 
   const [fase,    setFase]    = useState<Fase>('credenciais');
@@ -66,35 +65,40 @@ export function Login({ usuarios }: Props) {
     setErro('');
     setLoading(true);
 
-    const found = usuarios.find(u => u.email === email && u.senha === senha && u.ativo);
+    const result = await login(email, senha);
 
-    if (!found) {
-      setErro('Email ou senha inválidos.');
+    if ('erro' in result) {
+      setErro(result.erro);
       setLoading(false);
       return;
     }
 
-    // Restrição de horário
-    if (!dentroDoHorario(found)) {
-      const ini = fmtHora(found.horarioLoginInicio!);
-      const fim = fmtHora(found.horarioLoginFim!);
+    const perfil = result.perfil;
+
+    // Restrição de horário — se fora do horário, encerra sessão no Supabase
+    if (!dentroDoHorario(perfil)) {
+      await supabase.auth.signOut();
+      const ini = fmtHora(perfil.horarioLoginInicio!);
+      const fim = fmtHora(perfil.horarioLoginFim!);
       setErro(`Acesso permitido somente das ${ini} às ${fim}.`);
       setLoading(false);
       return;
     }
 
     // 2FA ativado e EmailJS configurado → enviar código
-    if (found.exigir2FA && emailJsConfigurado()) {
+    if (perfil.exigir2FA && emailJsConfigurado()) {
       const codigo = gerarCodigo();
       const expira = new Date(Date.now() + 5 * 60 * 1000);
       try {
-        await enviarCodigo2FA({ email: found.email, nome: found.nome, codigo });
-        setPending({ usuario: found, codigo, expira });
+        await enviarCodigo2FA({ email: perfil.email, nome: perfil.nome, codigo });
+        setPending({ usuario: perfil, codigo, expira });
         setDigitos(['', '', '', '', '', '']);
         setFase('verificacao');
         setReenvioSeg(60);
         setTimeout(() => inputsRef.current[0]?.focus(), 100);
       } catch {
+        // Falha no envio do código — encerra sessão para não deixar autenticado sem 2FA
+        await supabase.auth.signOut();
         setErro('Não foi possível enviar o código. Verifique a configuração do EmailJS.');
       }
       setLoading(false);
@@ -102,8 +106,8 @@ export function Login({ usuarios }: Props) {
     }
 
     // Sem 2FA → login direto
-    login(email, senha, usuarios);
-    navigate(getFirstRoute(found));
+    completarLogin(perfil);
+    navigate(getFirstRoute(perfil));
     setLoading(false);
   };
 
@@ -136,7 +140,7 @@ export function Login({ usuarios }: Props) {
       setTimeout(() => inputsRef.current[0]?.focus(), 50);
       return;
     }
-    login(email, senha, usuarios);
+    completarLogin(pending.usuario);
     navigate(getFirstRoute(pending.usuario));
   };
 
