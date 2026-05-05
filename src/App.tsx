@@ -336,6 +336,7 @@ function AppRoutes() {
             tarefas={tarefas}
             setTarefas={setTarefas}
             usuarios={usuarios}
+            clientes={clientes}
           />
         } />
 

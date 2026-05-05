@@ -195,6 +195,13 @@ export interface Prospeccao {
   atualizadoEm: string;
 }
 
+export type TipoVinculo = 'Cônjuge' | 'Filho(a)' | 'Pai/Mãe' | 'Sócio(a)' | 'Outro';
+
+export interface VinculoCliente {
+  clienteId: string;
+  tipo: TipoVinculo;
+}
+
 export interface Cliente {
   id: string;
   cpfCnpj: string;
@@ -212,6 +219,7 @@ export interface Cliente {
   cidade: string;
   uf: string;
   camposCustomizados?: CampoCustomizadoValor[];
+  vinculos?: VinculoCliente[];
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -317,6 +325,7 @@ export interface Tarefa {
   origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao' | 'geral';
   origemId?: string;       // undefined quando origemTipo === 'geral'
   nomeCliente?: string;    // opcional para tarefas avulsas
+  clienteId?: string;
   status: StatusTarefa;
   criadoEm: string;
   atualizadoEm: string;

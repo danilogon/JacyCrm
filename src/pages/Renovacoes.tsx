@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock } from 'lucide-react';
+import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
@@ -654,11 +654,29 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                       const obs = clientes.find(c => c.id === r.clienteId)?.observacaoImportante;
                       if (!obs) return null;
                       return (
-                        <span className="relative group inline-flex shrink-0">
+                        <span className="relative group inline-flex shrink-0 z-50">
                           <Bell size={11} className="text-amber-500 cursor-help" />
-                          <span className="pointer-events-none absolute bottom-full left-0 mb-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
                             {obs}
-                            <span className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
+                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
+                          </span>
+                        </span>
+                      );
+                    })()}
+                    {(() => {
+                      const cli = clientes.find(c => c.id === r.clienteId);
+                      const vinculos = cli?.vinculos ?? [];
+                      if (vinculos.length === 0) return null;
+                      const labels = vinculos
+                        .map(v => { const vc = clientes.find(c => c.id === v.clienteId); return vc ? `${vc.nome} (${v.tipo})` : null; })
+                        .filter(Boolean)
+                        .join(', ');
+                      return (
+                        <span className="relative group inline-flex shrink-0 z-50">
+                          <Link2 size={11} className="text-indigo-400 cursor-help" />
+                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                            {labels}
+                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
                           </span>
                         </span>
                       );

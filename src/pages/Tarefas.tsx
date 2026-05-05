@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Calendar, Clock, ExternalLink, Filter, Plus, X, Save } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { Tarefa, TipoTarefa, Usuario } from '../types';
+import type { Tarefa, TipoTarefa, Usuario, Cliente } from '../types';
 import { TIPO_LABELS, TipoIcon } from '../components/TarefasPanel';
 import { generateId } from '../utils/formatters';
 
@@ -10,6 +10,7 @@ interface Props {
   tarefas: Tarefa[];
   setTarefas: (t: Tarefa[]) => void;
   usuarios: Usuario[];
+  clientes: Cliente[];
 }
 
 const TIPO_CORES: Record<string, string> = {
@@ -46,8 +47,57 @@ const formVazio = (responsavelId: string) => ({
   dataAgendada: new Date().toISOString().split('T')[0],
   horaAgendada: '',
   nomeCliente: '',
+  clienteId: '',
   responsavelId,
 });
+
+function ClienteBuscaTarefa({ clientes, onSelect }: { clientes: Cliente[]; onSelect: (c: Cliente) => void }) {
+  const [busca, setBusca] = useState('');
+  const [aberto, setAberto] = useState(false);
+
+  const resultados = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (q.length < 2) return [];
+    return clientes
+      .filter(c =>
+        c.nome.toLowerCase().includes(q) ||
+        c.cpfCnpj.includes(q) ||
+        c.email?.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [busca, clientes]);
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={busca}
+        onChange={e => { setBusca(e.target.value); setAberto(true); }}
+        onFocus={() => setAberto(true)}
+        onBlur={() => setTimeout(() => setAberto(false), 150)}
+        placeholder="Buscar por nome, CPF/CNPJ ou email..."
+        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {aberto && resultados.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+          {resultados.map(c => (
+            <button key={c.id} type="button"
+              onMouseDown={() => { onSelect(c); setBusca(''); setAberto(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0">
+              <div className="font-medium text-gray-800">{c.nome}</div>
+              <div className="text-xs text-gray-400">{c.cpfCnpj} · {c.email}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      {aberto && busca.length >= 2 && resultados.length === 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 px-3 py-2 text-sm text-gray-400">
+          Nenhum cliente encontrado
+        </div>
+      )}
+    </div>
+  );
+}
 
 function formatData(dateStr: string) {
   const [y, m, d] = dateStr.split('-');
@@ -70,7 +120,7 @@ function grupoCor(dateStr: string): { header: string; card: string } {
   return { header: 'text-gray-600 bg-gray-50 border-gray-200', card: 'border-gray-100 bg-white' };
 }
 
-export function Tarefas({ tarefas, setTarefas, usuarios }: Props) {
+export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin  = usuario?.role === 'admin';
@@ -157,6 +207,7 @@ export function Tarefas({ tarefas, setTarefas, usuarios }: Props) {
       origemTipo: 'geral',
       origemId: undefined,
       nomeCliente: form.nomeCliente.trim() || undefined,
+      clienteId: form.clienteId || undefined,
       status: 'pendente',
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString(),
@@ -407,13 +458,20 @@ export function Tarefas({ tarefas, setTarefas, usuarios }: Props) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Cliente / Referência <span className="text-xs text-gray-400 font-normal">(opcional)</span>
                 </label>
-                <input
-                  type="text"
-                  value={form.nomeCliente}
-                  onChange={e => setForm(f => ({ ...f, nomeCliente: e.target.value }))}
-                  placeholder="Nome do cliente ou referência..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                {form.clienteId ? (
+                  <div className="flex items-center justify-between px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg">
+                    <span className="text-sm font-medium text-blue-800">{form.nomeCliente}</span>
+                    <button type="button" onClick={() => setForm(f => ({ ...f, clienteId: '', nomeCliente: '' }))}
+                      className="p-0.5 text-blue-400 hover:text-blue-700 rounded">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <ClienteBuscaTarefa
+                    clientes={clientes}
+                    onSelect={c => setForm(f => ({ ...f, clienteId: c.id, nomeCliente: c.nome }))}
+                  />
+                )}
               </div>
             </div>
 

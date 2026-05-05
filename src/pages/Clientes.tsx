@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell, Link2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel } from '../types';
+import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo } from '../types';
 import { formatCpfCnpj, formatDate, generateId } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -42,6 +42,10 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erroCep, setErroCep] = useState('');
+  const [modalVinculo, setModalVinculo] = useState<Cliente | null>(null);
+  const [buscaVinculo, setBuscaVinculo] = useState('');
+  const [clienteVinculoSel, setClienteVinculoSel] = useState<Cliente | null>(null);
+  const [tipoVinculo, setTipoVinculo] = useState<TipoVinculo>('Cônjuge');
 
   const tipoCpfCnpj = validateCpfCnpj(form.cpfCnpj).tipo ?? 'PF';
 
@@ -166,6 +170,56 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       return;
     }
     setConfirmExcluir(id);
+  }
+
+  function criarVinculo() {
+    if (!modalVinculo || !clienteVinculoSel) return;
+
+    const updatedA: Cliente = {
+      ...modalVinculo,
+      vinculos: [
+        ...(modalVinculo.vinculos ?? []).filter(v => v.clienteId !== clienteVinculoSel.id),
+        { clienteId: clienteVinculoSel.id, tipo: tipoVinculo }
+      ],
+      atualizadoEm: new Date().toISOString(),
+    };
+    const updatedB: Cliente = {
+      ...clienteVinculoSel,
+      vinculos: [
+        ...(clienteVinculoSel.vinculos ?? []).filter(v => v.clienteId !== modalVinculo.id),
+        { clienteId: modalVinculo.id, tipo: tipoVinculo }
+      ],
+      atualizadoEm: new Date().toISOString(),
+    };
+
+    setClientes(clientes.map(c =>
+      c.id === updatedA.id ? updatedA :
+      c.id === updatedB.id ? updatedB : c
+    ));
+
+    setModalVinculo(null);
+    setBuscaVinculo('');
+    setClienteVinculoSel(null);
+    setTipoVinculo('Cônjuge');
+  }
+
+  function removerVinculo(clienteBase: Cliente, vinculoClienteId: string) {
+    const updatedA: Cliente = {
+      ...clienteBase,
+      vinculos: (clienteBase.vinculos ?? []).filter(v => v.clienteId !== vinculoClienteId),
+      atualizadoEm: new Date().toISOString(),
+    };
+    const clienteB = clientes.find(c => c.id === vinculoClienteId);
+    const updatedB = clienteB ? {
+      ...clienteB,
+      vinculos: (clienteB.vinculos ?? []).filter(v => v.clienteId !== clienteBase.id),
+      atualizadoEm: new Date().toISOString(),
+    } : null;
+
+    setClientes(clientes.map(c =>
+      c.id === updatedA.id ? updatedA :
+      (updatedB && c.id === updatedB.id) ? updatedB : c
+    ));
   }
 
   // ── XLSX helpers ─────────────────────────────────────────────────────────────
@@ -604,7 +658,15 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                 <h2 className="font-bold text-gray-900">{visualizando.nome}</h2>
                 <div className="text-sm text-gray-500">{formatCpfCnpj(visualizando.cpfCnpj)} · {visualizando.tipo === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</div>
               </div>
-              <button onClick={() => setVisualizando(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setModalVinculo(visualizando); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+                >
+                  <Link2 size={14} /> Vincular
+                </button>
+                <button onClick={() => setVisualizando(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              </div>
             </div>
             <div className="p-5 space-y-5">
               {/* Observação importante em destaque */}
@@ -614,6 +676,33 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                   <div>
                     <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide mb-0.5">Observação Importante</p>
                     <p className="text-sm text-amber-900">{visualizando.observacaoImportante}</p>
+                  </div>
+                </div>
+              )}
+              {(visualizando.vinculos ?? []).length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
+                  <div className="space-y-1.5">
+                    {(visualizando.vinculos ?? []).map(v => {
+                      const cli = clientes.find(c => c.id === v.clienteId);
+                      if (!cli) return null;
+                      return (
+                        <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <Link2 size={13} className="text-blue-500 shrink-0" />
+                            <span className="font-medium text-gray-800">{cli.nome}</span>
+                            <span className="text-xs text-gray-400">· {v.tipo}</span>
+                          </div>
+                          <button
+                            onClick={() => removerVinculo(visualizando, v.clienteId)}
+                            className="p-1 text-red-400 hover:text-red-600 rounded"
+                            title="Remover vínculo"
+                          >
+                            <X size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -683,6 +772,98 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         onConfirm={() => { setClientes(clientes.filter(c => c.id !== confirmExcluir)); setConfirmExcluir(null); }}
         onCancel={() => setConfirmExcluir(null)}
       />
+
+      {/* Modal de Vínculo */}
+      {modalVinculo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h2 className="font-bold text-gray-900">Vincular Cliente</h2>
+              <button onClick={() => { setModalVinculo(null); setBuscaVinculo(''); setClienteVinculoSel(null); }}
+                className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="text-sm text-gray-600">
+                Vinculando a: <span className="font-semibold text-gray-800">{modalVinculo.nome}</span>
+              </div>
+
+              {/* Search for client to link */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar cliente para vincular</label>
+                {clienteVinculoSel ? (
+                  <div className="flex items-center justify-between px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg">
+                    <span className="text-sm font-medium text-blue-800">{clienteVinculoSel.nome}</span>
+                    <button type="button" onClick={() => setClienteVinculoSel(null)}
+                      className="p-0.5 text-blue-400 hover:text-blue-700 rounded"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={buscaVinculo}
+                      onChange={e => setBuscaVinculo(e.target.value)}
+                      placeholder="Nome ou CPF/CNPJ..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {buscaVinculo.length >= 2 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden max-h-48 overflow-y-auto">
+                        {clientes
+                          .filter(c =>
+                            c.id !== modalVinculo.id &&
+                            !(modalVinculo.vinculos ?? []).some(v => v.clienteId === c.id) &&
+                            (c.nome.toLowerCase().includes(buscaVinculo.toLowerCase()) ||
+                             c.cpfCnpj.includes(buscaVinculo))
+                          )
+                          .slice(0, 8)
+                          .map(c => (
+                            <button key={c.id} type="button"
+                              onMouseDown={() => { setClienteVinculoSel(c); setBuscaVinculo(''); }}
+                              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0">
+                              <div className="font-medium text-gray-800">{c.nome}</div>
+                              <div className="text-xs text-gray-400">{c.cpfCnpj}</div>
+                            </button>
+                          ))
+                        }
+                        {clientes.filter(c =>
+                          c.id !== modalVinculo.id &&
+                          !(modalVinculo.vinculos ?? []).some(v => v.clienteId === c.id) &&
+                          (c.nome.toLowerCase().includes(buscaVinculo.toLowerCase()) ||
+                           c.cpfCnpj.includes(buscaVinculo))
+                        ).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Relationship type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de vínculo</label>
+                <select value={tipoVinculo} onChange={e => setTipoVinculo(e.target.value as TipoVinculo)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="Cônjuge">Cônjuge</option>
+                  <option value="Filho(a)">Filho(a)</option>
+                  <option value="Pai/Mãe">Pai/Mãe</option>
+                  <option value="Sócio(a)">Sócio(a)</option>
+                  <option value="Outro">Outro</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+              <button onClick={() => { setModalVinculo(null); setBuscaVinculo(''); setClienteVinculoSel(null); }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button onClick={criarVinculo} disabled={!clienteVinculoSel}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 disabled:opacity-50">
+                <Link2 size={14} /> Confirmar Vínculo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
