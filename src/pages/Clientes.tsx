@@ -433,7 +433,17 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
               <h2 className="font-bold text-gray-900">{editando ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-              <button onClick={() => setModalForm(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              <div className="flex items-center gap-2">
+                {editando && (
+                  <button
+                    onClick={() => setModalVinculo(editando)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50"
+                  >
+                    <Link2 size={14} /> Vincular
+                  </button>
+                )}
+                <button onClick={() => setModalForm(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              </div>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-3">
@@ -631,6 +641,35 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                               })()}
                             </div>
                           )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Vínculos existentes ── */}
+              {editando && (editando.vinculos ?? []).length > 0 && (
+                <div className="col-span-2">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
+                  <div className="space-y-1.5">
+                    {(editando.vinculos ?? []).map(v => {
+                      const cli = clientes.find(c => c.id === v.clienteId);
+                      if (!cli) return null;
+                      return (
+                        <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
+                          <div className="flex items-center gap-2">
+                            <Link2 size={13} className="text-blue-500 shrink-0" />
+                            <span className="font-medium text-gray-800">{cli.nome}</span>
+                            <span className="text-xs text-gray-400">· {v.tipo}</span>
+                          </div>
+                          <button
+                            onClick={() => removerVinculo(editando, v.clienteId)}
+                            className="p-1 text-red-400 hover:text-red-600 rounded"
+                            title="Remover vínculo"
+                          >
+                            <X size={13} />
+                          </button>
                         </div>
                       );
                     })}
