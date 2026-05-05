@@ -347,10 +347,13 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       alert('Selecione o Ramo. Este campo é obrigatório.');
       return;
     }
+    if (!form.inicioVigencia) {
+      alert('Informe o Início de Vigência. Este campo é obrigatório.');
+      return;
+    }
     if (form.status === 'fechado') {
       const erros: string[] = [];
       if (!form.seguradora) erros.push('Seguradora');
-      if (!form.inicioVigencia) erros.push('Início de Vigência');
       if (!(parseFloat(form.premioLiquido) > 0)) erros.push('Prêmio Líquido');
       if (!(parseFloat(form.percentComissao) > 0)) erros.push('% Comissão');
       if (erros.length > 0) {
@@ -975,11 +978,11 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
               {/* Right column — insurance fields, tasks, observations */}
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
                 {/* Banner: campos obrigatórios para "Fechado" */}
-                {!isFinalizado && form.status === 'fechado' && (!form.seguradora || !form.inicioVigencia || !(parseFloat(form.premioLiquido) > 0) || !(parseFloat(form.percentComissao) > 0)) && (
+                {!isFinalizado && form.status === 'fechado' && (!form.seguradora || !(parseFloat(form.premioLiquido) > 0) || !(parseFloat(form.percentComissao) > 0)) && (
                   <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-300 rounded-lg px-4 py-3">
                     <AlertTriangle size={15} className="text-amber-500 shrink-0 mt-0.5" />
                     <p className="text-sm text-amber-800">
-                      Para fechar o negócio, preencha os campos obrigatórios marcados com <span className="text-red-500 font-bold">*</span>: seguradora, início de vigência, prêmio líquido e % de comissão.
+                      Para fechar o negócio, preencha os campos obrigatórios marcados com <span className="text-red-500 font-bold">*</span>: seguradora, prêmio líquido e % de comissão.
                     </p>
                   </div>
                 )}
@@ -990,13 +993,12 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Início de Vigência
-                        {form.status === 'fechado' && <span className="text-red-500 ml-1">*</span>}
+                        Início de Vigência <span className="text-red-500">*</span>
                       </label>
                       <input type="date" value={form.inicioVigencia}
                         onChange={e => setForm(f => ({...f, inicioVigencia: e.target.value}))}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          !isFinalizado && form.status === 'fechado' && !form.inicioVigencia
+                          !isFinalizado && !form.inicioVigencia
                             ? 'border-red-400 bg-red-50' : 'border-gray-300'
                         }`} />
                     </div>
