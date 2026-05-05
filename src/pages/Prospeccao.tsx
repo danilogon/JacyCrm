@@ -83,7 +83,6 @@ export function ProspeccaoPage({
 }: Props) {
   const { usuario } = useAuth();
   const isAdmin  = usuario?.role === 'admin';
-  const isGestor = usuario?.role === 'gestor';
 
   const now = new Date();
   const [filtroAno, setFiltroAno]     = useState(now.getFullYear());
@@ -424,12 +423,10 @@ export function ProspeccaoPage({
               </label>
             </>
           )}
-          {(isAdmin || isGestor) && (
-            <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
-              <Plus size={14} /> Nova Prospecção
-            </button>
-          )}
+          <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+            <Plus size={14} /> Nova Prospecção
+          </button>
         </div>
       </div>
 
