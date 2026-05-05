@@ -3,7 +3,7 @@ import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Downloa
 import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
-  SeguroNovo, MotivoPerda, Tarefa, Cliente,
+  SeguroNovo, MotivoPerda, Tarefa, Cliente, OrigemProspeccao,
 } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
@@ -24,6 +24,7 @@ interface Props {
   tarefas: Tarefa[];
   setTarefas: (t: Tarefa[]) => void;
   podeDescartar: boolean;
+  origensProspeccao: OrigemProspeccao[];
 }
 
 const STATUS_LABELS: Record<StatusProspeccao, string> = {
@@ -42,17 +43,15 @@ const STATUS_CORES: Record<StatusProspeccao, string> = {
   descartado:       'bg-red-100 text-red-700',
 };
 
-const ORIGEM_LABELS: Record<string, string> = {
-  manual:              'Agendamento',
-  renovacao_perdida:   'Renovações',
-  seguro_novo_perdido: 'Seguros Novos',
-};
-
 const ORIGEM_CORES: Record<string, string> = {
   manual:              'bg-purple-100 text-purple-700',
   renovacao_perdida:   'bg-amber-100 text-amber-700',
   seguro_novo_perdido: 'bg-blue-100 text-blue-700',
 };
+
+function getOrigemLabel(origensProspeccao: OrigemProspeccao[], origemId: string): string {
+  return origensProspeccao.find(o => o.id === origemId)?.nome ?? origemId;
+}
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -66,11 +65,13 @@ interface FormNova {
   seguradora: string;
   premioReferencia: string;
   dataContato: string;
+  origemId: string;
 }
 
 const formNovaVazio = (): FormNova => ({
   nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '',
   ramo: '', seguradora: '', premioReferencia: '', dataContato: new Date().toISOString().split('T')[0],
+  origemId: 'manual',
 });
 
 export function ProspeccaoPage({
@@ -80,6 +81,7 @@ export function ProspeccaoPage({
   usuarios, seguradoras, ramos, motivos: _motivos,
   tarefas, setTarefas,
   podeDescartar,
+  origensProspeccao,
 }: Props) {
   const { usuario } = useAuth();
   const isAdmin  = usuario?.role === 'admin';
@@ -215,7 +217,7 @@ export function ProspeccaoPage({
     if (!formNova.ramo) { alert('Selecione o Ramo. Este campo é obrigatório.'); return; }
     const nova: Prospeccao = {
       id: generateId(),
-      origem: 'manual',
+      origem: formNova.origemId || 'manual',
       responsavelId: usuario?.id ?? '',
       nomeCliente: formNova.nomeCliente.trim(),
       emailCliente: formNova.emailCliente.trim(),
@@ -263,7 +265,7 @@ export function ProspeccaoPage({
       nomeUsuario(p.responsavelId),
       p.nomeCliente, p.emailCliente, p.telefoneCliente, p.cpfCnpjCliente,
       p.ramo, p.seguradora, p.premioReferencia, p.dataContato,
-      STATUS_LABELS[p.status], ORIGEM_LABELS[p.origem] ?? p.origem,
+      STATUS_LABELS[p.status], getOrigemLabel(origensProspeccao, p.origem),
     ]);
     const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
     baixarCSVHelper(csv, `prospeccoes_${new Date().toISOString().split('T')[0]}.csv`);
@@ -508,7 +510,7 @@ export function ProspeccaoPage({
                 {/* Origem */}
                 <td className="px-4 py-3">
                   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${ORIGEM_CORES[p.origem] ?? 'bg-gray-100 text-gray-600'}`}>
-                    {ORIGEM_LABELS[p.origem] ?? p.origem}
+                    {getOrigemLabel(origensProspeccao, p.origem)}
                   </span>
                 </td>
 
@@ -538,7 +540,7 @@ export function ProspeccaoPage({
                   <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CORES[prosp.status]}`}>
                     {STATUS_LABELS[prosp.status]}
                   </span>
-                  <span className="text-xs text-gray-400">{ORIGEM_LABELS[prosp.origem]}</span>
+                  <span className="text-xs text-gray-400">{getOrigemLabel(origensProspeccao, prosp.origem)}</span>
                 </div>
               </div>
               <button onClick={() => setVisualizando(null)} className="p-1.5 hover:bg-gray-100 rounded-lg">
@@ -603,7 +605,7 @@ export function ProspeccaoPage({
                       </span>
                     </div>
                     <div><span className="text-xs text-gray-400 block">Responsável</span>{nomeUsuario(prosp.responsavelId)}</div>
-                    <div><span className="text-xs text-gray-400 block">Origem</span>{ORIGEM_LABELS[prosp.origem]}</div>
+                    <div><span className="text-xs text-gray-400 block">Origem</span>{getOrigemLabel(origensProspeccao, prosp.origem)}</div>
                   </div>
                 </div>
 
@@ -712,6 +714,15 @@ export function ProspeccaoPage({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="">Selecione...</option>
                     {seguradOrd.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Origem</label>
+                  <select value={formNova.origemId} onChange={e => setFormNova(f => ({ ...f, origemId: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {origensProspeccao.filter(o => o.ativo).map(o => (
+                      <option key={o.id} value={o.id}>{o.nome}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

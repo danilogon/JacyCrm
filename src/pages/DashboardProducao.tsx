@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Package, Trophy, ArrowRight, Shuffle, Percent, AlertCircle, Clock, CheckCircle2, XCircle } from 'lucide-react';
-import type { SeguroNovo, Renovacao, Prospeccao, Ramo, Seguradora, MotivoPerda, Usuario } from '../types';
+import type { SeguroNovo, Renovacao, Prospeccao, Ramo, Seguradora, MotivoPerda, Usuario, OrigemProspeccao } from '../types';
 import { formatCurrency } from '../utils/formatters';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
   seguradoras: Seguradora[];
   motivos: MotivoPerda[];
   usuarios: Usuario[];
+  origensProspeccao: OrigemProspeccao[];
 }
 
 type TipoNegocio = 'todos' | 'seguros_novos' | 'renovacoes' | 'prospeccoes';
@@ -72,7 +73,7 @@ function RankRow({ pos, nome, qtd, premio, comissao, maxPremio, color }: {
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
-export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos, seguradoras, motivos, usuarios }: Props) {
+export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos, seguradoras, motivos, usuarios, origensProspeccao }: Props) {
   const now = new Date();
   const [filtroAno, setFiltroAno] = useState(now.getFullYear());
   const [filtroMes, setFiltroMes] = useState(now.getMonth() + 1);
@@ -80,6 +81,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocio>('todos');
   const [filtroMigOrigem, setFiltroMigOrigem] = useState('');
+  const [filtroOrigem, setFiltroOrigem] = useState('');
 
   const anos = useMemo(() => {
     const all = [
@@ -143,10 +145,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       if (!dentroPeriodo(p.dataContato)) return false;
       if (filtroRamo && p.ramo !== filtroRamo) return false;
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
+      if (filtroOrigem && p.origem !== filtroOrigem) return false;
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospeccoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo]);
+  }, [prospeccoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem]);
 
   // prospConvertidas removido — não utilizado nos rankings atuais
   const prospDescartadas  = useMemo(() => prospFiltradas.filter(p => p.status === 'descartado'),  [prospFiltradas]);
@@ -321,7 +324,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
 
   const showMig  = filtroTipo === 'todos' || filtroTipo === 'renovacoes';
   const showRamo = !filtroRamo;
-  const temFiltro = filtroAno || filtroMes || filtroRamo || filtroSeguradora || filtroTipo !== 'todos';
+  const temFiltro = filtroAno || filtroMes || filtroRamo || filtroSeguradora || filtroTipo !== 'todos' || !!filtroOrigem;
 
   return (
     <div className="p-6 space-y-6">
@@ -376,9 +379,19 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
             {seguradoras.filter(s => s.ativo).map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
           </select>
 
+          {(filtroTipo === 'prospeccoes' || filtroTipo === 'todos') && (
+            <select value={filtroOrigem} onChange={e => setFiltroOrigem(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Todas as origens</option>
+              {origensProspeccao.filter(o => o.ativo).map(o => (
+                <option key={o.id} value={o.id}>{o.nome}</option>
+              ))}
+            </select>
+          )}
+
           {temFiltro && (
             <button
-              onClick={() => { setFiltroAno(0); setFiltroMes(0); setFiltroRamo(''); setFiltroSeguradora(''); setFiltroTipo('todos'); }}
+              onClick={() => { setFiltroAno(0); setFiltroMes(0); setFiltroRamo(''); setFiltroSeguradora(''); setFiltroTipo('todos'); setFiltroOrigem(''); }}
               className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
               Limpar
             </button>

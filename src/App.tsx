@@ -18,7 +18,7 @@ import { Tarefas } from './pages/Tarefas';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
-  ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa,
+  ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -106,6 +106,7 @@ function AppRoutes() {
   const [empresa,      setEmpresaState]      = useState<ConfiguracaoEmpresa>({ nome: 'Segura Mais', logoUrl: '', corPrimaria: '#1e40af', corSecundaria: '#1d4ed8' });
   const [tiposUsuario, setTiposUsuarioState] = useState<TipoUsuario[]>([]);
   const [tarefas,      setTarefasState]      = useState<Tarefa[]>([]);
+  const [origensProspeccao, setOrigensProspeccaoState] = useState<OrigemProspeccao[]>([]);
 
   // Carrega todos os dados ao montar
   useEffect(() => {
@@ -124,6 +125,7 @@ function AppRoutes() {
         setProspeccoesState(data.prospeccoes);
         setTarefasState(data.tarefas);
         setTiposUsuarioState(data.tiposUsuario);
+        setOrigensProspeccaoState(data.origensProspeccao);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -164,6 +166,9 @@ function AppRoutes() {
 
   const setTiposUsuario = useCallback(
     makeSyncer(setTiposUsuarioState, db.upsertTiposUsuario, db.deleteTiposUsuario), []);
+
+  const setOrigensProspeccao = useCallback(
+    makeSyncer(setOrigensProspeccaoState, db.upsertOrigensProspeccao, db.deleteOrigensProspeccao), []);
 
   const setTarefas = useCallback(
     makeSyncer(setTarefasState, db.upsertTarefas, db.deleteTarefas), []);
@@ -247,6 +252,7 @@ function AppRoutes() {
               seguradoras={seguradoras}
               motivos={motivos}
               usuarios={usuarios}
+              origensProspeccao={origensProspeccao}
             />
           } />
         )}
@@ -307,6 +313,7 @@ function AppRoutes() {
               tarefas={tarefas}
               setTarefas={setTarefas}
               podeDescartar={podeDescartarProspeccao}
+              origensProspeccao={origensProspeccao}
             />
           } />
         )}
@@ -370,6 +377,8 @@ function AppRoutes() {
               setEmpresa={setEmpresa}
               tiposUsuario={tiposUsuario}
               setTiposUsuario={setTiposUsuario}
+              origensProspeccao={origensProspeccao}
+              setOrigensProspeccao={setOrigensProspeccao}
             />
           } />
         )}

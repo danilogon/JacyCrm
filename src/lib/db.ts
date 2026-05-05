@@ -13,7 +13,7 @@ import { supabase } from './supabase';
 import type {
   Usuario, Renovacao, SeguroNovo, Prospeccao, Cliente,
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
-  CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa,
+  CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -71,6 +71,7 @@ export async function fetchAll() {
     r_prosp,
     r_tarefas,
     r_tipos,
+    r_origens,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -85,12 +86,13 @@ export async function fetchAll() {
     supabase.from('prospeccoes').select('*'),
     supabase.from('tarefas').select('*'),
     supabase.from('tipos_usuario').select('*'),
+    supabase.from('origens_prospeccao').select('*').order('nome'),
   ]);
 
   // Detecta erros críticos
   const erros = [
     r_usuarios, r_seguradoras, r_ramos, r_motivos, r_campos,
-    r_clientes, r_renovacoes, r_sn, r_prosp, r_tarefas, r_tipos,
+    r_clientes, r_renovacoes, r_sn, r_prosp, r_tarefas, r_tipos, r_origens,
   ].filter(r => r.error).map(r => r.error!.message);
 
   if (erros.length) {
@@ -109,6 +111,7 @@ export async function fetchAll() {
     prospeccoes:  (r_prosp.data       || []).map(r => rowToCamel<Prospeccao>(r as Record<string, unknown>)),
     tarefas:      (r_tarefas.data     || []).map(r => rowToCamel<Tarefa>(r as Record<string, unknown>)),
     tiposUsuario: (r_tipos.data       || []).map(r => rowToCamel<TipoUsuario>(r as Record<string, unknown>)),
+    origensProspeccao: (r_origens.data || []).map(r => rowToCamel<OrigemProspeccao>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -178,6 +181,10 @@ export const db = {
   // Tipos de usuário
   upsertTiposUsuario:(items: TipoUsuario[])     => upsertRows('tipos_usuario', items as unknown as Record<string, unknown>[]),
   deleteTiposUsuario:(ids: string[])            => deleteRows('tipos_usuario', ids),
+
+  // Origens de Prospecção
+  upsertOrigensProspeccao:(items: OrigemProspeccao[]) => upsertRows('origens_prospeccao', items as unknown as Record<string, unknown>[]),
+  deleteOrigensProspeccao:(ids: string[])             => deleteRows('origens_prospeccao', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

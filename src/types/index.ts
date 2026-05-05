@@ -86,6 +86,13 @@ export type StatusProspeccao =
   | 'convertido'
   | 'descartado';
 
+export interface OrigemProspeccao {
+  id: string;        // 'manual' | 'renovacao_perdida' | 'seguro_novo_perdido' | any custom slug/uuid
+  nome: string;      // display label
+  isSystem: boolean; // true = locked, cannot be deleted
+  ativo: boolean;
+}
+
 export interface ArquivoAnexo {
   id: string;
   nome: string;
@@ -160,7 +167,7 @@ export interface SeguroNovo {
 
 export interface Prospeccao {
   id: string;
-  origem: 'manual' | 'renovacao_perdida' | 'seguro_novo_perdido';
+  origem: string;
   origemId?: string;
   responsavelId: string;
   clienteId?: string;

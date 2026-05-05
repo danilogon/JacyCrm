@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role } from '../types';
+import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check, Lock } from 'lucide-react';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao } from '../types';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -19,9 +19,11 @@ interface Props {
   setEmpresa: (e: ConfiguracaoEmpresa) => Promise<void>;
   tiposUsuario: TipoUsuario[];
   setTiposUsuario: (t: TipoUsuario[]) => void;
+  origensProspeccao: OrigemProspeccao[];
+  setOrigensProspeccao: (o: OrigemProspeccao[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -149,7 +151,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -198,6 +200,12 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   };
   const [editTipo, setEditTipo] = useState<TipoUsuario | null>(null);
 
+  // Origens state
+  const [editOrigem, setEditOrigem] = useState<OrigemProspeccao | null>(null);
+  const [criandoOrigem, setCriandoOrigem] = useState(false);
+  const [formOrigemNome, setFormOrigemNome] = useState('');
+  const [confirmDelOrigem, setConfirmDelOrigem] = useState<string | null>(null);
+
   // Empresa local form state
   const [formEmpresa, setFormEmpresa] = useState<ConfiguracaoEmpresa>(empresa);
   const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
@@ -231,6 +239,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'metas', label: 'Metas' },
     { key: 'motivos', label: 'Motivos de Perda' },
     { key: 'campos', label: 'Campos Customizáveis' },
+    { key: 'origens_prospeccao', label: 'Origens de Prospecção' },
   ];
 
   // --- Seguradoras ---
@@ -322,6 +331,26 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   function excluirTipo(id: string) {
     setTiposUsuario(tiposUsuario.filter(t => t.id !== id));
     setConfirmDelTipo(null);
+  }
+
+  // --- Origens de Prospecção ---
+  function salvarOrigem() {
+    if (!formOrigemNome.trim()) return;
+    if (criandoOrigem) {
+      setOrigensProspeccao([...origensProspeccao, {
+        id: generateId(),
+        nome: formOrigemNome.trim(),
+        isSystem: false,
+        ativo: true,
+      }]);
+    } else if (editOrigem) {
+      setOrigensProspeccao(origensProspeccao.map(o =>
+        o.id === editOrigem.id ? { ...o, nome: formOrigemNome.trim() } : o
+      ));
+    }
+    setEditOrigem(null);
+    setCriandoOrigem(false);
+    setFormOrigemNome('');
   }
 
   const ROLE_LABELS_CFG: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -1172,6 +1201,109 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             message="Deseja excluir este tipo? Os usuários vinculados não serão afetados."
             onConfirm={() => excluirTipo(confirmDelTipo!)}
             onCancel={() => setConfirmDelTipo(null)} danger />
+        </div>
+      )}
+
+      {/* Origens de Prospecção */}
+      {tab === 'origens_prospeccao' && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <button onClick={() => { setFormOrigemNome(''); setCriandoOrigem(true); setEditOrigem(null); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+              <Plus size={14} /> Nova Origem
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Nome</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {origensProspeccao.length === 0 ? (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Nenhuma origem cadastrada</td></tr>
+                ) : origensProspeccao.map(o => (
+                  <tr key={o.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800">
+                      <div className="flex items-center gap-2">
+                        {o.isSystem && <span title="Origem do sistema — não pode ser excluída"><Lock size={13} className="text-gray-400 shrink-0" /></span>}
+                        {o.nome}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {o.isSystem
+                        ? <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">Sistema</span>
+                        : <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Personalizada</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => setOrigensProspeccao(origensProspeccao.map(x => x.id === o.id ? { ...x, ativo: !x.ativo } : x))}
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${o.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {o.ativo ? 'Ativa' : 'Inativa'}
+                      </button>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-1">
+                        {!o.isSystem && (
+                          <button onClick={() => { setFormOrigemNome(o.nome); setEditOrigem(o); setCriandoOrigem(false); }}
+                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                            <Edit2 size={13} />
+                          </button>
+                        )}
+                        {!o.isSystem && (
+                          <button onClick={() => setConfirmDelOrigem(o.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                        {o.isSystem && <span className="px-2 py-1.5 text-xs text-gray-300">—</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Modal criar/editar */}
+          {(criandoOrigem || editOrigem) && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="font-semibold text-gray-800">{criandoOrigem ? 'Nova Origem' : 'Editar Origem'}</h2>
+                  <button onClick={() => { setEditOrigem(null); setCriandoOrigem(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                  <input value={formOrigemNome} onChange={e => setFormOrigemNome(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && salvarOrigem()}
+                    autoFocus
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => { setEditOrigem(null); setCriandoOrigem(false); }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+                  <button onClick={salvarOrigem}
+                    className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">Salvar</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ConfirmDialog
+            open={confirmDelOrigem !== null}
+            title="Excluir origem"
+            message="Deseja excluir esta origem de prospecção? Esta ação não pode ser desfeita."
+            onConfirm={() => {
+              if (confirmDelOrigem) setOrigensProspeccao(origensProspeccao.filter(o => o.id !== confirmDelOrigem));
+              setConfirmDelOrigem(null);
+            }}
+            onCancel={() => setConfirmDelOrigem(null)}
+          />
         </div>
       )}
     </div>
