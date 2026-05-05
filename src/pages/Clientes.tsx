@@ -115,8 +115,11 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     if (duplicado) { alert('Já existe um cliente com este CPF/CNPJ.'); return; }
 
     if (editando) {
+      // Busca a versão mais recente do cliente no array (pode ter vinculos
+      // criados após o modal ser aberto — editando é stale)
+      const clienteAtual = clientes.find(c => c.id === editando.id) ?? editando;
       const updated: Cliente = {
-        ...editando,
+        ...clienteAtual,
         cpfCnpj: cpfDigits,
         tipo,
         nome: form.nome.trim(),
@@ -132,6 +135,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         cidade: form.cidade,
         uf: form.uf,
         camposCustomizados: form.camposCustomizados ?? [],
+        // vinculos vêm de clienteAtual (fresco), nunca do editando stale
         atualizadoEm: new Date().toISOString(),
       };
       setClientes(clientes.map(c => c.id === updated.id ? updated : c));
