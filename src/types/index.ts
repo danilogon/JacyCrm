@@ -24,9 +24,10 @@ export interface TipoUsuario {
 
 export interface Usuario {
   id: string;
+  authUid?: string;
   nome: string;
   email: string;
-  senha: string;
+  senha?: string;
   role: Role;
   acessoRenovacoes: boolean;
   acessoSegurosNovos: boolean;

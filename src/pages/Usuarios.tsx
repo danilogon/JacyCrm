@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, X, Save, Check, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario } from '../types';
 import { generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -80,6 +81,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
   const [criando, setCriando] = useState(false);
   const [form, setForm] = useState<FormUsuario>(formVazio);
   const [confirmToggle, setConfirmToggle] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
 
   const sorted = useMemo(() => [...usuarios].sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
 
@@ -120,47 +122,75 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
     setCriando(false);
   }
 
-  function salvar() {
+  async function salvar() {
     if (!form.nome.trim() || !form.email.trim()) { alert('Nome e email são obrigatórios.'); return; }
     if (criando && !form.senha) { alert('Senha é obrigatória para novos usuários.'); return; }
     const emailDup = usuarios.find(u => u.email === form.email && u.id !== editando?.id);
     if (emailDup) { alert('Este email já está em uso.'); return; }
 
-    const dados: Omit<Usuario, 'id'> = {
-      nome: form.nome, email: form.email, senha: form.senha || (editando?.senha ?? ''),
-      role: form.role,
-      acessoRenovacoes: form.acessoRenovacoes,
-      acessoSegurosNovos: form.acessoSegurosNovos,
-      acessoProspeccao: form.acessoProspeccao,
-      podeDescartarProspeccao: form.podeDescartarProspeccao,
-      acessoConsultaRenovacoes: form.acessoConsultaRenovacoes,
-      visualizarDashboard: form.visualizarDashboard,
-      visualizarProducao: form.visualizarProducao,
-      visualizarMetas: form.visualizarMetas,
-      visualizarComissoes: form.visualizarComissoes,
-      camposRestritos: form.camposRestritos,
-      recebeRemuneracaoRenovacoes: form.recebeRemuneracaoRenovacoes,
-      planoMetaRenovacaoId: form.recebeRemuneracaoRenovacoes ? form.planoMetaRenovacaoId || undefined : undefined,
-      recebeRemuneracaoTaxaRenovacoes: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoTaxaRenovacoes : false,
-      recebeRemuneracaoAumentoComissao: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoAumentoComissao : false,
-      recebeRemuneracaoSegurosNovos: form.recebeRemuneracaoSegurosNovos,
-      planoMetaSeguroNovoId: form.recebeRemuneracaoSegurosNovos ? form.planoMetaSeguroNovoId || undefined : undefined,
-      recebeRemuneracaoSnComissao: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnComissao : false,
-      recebeRemuneracaoSnTaxa: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnTaxa : false,
-      ativo: form.ativo,
-      tipoUsuarioId:      form.tipoUsuarioId      || undefined,
-      horarioLoginInicio: form.horarioLoginInicio || undefined,
-      horarioLoginFim:    form.horarioLoginFim    || undefined,
-      exigir2FA:          form.exigir2FA,
-    };
+    setSalvando(true);
+    try {
+      let authUid = editando?.authUid;
 
-    if (criando) {
-      setUsuarios([...usuarios, { id: generateId(), ...dados }]);
-    } else if (editando) {
-      setUsuarios(usuarios.map(u => u.id === editando.id ? { ...editando, ...dados } : u));
+      if (criando) {
+        // Cria o login no Supabase Auth via Edge Function
+        const { data, error } = await supabase.functions.invoke('gerenciar-usuario', {
+          body: { acao: 'criar', email: form.email, senha: form.senha },
+        });
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+        authUid = data.authUid;
+      } else if (editando && form.senha) {
+        // Atualiza a senha no Supabase Auth via Edge Function
+        const { data, error } = await supabase.functions.invoke('gerenciar-usuario', {
+          body: { acao: 'atualizar_senha', authUid: editando.authUid, senha: form.senha },
+        });
+        if (error) throw new Error(error.message);
+        if (data?.error) throw new Error(data.error);
+      }
+
+      const dados: Omit<Usuario, 'id'> = {
+        authUid,
+        nome: form.nome,
+        email: form.email,
+        role: form.role,
+        acessoRenovacoes: form.acessoRenovacoes,
+        acessoSegurosNovos: form.acessoSegurosNovos,
+        acessoProspeccao: form.acessoProspeccao,
+        podeDescartarProspeccao: form.podeDescartarProspeccao,
+        acessoConsultaRenovacoes: form.acessoConsultaRenovacoes,
+        visualizarDashboard: form.visualizarDashboard,
+        visualizarProducao: form.visualizarProducao,
+        visualizarMetas: form.visualizarMetas,
+        visualizarComissoes: form.visualizarComissoes,
+        camposRestritos: form.camposRestritos,
+        recebeRemuneracaoRenovacoes: form.recebeRemuneracaoRenovacoes,
+        planoMetaRenovacaoId: form.recebeRemuneracaoRenovacoes ? form.planoMetaRenovacaoId || undefined : undefined,
+        recebeRemuneracaoTaxaRenovacoes: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoTaxaRenovacoes : false,
+        recebeRemuneracaoAumentoComissao: form.recebeRemuneracaoRenovacoes ? form.recebeRemuneracaoAumentoComissao : false,
+        recebeRemuneracaoSegurosNovos: form.recebeRemuneracaoSegurosNovos,
+        planoMetaSeguroNovoId: form.recebeRemuneracaoSegurosNovos ? form.planoMetaSeguroNovoId || undefined : undefined,
+        recebeRemuneracaoSnComissao: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnComissao : false,
+        recebeRemuneracaoSnTaxa: form.recebeRemuneracaoSegurosNovos ? form.recebeRemuneracaoSnTaxa : false,
+        ativo: form.ativo,
+        tipoUsuarioId:      form.tipoUsuarioId      || undefined,
+        horarioLoginInicio: form.horarioLoginInicio || undefined,
+        horarioLoginFim:    form.horarioLoginFim    || undefined,
+        exigir2FA:          form.exigir2FA,
+      };
+
+      if (criando) {
+        setUsuarios([...usuarios, { id: generateId(), ...dados }]);
+      } else if (editando) {
+        setUsuarios(usuarios.map(u => u.id === editando.id ? { ...editando, ...dados } : u));
+      }
+      setCriando(false);
+      setEditando(null);
+    } catch (err) {
+      alert('Erro ao salvar usuário: ' + (err instanceof Error ? err.message : 'Erro desconhecido'));
+    } finally {
+      setSalvando(false);
     }
-    setCriando(false);
-    setEditando(null);
   }
 
   function toggleAtivo(id: string) {
@@ -474,9 +504,9 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
               </div>
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
-              <button onClick={() => { setEditando(null); setCriando(false); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
-              <button onClick={salvar} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
-                <Save size={14} /> {criando ? 'Criar' : 'Salvar'}
+              <button onClick={() => { setEditando(null); setCriando(false); }} disabled={salvando} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50">Cancelar</button>
+              <button onClick={salvar} disabled={salvando} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 disabled:opacity-60">
+                <Save size={14} /> {salvando ? 'Salvando...' : criando ? 'Criar' : 'Salvar'}
               </button>
             </div>
           </div>
