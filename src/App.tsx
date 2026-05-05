@@ -295,6 +295,7 @@ function AppRoutes() {
               setClientes={setClientes}
               tarefas={tarefas}
               setTarefas={setTarefas}
+              origensNegocio={origensProspeccao}
             />
           } />
         )}

@@ -239,7 +239,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'metas', label: 'Metas' },
     { key: 'motivos', label: 'Motivos de Perda' },
     { key: 'campos', label: 'Campos Customizáveis' },
-    { key: 'origens_prospeccao', label: 'Origens de Prospecção' },
+    { key: 'origens_prospeccao', label: 'Origem do Negócio' },
   ];
 
   // --- Seguradoras ---
@@ -1300,7 +1300,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
           <ConfirmDialog
             open={confirmDelOrigem !== null}
             title="Excluir origem"
-            message="Deseja excluir esta origem de prospecção? Esta ação não pode ser desfeita."
+            message="Deseja excluir esta origem do negócio? Esta ação não pode ser desfeita."
             onConfirm={() => {
               if (confirmDelOrigem) setOrigensProspeccao(origensProspeccao.filter(o => o.id !== confirmDelOrigem));
               setConfirmDelOrigem(null);

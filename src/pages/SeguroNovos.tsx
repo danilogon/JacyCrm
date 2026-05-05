@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
+import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -27,6 +27,7 @@ interface Props {
   setClientes: (c: Cliente[]) => void;
   tarefas: Tarefa[];
   setTarefas: (t: Tarefa[]) => void;
+  origensNegocio: OrigemProspeccao[];
 }
 
 const STATUS_LABELS: Record<StatusSeguroNovo, string> = {
@@ -61,6 +62,7 @@ type FormState = {
   percentComissao: string;
   status: StatusSeguroNovo;
   motivoPerdaId: string;
+  origemId: string;
   novaObservacao: string;
   novosArquivos: ArquivoAnexo[];
 };
@@ -68,7 +70,7 @@ type FormState = {
 const formVazio = (usuarioId: string): FormState => ({
   nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '',
   responsavelId: usuarioId, inicioVigencia: '', ramo: '', seguradora: '',
-  premioLiquido: '', percentComissao: '', status: 'a_trabalhar', motivoPerdaId: '', novaObservacao: '', novosArquivos: [],
+  premioLiquido: '', percentComissao: '', status: 'a_trabalhar', motivoPerdaId: '', origemId: '', novaObservacao: '', novosArquivos: [],
 });
 
 // ── Busca e seleção de cliente cadastrado ────────────────────────────────────
@@ -157,7 +159,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas }: Props) {
+export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -251,6 +253,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       percentComissao: String(s.percentComissao),
       status: s.status,
       motivoPerdaId: s.motivoPerdaId ?? '',
+      origemId: s.origem ?? '',
       novaObservacao: '', novosArquivos: [],
     });
     setEditando(s);
@@ -385,6 +388,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         comissao, comissaoAReceber,
         status: form.status,
         motivoPerdaId: form.status === 'perdido' ? form.motivoPerdaId : undefined,
+        origem: form.origemId || undefined,
         observacoes: (form.novaObservacao.trim() || form.novosArquivos.length > 0)
           ? [{ id: generateId(), texto: form.novaObservacao.trim(), autor: usuario?.nome ?? '', data: new Date().toISOString(), arquivos: form.novosArquivos }]
           : [],
@@ -439,6 +443,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         comissao, comissaoAReceber,
         status: form.status,
         motivoPerdaId: form.status === 'perdido' ? form.motivoPerdaId : undefined,
+        origem: form.origemId || undefined,
         observacoes: obs,
         atualizadoEm: new Date().toISOString(),
       };
@@ -984,6 +989,20 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         {seguradOrd.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
                       </select>
                     </div>
+
+                    {origensNegocio.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Origem do Negócio</label>
+                        <select value={form.origemId} onChange={e => setForm(f => ({...f, origemId: e.target.value}))}
+                          disabled={bloqueado}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                          <option value="">— Selecione a origem —</option>
+                          {origensNegocio.filter(o => o.ativo).map(o => (
+                            <option key={o.id} value={o.id}>{o.nome}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

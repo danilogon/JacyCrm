@@ -107,10 +107,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       if (!dentroPeriodo(s.inicioVigencia)) return false;
       if (filtroRamo && s.ramo !== filtroRamo) return false;
       if (filtroSeguradora && s.seguradora !== filtroSeguradora) return false;
+      if (filtroOrigem && s.origem !== filtroOrigem) return false;
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo]);
+  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem]);
 
   const snFechados  = useMemo(() => snFiltrados.filter(s => s.status === 'fechado'), [snFiltrados]);
   const snPerdidos  = useMemo(() => snFiltrados.filter(s => {
@@ -379,7 +380,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
             {seguradoras.filter(s => s.ativo).map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
           </select>
 
-          {(filtroTipo === 'prospeccoes' || filtroTipo === 'todos') && (
+          {(filtroTipo === 'seguros_novos' || filtroTipo === 'prospeccoes' || filtroTipo === 'todos') && (
             <select value={filtroOrigem} onChange={e => setFiltroOrigem(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">Todas as origens</option>

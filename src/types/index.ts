@@ -160,6 +160,7 @@ export interface SeguroNovo {
   comissaoAReceber: number;
   status: StatusSeguroNovo;
   motivoPerdaId?: string;
+  origem?: string;             // id da OrigemProspeccao selecionada
   origemProspeccaoId?: string; // vinculado quando assumido da prospecção
   observacoes: Observacao[];
   camposCustomizados: CampoCustomizadoValor[];
