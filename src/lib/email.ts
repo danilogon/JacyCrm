@@ -37,5 +37,8 @@ export async function enviarCodigo2FA(params: {
 }
 
 export function gerarCodigo(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // crypto.getRandomValues é criptograficamente seguro (substitui Math.random)
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return String(100000 + (array[0] % 900000));
 }

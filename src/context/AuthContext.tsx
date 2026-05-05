@@ -15,19 +15,38 @@ const AuthContext = createContext<AuthContextType>({
   updateUsuario: () => {},
 });
 
+/** Campos do Usuario que são seguros para persistir no localStorage (sem senha). */
+function toSafeSession(u: Usuario): Omit<Usuario, 'senha'> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { senha: _senha, ...safe } = u as Usuario & { senha?: string };
+  return safe as Omit<Usuario, 'senha'>;
+}
+
+/** Restaura a sessão do localStorage; rejeita silenciosamente dados corrompidos. */
+function restoreSession(): Usuario | null {
+  try {
+    const raw = localStorage.getItem('usuario_logado');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    // Garante que o objeto tem ao menos id e role (sessões antigas podem ter campos extras)
+    if (!parsed?.id || !parsed?.role) return null;
+    // Remove senha caso exista em sessões salvas antes desta versão
+    delete parsed.senha;
+    return parsed as Usuario;
+  } catch {
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [usuario, setUsuario] = useState<Usuario | null>(() => {
-    try {
-      const saved = localStorage.getItem('usuario_logado');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
-  });
+  const [usuario, setUsuario] = useState<Usuario | null>(restoreSession);
 
   const login = useCallback((email: string, senha: string, usuarios: Usuario[]) => {
     const found = usuarios.find(u => u.email === email && u.senha === senha && u.ativo);
     if (found) {
       setUsuario(found);
-      localStorage.setItem('usuario_logado', JSON.stringify(found));
+      // Persiste apenas campos não-sensíveis
+      localStorage.setItem('usuario_logado', JSON.stringify(toSafeSession(found)));
       return true;
     }
     return false;
@@ -40,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateUsuario = useCallback((u: Usuario) => {
     setUsuario(u);
-    localStorage.setItem('usuario_logado', JSON.stringify(u));
+    localStorage.setItem('usuario_logado', JSON.stringify(toSafeSession(u)));
   }, []);
 
   return (

@@ -13,7 +13,13 @@ export function formatDate(dateStr: string): string {
 }
 
 export function generateId(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  // Usa crypto.randomUUID quando disponível; fallback com getRandomValues
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, b => b.toString(16).padStart(2, '0')).join('') + Date.now().toString(36);
 }
 
 export function formatCpfCnpj(value: string): string {
