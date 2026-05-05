@@ -1,16 +1,17 @@
 import { useState, useMemo } from 'react';
-import { Search } from 'lucide-react';
-import type { Renovacao, Usuario } from '../types';
+import { Search, Bell } from 'lucide-react';
+import type { Renovacao, Usuario, Cliente } from '../types';
 import { formatDate } from '../utils/formatters';
 
 interface Props {
   renovacoes: Renovacao[];
   usuarios: Usuario[];
+  clientes?: Cliente[];
 }
 
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-export function ConsultaRenovacoes({ renovacoes, usuarios }: Props) {
+export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Props) {
   const now = new Date();
   const [filtroAno, setFiltroAno] = useState(now.getFullYear());
   const [filtroMes, setFiltroMes] = useState(now.getMonth() + 1);
@@ -104,7 +105,22 @@ export function ConsultaRenovacoes({ renovacoes, usuarios }: Props) {
                   {formatDate(r.fimVigencia) || '—'}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-800">{r.nomeCliente}</div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-gray-800">{r.nomeCliente}</span>
+                    {(() => {
+                      const obs = clientes.find(c => c.id === r.clienteId)?.observacaoImportante;
+                      if (!obs) return null;
+                      return (
+                        <span className="relative group inline-flex shrink-0 z-50">
+                          <Bell size={11} className="text-amber-500 cursor-help" />
+                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                            {obs}
+                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                   {r.telefoneCliente && (
                     <div className="text-xs text-gray-400 mt-0.5">{r.telefoneCliente}</div>
                   )}

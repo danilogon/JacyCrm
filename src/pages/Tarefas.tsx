@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Circle, Calendar, Clock, ExternalLink, Filter, Plus, X, Save } from 'lucide-react';
+import { CheckCircle2, Circle, Calendar, Clock, ExternalLink, Filter, Plus, X, Save, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa, TipoTarefa, Usuario, Cliente } from '../types';
 import { TIPO_LABELS, TipoIcon } from '../components/TarefasPanel';
@@ -334,7 +334,22 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
 
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {t.nomeCliente && (
-                            <span className="text-xs text-gray-500">{t.nomeCliente}</span>
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                              {t.nomeCliente}
+                              {(() => {
+                                const obs = clientes.find(c => c.id === t.clienteId)?.observacaoImportante;
+                                if (!obs) return null;
+                                return (
+                                  <span className="relative group inline-flex shrink-0 z-50">
+                                    <Bell size={11} className="text-amber-500 cursor-help" />
+                                    <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                                      {obs}
+                                      <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
+                                    </span>
+                                  </span>
+                                );
+                              })()}
+                            </span>
                           )}
                           {(isAdmin || isGestor) && (
                             <span className="text-xs text-gray-400">

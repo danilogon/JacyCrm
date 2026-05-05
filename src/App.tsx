@@ -327,6 +327,7 @@ function AppRoutes() {
             <ConsultaRenovacoes
               renovacoes={renovacoes}
               usuarios={usuarios}
+              clientes={clientes}
             />
           } />
         )}

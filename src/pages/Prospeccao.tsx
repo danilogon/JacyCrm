@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Download, Upload } from 'lucide-react';
+import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Download, Upload, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
@@ -598,6 +598,19 @@ export function ProspeccaoPage({
                     <span className="font-medium text-gray-800">{p.nomeCliente}</span>
                     {p.clienteId && <UserCheck size={11} className="text-blue-500 shrink-0" aria-label="Cliente cadastrado" />}
                     {p.assumidoPor && <CheckCircle2 size={11} className="text-green-500 shrink-0" aria-label={`Assumida por ${nomeUsuario(p.assumidoPor)}`} />}
+                    {(() => {
+                      const obs = clientes.find(c => c.id === p.clienteId)?.observacaoImportante;
+                      if (!obs) return null;
+                      return (
+                        <span className="relative group inline-flex shrink-0 z-50">
+                          <Bell size={11} className="text-amber-500 cursor-help" />
+                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
+                            {obs}
+                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
+                          </span>
+                        </span>
+                      );
+                    })()}
                   </div>
                   <div className="text-xs text-gray-400 mt-0.5">{formatCpfCnpj(p.cpfCnpjCliente)}</div>
                 </td>
