@@ -193,7 +193,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         const [y, m] = r.fimVigencia.split('-').map(Number);
         if (y !== filtroAno) return false;
         if (filtroMes && m !== filtroMes) return false;
-        if (filtroStatus && r.status !== filtroStatus) return false;
+        if (filtroStatus === 'ativos') { if (r.status === 'renovado' || r.status === 'nao_renovada') return false; }
+        else if (filtroStatus && r.status !== filtroStatus) return false;
         if (filtroResp && r.responsavelId !== filtroResp) return false;
         if (usuario?.role === 'usuario' && r.responsavelId !== usuario.id) return false;
         return true;
@@ -593,6 +594,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         </select>
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Todos os status</option>
+          <option value="ativos">Todos, exceto concluídos</option>
           {(Object.keys(STATUS_LABELS) as StatusRenovacao[]).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
         {(isAdmin || isGestor) && (

@@ -206,7 +206,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         const [y, m] = dateRef.split('-').map(Number);
         if (y !== filtroAno) return false;
         if (filtroMes && m !== filtroMes) return false;
-        if (filtroStatus && s.status !== filtroStatus) return false;
+        if (filtroStatus === 'ativos') { if (s.status === 'fechado' || s.status === 'perdido') return false; }
+        else if (filtroStatus && s.status !== filtroStatus) return false;
         if (filtroResp && s.responsavelId !== filtroResp) return false;
         if (usuario?.role === 'usuario' && s.responsavelId !== usuario.id) return false;
         return true;
@@ -696,6 +697,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         </select>
         <select value={filtroStatus} onChange={e => setFiltroStatus(e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Todos os status</option>
+          <option value="ativos">Todos, exceto concluídos</option>
           {(Object.keys(STATUS_LABELS) as StatusSeguroNovo[]).map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
         {(isAdmin || isGestor) && (
