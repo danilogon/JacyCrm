@@ -159,14 +159,53 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
     setConfirmExcluir(id);
   }
 
-  function exportarCSV() {
-    const headers = ['CPF/CNPJ','Tipo','Nome','Email','Telefone','Data Nasc','CEP','Logradouro','Número','Complemento','Bairro','Cidade','UF'];
-    const rows = clientes.map(c => [c.cpfCnpj, c.tipo, c.nome, c.email, c.telefone, c.dataNascimento ?? '', c.cep, c.logradouro, c.numero, c.complemento, c.bairro, c.cidade, c.uf]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  // ── CSV helpers ──────────────────────────────────────────────────────────────
+
+  function parseCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+
+  function baixarCSVHelper(conteudo: string, nome: string) {
     const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
-    a.download = `clientes_${new Date().toISOString().split('T')[0]}.csv`;
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + conteudo);
+    a.download = nome;
     a.click();
+  }
+
+  function exportarCSV() {
+    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
+    const rows = clientes.map(c => [
+      c.cpfCnpj, c.nome, c.email, c.telefone,
+      c.dataNascimento ?? '', c.cep, c.logradouro, c.numero,
+      c.complemento, c.bairro, c.cidade, c.uf,
+      c.observacaoImportante ?? '',
+    ]);
+    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    baixarCSVHelper(csv, `clientes_${new Date().toISOString().split('T')[0]}.csv`);
+  }
+
+  function baixarModeloCSV() {
+    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
+    const ex1 = ['12345678901','João da Silva','joao@email.com','11999990000','1985-03-20','01310100','Av. Paulista','1000','Apto 42','Bela Vista','São Paulo','SP','Cliente prefere WhatsApp'];
+    const ex2 = ['12345678000195','Empresa ABC Ltda','contato@abc.com.br','1133330000','','04571010','Rua das Flores','200','','Itaim Bibi','São Paulo','SP',''];
+    const csv = [headers, ex1, ex2].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    baixarCSVHelper(csv, 'modelo_importacao_clientes.csv');
   }
 
   function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
@@ -174,36 +213,64 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
     if (!file) return;
     const reader = new FileReader();
     reader.onload = ev => {
-      const text = ev.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim());
-      const novos: Cliente[] = lines.slice(1).map(line => {
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        const [cpfCnpj, , nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf] = cols;
-        const digits = cpfCnpj?.replace(/\D/g, '') ?? '';
-        const { tipo } = validateCpfCnpj(digits);
-        return {
+      const raw = ev.target?.result as string;
+      const text = raw.replace(/^﻿/, '');
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) { alert('Arquivo CSV vazio ou sem dados.'); return; }
+
+      const cpfsExistentes = new Set(clientes.map(c => c.cpfCnpj));
+      const novos: Cliente[] = [];
+      const duplicados: string[] = [];
+      const rejeitados: { linha: number; motivo: string }[] = [];
+
+      lines.slice(1).forEach((line, idx) => {
+        const lineNum = idx + 2;
+        const cols = parseCSVLine(line);
+        const [cpfCnpjRaw, nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf, observacaoImportante] = cols;
+
+        const cpfDigits = (cpfCnpjRaw ?? '').replace(/\D/g, '');
+        const nomeClean = (nome ?? '').trim();
+
+        if (!nomeClean) { rejeitados.push({ linha: lineNum, motivo: 'Nome ausente' }); return; }
+        if (!cpfDigits) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ ausente` }); return; }
+
+        const { tipo } = validateCpfCnpj(cpfDigits);
+        if (!tipo) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ inválido (${cpfDigits.length} dígitos)` }); return; }
+
+        if (cpfsExistentes.has(cpfDigits)) { duplicados.push(nomeClean); return; }
+
+        cpfsExistentes.add(cpfDigits);
+        novos.push({
           id: generateId(),
-          cpfCnpj: digits,
-          tipo: tipo ?? 'PF',
-          nome: nome ?? '',
-          email: email ?? '',
-          telefone: telefone ?? '',
-          dataNascimento: dataNascimento || undefined,
-          cep: cep?.replace(/\D/g, '') ?? '',
-          logradouro: logradouro ?? '',
-          numero: numero ?? '',
-          complemento: complemento ?? '',
-          bairro: bairro ?? '',
-          cidade: cidade ?? '',
-          uf: uf ?? '',
+          cpfCnpj: cpfDigits,
+          tipo,
+          nome: nomeClean,
+          email: (email ?? '').trim(),
+          telefone: (telefone ?? '').trim(),
+          dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? dataNascimento.trim() : undefined,
+          observacaoImportante: (observacaoImportante ?? '').trim() || undefined,
+          cep: (cep ?? '').replace(/\D/g, ''),
+          logradouro: (logradouro ?? '').trim(),
+          numero: (numero ?? '').trim(),
+          complemento: (complemento ?? '').trim(),
+          bairro: (bairro ?? '').trim(),
+          cidade: (cidade ?? '').trim(),
+          uf: (uf ?? '').trim().toUpperCase().slice(0, 2),
           criadoEm: new Date().toISOString(),
           atualizadoEm: new Date().toISOString(),
-        };
-      }).filter(c => c.nome);
-      setClientes([...clientes, ...novos]);
-      alert(`${novos.length} cliente(s) importado(s).`);
+        });
+      });
+
+      if (novos.length > 0) setClientes([...clientes, ...novos]);
+
+      const partes: string[] = [];
+      if (novos.length > 0) partes.push(`✅ ${novos.length} cliente(s) importado(s) com sucesso.`);
+      if (duplicados.length > 0) partes.push(`⚠️ ${duplicados.length} ignorado(s) — CPF/CNPJ já cadastrado:\n  ${duplicados.slice(0, 5).join(', ')}${duplicados.length > 5 ? '...' : ''}`);
+      if (rejeitados.length > 0) partes.push(`❌ ${rejeitados.length} linha(s) rejeitada(s):\n${rejeitados.map(r => `  Linha ${r.linha}: ${r.motivo}`).join('\n')}`);
+
+      alert(partes.join('\n\n') || 'Nenhum cliente foi importado.');
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
     e.target.value = '';
   }
 
@@ -219,14 +286,19 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-gray-900">Clientes</h1>
         <div className="flex flex-wrap gap-2">
-          <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-            <Download size={14} /> Exportar
-          </button>
           {isAdmin && (
-            <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
-              <Upload size={14} /> Importar
-              <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
-            </label>
+            <>
+              <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Exportar
+              </button>
+              <button onClick={baixarModeloCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Modelo CSV
+              </button>
+              <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
+                <Upload size={14} /> Importar CSV
+                <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+              </label>
+            </>
           )}
           <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
             <Plus size={14} /> Novo Cliente
