@@ -137,28 +137,28 @@ export const CAMPOS_CUSTOMIZAVEIS_INICIAIS: CampoCustomizavel[] = [
 export const TIPOS_USUARIO_INICIAIS: TipoUsuario[] = [
   {
     id: 'tu1', nome: 'Administrador', descricao: 'Acesso total ao sistema, incluindo configurações e usuários.', role: 'admin',
-    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: true,
+    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: true, acessoConsultaRenovacoes: false,
     visualizarDashboard: true, visualizarProducao: true, visualizarMetas: true, visualizarComissoes: true,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
     ativo: true,
   },
   {
     id: 'tu2', nome: 'Gestor', descricao: 'Visualiza e gerencia toda a produção da equipe, sem acesso a configurações.', role: 'gestor',
-    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: true,
+    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: true, acessoConsultaRenovacoes: false,
     visualizarDashboard: true, visualizarProducao: true, visualizarMetas: true, visualizarComissoes: false,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
     ativo: true,
   },
   {
     id: 'tu3', nome: 'Corretor', descricao: 'Acesso à sua própria produção de renovações e seguros novos, com metas e remuneração.', role: 'usuario',
-    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: false,
+    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: false, acessoConsultaRenovacoes: false,
     visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
     ativo: true,
   },
   {
     id: 'tu4', nome: 'Assistente', descricao: 'Acesso apenas à carteira de renovações, sem remuneração por metas.', role: 'usuario',
-    acessoRenovacoes: true, acessoSegurosNovos: false, acessoProspeccao: false, podeDescartarProspeccao: false,
+    acessoRenovacoes: true, acessoSegurosNovos: false, acessoProspeccao: false, podeDescartarProspeccao: false, acessoConsultaRenovacoes: false,
     visualizarDashboard: true, visualizarProducao: false, visualizarMetas: false, visualizarComissoes: false,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
     ativo: true,
