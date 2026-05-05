@@ -175,19 +175,24 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   function criarVinculo() {
     if (!modalVinculo || !clienteVinculoSel) return;
 
+    // Sempre usa dados frescos do array para evitar stale closure
+    const clienteA = clientes.find(c => c.id === modalVinculo.id);
+    const clienteB = clientes.find(c => c.id === clienteVinculoSel.id);
+    if (!clienteA || !clienteB) return;
+
     const updatedA: Cliente = {
-      ...modalVinculo,
+      ...clienteA,
       vinculos: [
-        ...(modalVinculo.vinculos ?? []).filter(v => v.clienteId !== clienteVinculoSel.id),
-        { clienteId: clienteVinculoSel.id, tipo: tipoVinculo }
+        ...(clienteA.vinculos ?? []).filter(v => v.clienteId !== clienteB.id),
+        { clienteId: clienteB.id, tipo: tipoVinculo },
       ],
       atualizadoEm: new Date().toISOString(),
     };
     const updatedB: Cliente = {
-      ...clienteVinculoSel,
+      ...clienteB,
       vinculos: [
-        ...(clienteVinculoSel.vinculos ?? []).filter(v => v.clienteId !== modalVinculo.id),
-        { clienteId: modalVinculo.id, tipo: tipoVinculo }
+        ...(clienteB.vinculos ?? []).filter(v => v.clienteId !== clienteA.id),
+        { clienteId: clienteA.id, tipo: tipoVinculo },
       ],
       atualizadoEm: new Date().toISOString(),
     };
@@ -203,16 +208,20 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     setTipoVinculo('Cônjuge');
   }
 
-  function removerVinculo(clienteBase: Cliente, vinculoClienteId: string) {
+  function removerVinculo(clienteBaseId: string, vinculoClienteId: string) {
+    // Lê sempre do array fresco
+    const clienteBase = clientes.find(c => c.id === clienteBaseId);
+    const clienteB = clientes.find(c => c.id === vinculoClienteId);
+    if (!clienteBase) return;
+
     const updatedA: Cliente = {
       ...clienteBase,
       vinculos: (clienteBase.vinculos ?? []).filter(v => v.clienteId !== vinculoClienteId),
       atualizadoEm: new Date().toISOString(),
     };
-    const clienteB = clientes.find(c => c.id === vinculoClienteId);
     const updatedB = clienteB ? {
       ...clienteB,
-      vinculos: (clienteB.vinculos ?? []).filter(v => v.clienteId !== clienteBase.id),
+      vinculos: (clienteB.vinculos ?? []).filter(v => v.clienteId !== clienteBaseId),
       atualizadoEm: new Date().toISOString(),
     } : null;
 
@@ -649,33 +658,38 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
               )}
 
               {/* ── Vínculos existentes ── */}
-              {editando && (editando.vinculos ?? []).length > 0 && (
-                <div className="col-span-2">
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
-                  <div className="space-y-1.5">
-                    {(editando.vinculos ?? []).map(v => {
-                      const cli = clientes.find(c => c.id === v.clienteId);
-                      if (!cli) return null;
-                      return (
-                        <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <Link2 size={13} className="text-blue-500 shrink-0" />
-                            <span className="font-medium text-gray-800">{cli.nome}</span>
-                            <span className="text-xs text-gray-400">· {v.tipo}</span>
+              {editando && (() => {
+                // Lê vinculos do array fresco (não do objeto stale)
+                const vinculos = clientes.find(c => c.id === editando.id)?.vinculos ?? [];
+                if (vinculos.length === 0) return null;
+                return (
+                  <div className="col-span-2">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
+                    <div className="space-y-1.5">
+                      {vinculos.map(v => {
+                        const cli = clientes.find(c => c.id === v.clienteId);
+                        if (!cli) return null;
+                        return (
+                          <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <Link2 size={13} className="text-blue-500 shrink-0" />
+                              <span className="font-medium text-gray-800">{cli.nome}</span>
+                              <span className="text-xs text-gray-400">· {v.tipo}</span>
+                            </div>
+                            <button
+                              onClick={() => removerVinculo(editando.id, v.clienteId)}
+                              className="p-1 text-red-400 hover:text-red-600 rounded"
+                              title="Remover vínculo"
+                            >
+                              <X size={13} />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removerVinculo(editando, v.clienteId)}
-                            className="p-1 text-red-400 hover:text-red-600 rounded"
-                            title="Remover vínculo"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
@@ -718,33 +732,38 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                   </div>
                 </div>
               )}
-              {(visualizando.vinculos ?? []).length > 0 && (
-                <div>
-                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
-                  <div className="space-y-1.5">
-                    {(visualizando.vinculos ?? []).map(v => {
-                      const cli = clientes.find(c => c.id === v.clienteId);
-                      if (!cli) return null;
-                      return (
-                        <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
-                          <div className="flex items-center gap-2">
-                            <Link2 size={13} className="text-blue-500 shrink-0" />
-                            <span className="font-medium text-gray-800">{cli.nome}</span>
-                            <span className="text-xs text-gray-400">· {v.tipo}</span>
+              {(() => {
+                // Lê vinculos do array fresco (não do objeto stale)
+                const vinculos = clientes.find(c => c.id === visualizando.id)?.vinculos ?? [];
+                if (vinculos.length === 0) return null;
+                return (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Vínculos</h3>
+                    <div className="space-y-1.5">
+                      {vinculos.map(v => {
+                        const cli = clientes.find(c => c.id === v.clienteId);
+                        if (!cli) return null;
+                        return (
+                          <div key={v.clienteId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg text-sm border border-gray-100">
+                            <div className="flex items-center gap-2">
+                              <Link2 size={13} className="text-blue-500 shrink-0" />
+                              <span className="font-medium text-gray-800">{cli.nome}</span>
+                              <span className="text-xs text-gray-400">· {v.tipo}</span>
+                            </div>
+                            <button
+                              onClick={() => removerVinculo(visualizando.id, v.clienteId)}
+                              className="p-1 text-red-400 hover:text-red-600 rounded"
+                              title="Remover vínculo"
+                            >
+                              <X size={13} />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removerVinculo(visualizando, v.clienteId)}
-                            className="p-1 text-red-400 hover:text-red-600 rounded"
-                            title="Remover vínculo"
-                          >
-                            <X size={13} />
-                          </button>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><div className="text-xs text-gray-400">Email</div><div className="text-gray-700">{visualizando.email || '—'}</div></div>
                 <div><div className="text-xs text-gray-400">Telefone</div><div className="text-gray-700">{visualizando.telefone || '—'}</div></div>

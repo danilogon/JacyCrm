@@ -121,6 +121,8 @@ CREATE TABLE IF NOT EXISTS clientes (
   bairro TEXT DEFAULT '',
   cidade TEXT DEFAULT '',
   uf TEXT DEFAULT '',
+  campos_customizados JSONB DEFAULT '[]',
+  vinculos JSONB DEFAULT '[]',
   criado_em TIMESTAMPTZ DEFAULT NOW(),
   atualizado_em TIMESTAMPTZ DEFAULT NOW()
 );
