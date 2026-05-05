@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
+import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -61,6 +61,7 @@ type FormState = {
   motivoPerdaId: string;
   novaObservacao: string;
   novosArquivos: ArquivoAnexo[];
+  camposCustomizados: CampoCustomizadoValor[];
 };
 
 // ── Componente de busca de cliente ──────────────────────────────────────────
@@ -147,10 +148,13 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas }: Props) {
+export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
+  const camposAplicaveis = (camposCustomizaveis ?? []).filter(c =>
+    c.ativo && ['renovacoes', 'ambos', 'todos'].includes(c.aplicavelA)
+  );
   const location = useLocation();
   const navigateRen = useNavigate();
 
@@ -174,7 +178,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     responsavelId: '', status: 'a_trabalhar',
     seguradoraAnterior: '', premioAnterior: '', percentComissaoAnterior: '',
     seguradoraNova: '', premioNovo: '', percentComissaoNova: '',
-    motivoPerdaId: '', novaObservacao: '', novosArquivos: [],
+    motivoPerdaId: '', novaObservacao: '', novosArquivos: [], camposCustomizados: [],
   });
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
   const [clienteVisualizando, setClienteVisualizando] = useState<Cliente | null>(null);
@@ -222,7 +226,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       premioNovo: r.premioNovo ? String(r.premioNovo) : '',
       percentComissaoNova: r.percentComissaoNova ? String(r.percentComissaoNova) : '',
       motivoPerdaId: r.motivoPerdaId ?? '',
-      novaObservacao: '', novosArquivos: [],
+      novaObservacao: '', novosArquivos: [], camposCustomizados: r.camposCustomizados ?? [],
     });
     setEditando(r);
   }
@@ -300,6 +304,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       resultado,
       motivoPerdaId: form.status === 'nao_renovada' ? form.motivoPerdaId : undefined,
       observacoes: obs,
+      camposCustomizados: form.camposCustomizados,
       atualizadoEm: new Date().toISOString(),
     };
     setRenovacoes(renovacoes.map(r => r.id === updated.id ? updated : r));
@@ -1012,6 +1017,101 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                     </div>
                   </div>
                 </div>
+
+                {/* ── Campos Customizáveis ── */}
+                {camposAplicaveis.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Campos Adicionais</h3>
+                    <div className="space-y-3">
+                      {camposAplicaveis.map(campo => {
+                        const valorAtual = form.camposCustomizados.find(c => c.campoId === campo.id)?.valor ?? '';
+                        const setValor = (v: string | string[]) => setForm(f => ({
+                          ...f,
+                          camposCustomizados: f.camposCustomizados.some(c => c.campoId === campo.id)
+                            ? f.camposCustomizados.map(c => c.campoId === campo.id ? { ...c, valor: v } : c)
+                            : [...f.camposCustomizados, { campoId: campo.id, valor: v }],
+                        }));
+                        return (
+                          <div key={campo.id}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {campo.tipo === 'texto' && (
+                              <input type="text" value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                            )}
+                            {campo.tipo === 'data' && (
+                              <input type="date" value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                            )}
+                            {campo.tipo === 'lista' && (
+                              <select value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                                <option value="">— Selecione —</option>
+                                {(campo.opcoes ?? []).map(op => <option key={op} value={op}>{op}</option>)}
+                              </select>
+                            )}
+                            {campo.tipo === 'arquivo' && (
+                              <div className="space-y-2">
+                                {!bloqueado && (
+                                  <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 text-sm text-gray-500">
+                                    <span>📎 {campo.multiplosArquivos ? 'Selecionar arquivos' : 'Selecionar arquivo'}</span>
+                                    <input type="file" className="hidden"
+                                      accept={(campo.tiposPermitidos ?? []).join(',')}
+                                      multiple={!!campo.multiplosArquivos}
+                                      onChange={e => {
+                                        const files = Array.from(e.target.files ?? []);
+                                        const readers = files.map(f => new Promise<string>(resolve => {
+                                          const r = new FileReader();
+                                          r.onload = ev => resolve(JSON.stringify({ id: generateId(), nome: f.name, tipo: f.type, tamanho: f.size, dataBase64: ev.target?.result as string }));
+                                          r.readAsDataURL(f);
+                                        }));
+                                        Promise.all(readers).then(results => {
+                                          if (campo.multiplosArquivos) {
+                                            const cur = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                            setValor([...cur, ...results]);
+                                          } else {
+                                            setValor(results[0] ?? '');
+                                          }
+                                        });
+                                        e.target.value = '';
+                                      }} />
+                                  </label>
+                                )}
+                                {(() => {
+                                  const arqs = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                  return arqs.map((arqStr, i) => {
+                                    try {
+                                      const arq = JSON.parse(arqStr) as { nome: string; dataBase64: string };
+                                      return (
+                                        <div key={i} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg text-xs border border-gray-100">
+                                          <span className="text-gray-700 truncate">{arq.nome}</span>
+                                          <div className="flex gap-1 shrink-0 ml-2">
+                                            <button type="button" title="Baixar" onClick={() => { const a = document.createElement('a'); a.href = arq.dataBase64; a.download = arq.nome; a.click(); }}
+                                              className="p-1 text-blue-500 hover:text-blue-700">↓</button>
+                                            {!bloqueado && (
+                                              <button type="button" title="Remover" onClick={() => {
+                                                if (Array.isArray(valorAtual)) setValor((valorAtual as string[]).filter((_, idx) => idx !== i));
+                                                else setValor('');
+                                              }} className="p-1 text-red-400 hover:text-red-600">×</button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    } catch { return null; }
+                                  });
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Tarefas */}
                 <div>

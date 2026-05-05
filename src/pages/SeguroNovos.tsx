@@ -2,7 +2,7 @@ import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao } from '../types';
+import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -65,12 +65,14 @@ type FormState = {
   origemId: string;
   novaObservacao: string;
   novosArquivos: ArquivoAnexo[];
+  camposCustomizados: CampoCustomizadoValor[];
 };
 
 const formVazio = (usuarioId: string): FormState => ({
   nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '',
   responsavelId: usuarioId, inicioVigencia: '', ramo: '', seguradora: '',
   premioLiquido: '', percentComissao: '', status: 'a_trabalhar', motivoPerdaId: '', origemId: '', novaObservacao: '', novosArquivos: [],
+  camposCustomizados: [],
 });
 
 // ── Busca e seleção de cliente cadastrado ────────────────────────────────────
@@ -159,10 +161,13 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio }: Props) {
+export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio, camposCustomizaveis }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
+  const camposAplicaveis = (camposCustomizaveis ?? []).filter(c =>
+    c.ativo && ['seguros_novos', 'ambos', 'seguros_novos_prospeccoes', 'todos'].includes(c.aplicavelA)
+  );
   const location = useLocation();
   const navigateSN = useNavigate();
 
@@ -256,6 +261,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       motivoPerdaId: s.motivoPerdaId ?? '',
       origemId: s.origem ?? '',
       novaObservacao: '', novosArquivos: [],
+      camposCustomizados: s.camposCustomizados ?? [],
     });
     setEditando(s);
     setCriando(false);
@@ -393,7 +399,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         observacoes: (form.novaObservacao.trim() || form.novosArquivos.length > 0)
           ? [{ id: generateId(), texto: form.novaObservacao.trim(), autor: usuario?.nome ?? '', data: new Date().toISOString(), arquivos: form.novosArquivos }]
           : [],
-        camposCustomizados: [],
+        camposCustomizados: form.camposCustomizados,
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
       };
@@ -446,6 +452,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         motivoPerdaId: form.status === 'perdido' ? form.motivoPerdaId : undefined,
         origem: form.origemId || undefined,
         observacoes: obs,
+        camposCustomizados: form.camposCustomizados,
         atualizadoEm: new Date().toISOString(),
       };
       setSegurosNovos(segurosNovos.map(s => s.id === updated.id ? updated : s));
@@ -1086,6 +1093,101 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                     setTarefas={setTarefas}
                   />
                 </div>
+
+                {/* ── Campos Customizáveis ── */}
+                {camposAplicaveis.length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Campos Adicionais</h3>
+                    <div className="space-y-3">
+                      {camposAplicaveis.map(campo => {
+                        const valorAtual = form.camposCustomizados.find(c => c.campoId === campo.id)?.valor ?? '';
+                        const setValor = (v: string | string[]) => setForm(f => ({
+                          ...f,
+                          camposCustomizados: f.camposCustomizados.some(c => c.campoId === campo.id)
+                            ? f.camposCustomizados.map(c => c.campoId === campo.id ? { ...c, valor: v } : c)
+                            : [...f.camposCustomizados, { campoId: campo.id, valor: v }],
+                        }));
+                        return (
+                          <div key={campo.id}>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              {campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-1">*</span>}
+                            </label>
+                            {campo.tipo === 'texto' && (
+                              <input type="text" value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                            )}
+                            {campo.tipo === 'data' && (
+                              <input type="date" value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
+                            )}
+                            {campo.tipo === 'lista' && (
+                              <select value={valorAtual as string}
+                                onChange={e => setValor(e.target.value)} disabled={bloqueado}
+                                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
+                                <option value="">— Selecione —</option>
+                                {(campo.opcoes ?? []).map(op => <option key={op} value={op}>{op}</option>)}
+                              </select>
+                            )}
+                            {campo.tipo === 'arquivo' && (
+                              <div className="space-y-2">
+                                {!bloqueado && (
+                                  <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 text-sm text-gray-500">
+                                    <span>📎 {campo.multiplosArquivos ? 'Selecionar arquivos' : 'Selecionar arquivo'}</span>
+                                    <input type="file" className="hidden"
+                                      accept={(campo.tiposPermitidos ?? []).join(',')}
+                                      multiple={!!campo.multiplosArquivos}
+                                      onChange={e => {
+                                        const files = Array.from(e.target.files ?? []);
+                                        const readers = files.map(f => new Promise<string>(resolve => {
+                                          const r = new FileReader();
+                                          r.onload = ev => resolve(JSON.stringify({ id: generateId(), nome: f.name, tipo: f.type, tamanho: f.size, dataBase64: ev.target?.result as string }));
+                                          r.readAsDataURL(f);
+                                        }));
+                                        Promise.all(readers).then(results => {
+                                          if (campo.multiplosArquivos) {
+                                            const cur = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                            setValor([...cur, ...results]);
+                                          } else {
+                                            setValor(results[0] ?? '');
+                                          }
+                                        });
+                                        e.target.value = '';
+                                      }} />
+                                  </label>
+                                )}
+                                {(() => {
+                                  const arqs = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                  return arqs.map((arqStr, i) => {
+                                    try {
+                                      const arq = JSON.parse(arqStr) as { nome: string; dataBase64: string };
+                                      return (
+                                        <div key={i} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg text-xs border border-gray-100">
+                                          <span className="text-gray-700 truncate">{arq.nome}</span>
+                                          <div className="flex gap-1 shrink-0 ml-2">
+                                            <button type="button" title="Baixar" onClick={() => { const a = document.createElement('a'); a.href = arq.dataBase64; a.download = arq.nome; a.click(); }}
+                                              className="p-1 text-blue-500 hover:text-blue-700">↓</button>
+                                            {!bloqueado && (
+                                              <button type="button" title="Remover" onClick={() => {
+                                                if (Array.isArray(valorAtual)) setValor((valorAtual as string[]).filter((_, idx) => idx !== i));
+                                                else setValor('');
+                                              }} className="p-1 text-red-400 hover:text-red-600">×</button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    } catch { return null; }
+                                  });
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Observações ── */}
                 <div>
