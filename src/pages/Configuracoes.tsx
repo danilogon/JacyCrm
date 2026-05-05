@@ -229,8 +229,14 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [formTipo, setFormTipo] = useState<Omit<TipoUsuario, 'id'>>(tipoVazio);
   const [confirmDelTipo, setConfirmDelTipo] = useState<string | null>(null);
 
-  const segsOrd = useMemo(() => [...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome)), [seguradoras]);
-  const ramosOrd = useMemo(() => [...ramos].sort((a, b) => a.nome.localeCompare(b.nome)), [ramos]);
+  const segsOrd    = useMemo(() => [...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [seguradoras]);
+  const ramosOrd   = useMemo(() => [...ramos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [ramos]);
+  const camposOrd  = useMemo(() => [...campos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [campos]);
+  const origensOrd = useMemo(() => {
+    const sistema = origensProspeccao.filter(o => o.isSystem).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    const custom  = origensProspeccao.filter(o => !o.isSystem).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    return [...sistema, ...custom];
+  }, [origensProspeccao]);
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'empresa', label: 'Empresa' },
@@ -364,7 +370,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     usuario: 'bg-gray-100 text-gray-700',
   };
 
-  const motivosTab = motivos.filter(m => m.tipo === subTabMotivos).sort((a, b) => a.ordem - b.ordem);
+  const motivosTab = motivos.filter(m => m.tipo === subTabMotivos).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
 
   return (
@@ -983,7 +989,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {campos.map(c => (
+                  {camposOrd.map(c => (
                     <tr key={c.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2.5 font-medium text-gray-800">{c.nome}</td>
                       <td className="px-3 py-2.5 text-gray-600 capitalize">{c.tipo}</td>
@@ -1235,7 +1241,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
               <tbody className="divide-y divide-gray-100">
                 {origensProspeccao.length === 0 ? (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhuma origem cadastrada</td></tr>
-                ) : origensProspeccao.map(o => (
+                ) : origensOrd.map(o => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">
                       <div className="flex items-center gap-2">
