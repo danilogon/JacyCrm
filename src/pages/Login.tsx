@@ -264,26 +264,6 @@ export function Login() {
           </div>
         )}
 
-        {/* Usuários demo */}
-        {fase === 'credenciais' && (
-          <div className="mt-6 pt-4 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center mb-3">Usuários demo (senha: 123456)</p>
-            <div className="space-y-1">
-              {[
-                { email: 'ana@empresa.com',    label: 'Ana Oliveira — Admin'   },
-                { email: 'carlos@empresa.com', label: 'Carlos Gestor — Gestor' },
-                { email: 'joao@empresa.com',   label: 'João Silva — Usuário'   },
-              ].map(u => (
-                <button key={u.email} type="button"
-                  onClick={() => { setEmail(u.email); setSenha('123456'); }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 rounded transition-colors"
-                >
-                  {u.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
