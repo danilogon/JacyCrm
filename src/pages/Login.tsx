@@ -170,7 +170,7 @@ export function Login({ usuarios }: Props) {
               : <Shield size={28} className="text-white" />}
           </div>
           <div className="text-2xl font-bold text-gray-900">
-            {fase === 'verificacao' ? 'Verificação' : 'Segura Mais'}
+            {fase === 'verificacao' ? 'Verificação' : 'SmartCor'}
           </div>
           <div className="text-gray-500 text-sm mt-1">
             {fase === 'verificacao'

@@ -109,7 +109,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
           <>
             <Shield size={20} className="text-blue-300 shrink-0" />
             <div className="flex-1 min-w-0">
-              <div className="text-lg font-bold tracking-wide">Segura Mais</div>
+              <div className="text-lg font-bold tracking-wide">SmartCor</div>
               <div className="text-blue-400 text-xs">Gestão de Produção</div>
             </div>
             <button
@@ -263,7 +263,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
       {/* Versão */}
       {!collapsed && (
         <div className="border-t border-blue-900 px-4 py-3">
-          <span className="text-xs text-blue-500">v1.0.0 · Segura Mais</span>
+          <span className="text-xs text-blue-500">v1.0.0 · SmartCor</span>
         </div>
       )}
     </aside>

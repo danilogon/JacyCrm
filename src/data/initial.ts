@@ -166,7 +166,7 @@ export const TIPOS_USUARIO_INICIAIS: TipoUsuario[] = [
 ];
 
 export const EMPRESA_INICIAL: ConfiguracaoEmpresa = {
-  nome: 'Segura Mais',
+  nome: 'SmartCor',
   logoUrl: '',
   corPrimaria: '#1e40af',
   corSecundaria: '#1d4ed8',

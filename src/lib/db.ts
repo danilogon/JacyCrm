@@ -48,7 +48,7 @@ function objToSnake(obj: Record<string, unknown>): Record<string, unknown> {
 
 const METAS_DEFAULT: ConfiguracoesMetas = { planosRenovacao: [], planosSeguroNovo: [] };
 const EMPRESA_DEFAULT: ConfiguracaoEmpresa = {
-  nome: 'Segura Mais',
+  nome: 'SmartCor',
   logoUrl: '',
   corPrimaria: '#1e40af',
   corSecundaria: '#1d4ed8',

@@ -104,7 +104,7 @@ function AppRoutes() {
   const [metas,        setMetasState]        = useState<ConfiguracoesMetas>({ planosRenovacao: [], planosSeguroNovo: [] });
   const [motivos,      setMotivosState]      = useState<MotivoPerda[]>([]);
   const [campos,       setCamposState]       = useState<CampoCustomizavel[]>([]);
-  const [empresa,      setEmpresaState]      = useState<ConfiguracaoEmpresa>({ nome: 'Segura Mais', logoUrl: '', corPrimaria: '#1e40af', corSecundaria: '#1d4ed8' });
+  const [empresa,      setEmpresaState]      = useState<ConfiguracaoEmpresa>({ nome: 'SmartCor', logoUrl: '', corPrimaria: '#1e40af', corSecundaria: '#1d4ed8' });
   const [tiposUsuario, setTiposUsuarioState] = useState<TipoUsuario[]>([]);
   const [tarefas,      setTarefasState]      = useState<Tarefa[]>([]);
   const [origensProspeccao, setOrigensProspeccaoState] = useState<OrigemProspeccao[]>([]);
