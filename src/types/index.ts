@@ -180,6 +180,7 @@ export interface Prospeccao {
   emailCliente: string;
   telefoneCliente: string;
   cpfCnpjCliente: string;
+  dataNascimentoCliente?: string;
   ramo: string;
   seguradora: string;
   premioReferencia: number;

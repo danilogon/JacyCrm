@@ -62,6 +62,7 @@ interface FormNova {
   emailCliente: string;
   telefoneCliente: string;
   cpfCnpjCliente: string;
+  dataNascimentoCliente: string;
   ramo: string;
   seguradora: string;
   premioReferencia: string;
@@ -70,7 +71,7 @@ interface FormNova {
 }
 
 const formNovaVazio = (): FormNova => ({
-  nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '',
+  nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '', dataNascimentoCliente: '',
   ramo: '', seguradora: '', premioReferencia: '', dataContato: new Date().toISOString().split('T')[0],
   origemId: 'manual',
 });
@@ -197,6 +198,7 @@ export function ProspeccaoPage({
         emailCliente: c.email,
         telefoneCliente: c.telefone,
         cpfCnpjCliente: c.cpfCnpj,
+        dataNascimentoCliente: c.dataNascimento ?? '',
       }));
     }
   }
@@ -280,6 +282,7 @@ export function ProspeccaoPage({
           nome: visualizando.nomeCliente,
           email: visualizando.emailCliente,
           telefone: visualizando.telefoneCliente,
+          dataNascimento: visualizando.dataNascimentoCliente || undefined,
           cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
           criadoEm: now,
           atualizadoEm: now,
@@ -326,23 +329,59 @@ export function ProspeccaoPage({
 
   // ── Criar prospecção manual ──────────────────────────────────────────────────
   function salvarNova() {
-    const nomeCliente = clienteSelecionado?.nome || formNova.nomeCliente.trim();
-    if (!nomeCliente) { alert('Informe o nome do cliente.'); return; }
+    if (!clienteSelecionado) {
+      const camposFaltando: string[] = [];
+      if (!formNova.nomeCliente.trim()) camposFaltando.push('Nome');
+      if (!formNova.cpfCnpjCliente.trim()) camposFaltando.push('CPF/CNPJ');
+      if (!formNova.dataNascimentoCliente.trim()) camposFaltando.push('Data de Nascimento');
+      if (!formNova.telefoneCliente.trim()) camposFaltando.push('Telefone');
+      if (!formNova.emailCliente.trim()) camposFaltando.push('E-mail');
+      if (camposFaltando.length > 0) {
+        alert(`Para criar uma prospecção sem cliente cadastrado, preencha os dados obrigatórios:\n• ${camposFaltando.join('\n• ')}`);
+        return;
+      }
+    }
     if (!formNova.ramo) { alert('Selecione o Ramo. Este campo é obrigatório.'); return; }
 
+    const nomeCliente     = clienteSelecionado?.nome    || formNova.nomeCliente.trim();
     const emailCliente    = clienteSelecionado?.email    || formNova.emailCliente.trim();
     const telefoneCliente = clienteSelecionado?.telefone || formNova.telefoneCliente.trim();
     const cpfCnpjCliente  = (clienteSelecionado?.cpfCnpj || formNova.cpfCnpjCliente).replace(/\D/g, '');
+
+    // Auto-criar cliente se não vinculado
+    let clienteId = clienteSelecionado?.id;
+    if (!clienteId && nomeCliente && cpfCnpjCliente) {
+      const existente = clientes.find(c => c.cpfCnpj.replace(/\D/g, '') === cpfCnpjCliente);
+      if (existente) {
+        clienteId = existente.id;
+      } else {
+        const novoCliente: Cliente = {
+          id: generateId(),
+          cpfCnpj: cpfCnpjCliente,
+          tipo: cpfCnpjCliente.length === 14 ? 'PJ' : 'PF',
+          nome: nomeCliente,
+          email: emailCliente,
+          telefone: telefoneCliente,
+          dataNascimento: formNova.dataNascimentoCliente || undefined,
+          cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
+          criadoEm: new Date().toISOString(),
+          atualizadoEm: new Date().toISOString(),
+        };
+        setClientes([...clientes, novoCliente]);
+        clienteId = novoCliente.id;
+      }
+    }
 
     const nova: Prospeccao = {
       id: generateId(),
       origem: formNova.origemId || 'manual',
       responsavelId: usuario?.id ?? '',
-      clienteId: clienteSelecionado?.id,
+      clienteId,
       nomeCliente,
       emailCliente,
       telefoneCliente,
       cpfCnpjCliente,
+      dataNascimentoCliente: formNova.dataNascimentoCliente || undefined,
       ramo: formNova.ramo,
       seguradora: formNova.seguradora,
       premioReferencia: parseFloat(formNova.premioReferencia) || 0,
@@ -881,6 +920,12 @@ export function ProspeccaoPage({
                 />
               </div>
 
+              {!clienteSelecionado && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Nenhum cliente selecionado — preencha os dados abaixo para cadastrá-lo automaticamente.
+                </p>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -890,35 +935,45 @@ export function ProspeccaoPage({
                     value={formNova.nomeCliente}
                     onChange={e => setFormNova(f => ({ ...f, nomeCliente: e.target.value }))}
                     disabled={!!clienteSelecionado}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 ${!clienteSelecionado && !formNova.nomeCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF / CNPJ</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF / CNPJ <span className="text-red-500">*</span></label>
                   <input
                     value={formNova.cpfCnpjCliente}
                     onChange={e => setFormNova(f => ({ ...f, cpfCnpjCliente: e.target.value }))}
                     disabled={!!clienteSelecionado}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 ${!clienteSelecionado && !formNova.cpfCnpjCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={formNova.dataNascimentoCliente}
+                    onChange={e => setFormNova(f => ({ ...f, dataNascimentoCliente: e.target.value }))}
+                    disabled={!!clienteSelecionado}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 ${!clienteSelecionado && !formNova.dataNascimentoCliente ? 'border-red-300' : 'border-gray-300'}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone <span className="text-red-500">*</span></label>
                   <input
                     value={formNova.telefoneCliente}
                     onChange={e => setFormNova(f => ({ ...f, telefoneCliente: e.target.value }))}
                     disabled={!!clienteSelecionado}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 ${!clienteSelecionado && !formNova.telefoneCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-mail <span className="text-red-500">*</span></label>
                   <input
                     type="email"
                     value={formNova.emailCliente}
                     onChange={e => setFormNova(f => ({ ...f, emailCliente: e.target.value }))}
                     disabled={!!clienteSelecionado}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400 ${!clienteSelecionado && !formNova.emailCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                   />
                 </div>
                 <div>

@@ -55,6 +55,7 @@ type FormState = {
   emailCliente: string;
   telefoneCliente: string;
   cpfCnpjCliente: string;
+  dataNascimentoCliente: string;
   responsavelId: string;
   inicioVigencia: string;
   ramo: string;
@@ -70,7 +71,7 @@ type FormState = {
 };
 
 const formVazio = (usuarioId: string): FormState => ({
-  nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '',
+  nomeCliente: '', emailCliente: '', telefoneCliente: '', cpfCnpjCliente: '', dataNascimentoCliente: '',
   responsavelId: usuarioId, inicioVigencia: '', ramo: '', seguradora: '',
   premioLiquido: '', percentComissao: '', status: 'a_trabalhar', motivoPerdaId: '', origemId: '', novaObservacao: '', novosArquivos: [],
   camposCustomizados: [],
@@ -240,6 +241,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         emailCliente: c.email,
         telefoneCliente: c.telefone,
         cpfCnpjCliente: c.cpfCnpj,
+        dataNascimentoCliente: c.dataNascimento ?? '',
       }));
     }
   }
@@ -252,6 +254,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       emailCliente: s.emailCliente,
       telefoneCliente: s.telefoneCliente,
       cpfCnpjCliente: s.cpfCnpjCliente,
+      dataNascimentoCliente: cliVinc?.dataNascimento ?? '',
       responsavelId: s.responsavelId,
       inicioVigencia: s.inicioVigencia,
       ramo: s.ramo,
@@ -328,9 +331,17 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       setEditando(null); setCriando(false);
       return;
     }
-    if (!form.nomeCliente.trim() && !clienteSelecionado) {
-      alert('Informe o nome do cliente ou selecione um cliente cadastrado.');
-      return;
+    if (!clienteSelecionado) {
+      const camposFaltando: string[] = [];
+      if (!form.nomeCliente.trim()) camposFaltando.push('Nome');
+      if (!form.cpfCnpjCliente.trim()) camposFaltando.push('CPF/CNPJ');
+      if (!form.dataNascimentoCliente.trim()) camposFaltando.push('Data de Nascimento');
+      if (!form.telefoneCliente.trim()) camposFaltando.push('Telefone');
+      if (!form.emailCliente.trim()) camposFaltando.push('E-mail');
+      if (camposFaltando.length > 0) {
+        alert(`Para abrir um negócio sem cliente cadastrado, preencha os dados obrigatórios do cliente:\n• ${camposFaltando.join('\n• ')}`);
+        return;
+      }
     }
     if (!form.ramo) {
       alert('Selecione o Ramo. Este campo é obrigatório.');
@@ -374,6 +385,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             nome: nomeCliente.trim(),
             email: emailCliente.trim(),
             telefone: telefoneCliente.trim(),
+            dataNascimento: form.dataNascimentoCliente || undefined,
             cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
             criadoEm: new Date().toISOString(),
             atualizadoEm: new Date().toISOString(),
@@ -915,35 +927,45 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         value={form.nomeCliente}
                         onChange={e => setForm(f => ({...f, nomeCliente: e.target.value}))}
                         disabled={bloqueado || !!clienteSelecionado}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 ${!clienteSelecionado && !form.nomeCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ <span className="text-red-500">*</span></label>
+                      <input
+                        value={form.cpfCnpjCliente}
+                        onChange={e => setForm(f => ({...f, cpfCnpjCliente: e.target.value}))}
+                        disabled={bloqueado || !!clienteSelecionado}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 ${!clienteSelecionado && !form.cpfCnpjCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento <span className="text-red-500">*</span></label>
+                      <input
+                        type="date"
+                        value={form.dataNascimentoCliente}
+                        onChange={e => setForm(f => ({...f, dataNascimentoCliente: e.target.value}))}
+                        disabled={bloqueado || !!clienteSelecionado}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 ${!clienteSelecionado && !form.dataNascimentoCliente ? 'border-red-300' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Telefone <span className="text-red-500">*</span></label>
+                      <input
+                        value={form.telefoneCliente}
+                        onChange={e => setForm(f => ({...f, telefoneCliente: e.target.value}))}
+                        disabled={bloqueado || !!clienteSelecionado}
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 ${!clienteSelecionado && !form.telefoneCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">E-mail <span className="text-red-500">*</span></label>
                       <input
                         type="email"
                         value={form.emailCliente}
                         onChange={e => setForm(f => ({...f, emailCliente: e.target.value}))}
                         disabled={bloqueado || !!clienteSelecionado}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                      <input
-                        value={form.telefoneCliente}
-                        onChange={e => setForm(f => ({...f, telefoneCliente: e.target.value}))}
-                        disabled={bloqueado || !!clienteSelecionado}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ</label>
-                      <input
-                        value={form.cpfCnpjCliente}
-                        onChange={e => setForm(f => ({...f, cpfCnpjCliente: e.target.value}))}
-                        disabled={bloqueado || !!clienteSelecionado}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500"
+                        className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-500 ${!clienteSelecionado && !form.emailCliente.trim() ? 'border-red-300' : 'border-gray-300'}`}
                       />
                     </div>
                   </div>
