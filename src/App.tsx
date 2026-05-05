@@ -176,9 +176,9 @@ function AppRoutes() {
     });
   }, []);
 
-  const setEmpresa = useCallback((newEmpresa: ConfiguracaoEmpresa) => {
+  const setEmpresa = useCallback(async (newEmpresa: ConfiguracaoEmpresa) => {
     setEmpresaState(newEmpresa);
-    db.upsertEmpresa(newEmpresa);
+    await db.upsertEmpresa(newEmpresa);
   }, []);
 
   // ── Renderização ────────────────────────────────────────────────────────────

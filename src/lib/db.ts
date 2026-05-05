@@ -195,6 +195,9 @@ export const db = {
     const { error } = await supabase
       .from('configuracao_empresa')
       .upsert({ id: 1, ...objToSnake(empresa as unknown as Record<string, unknown>) });
-    if (error) console.error('[db] upsert configuracao_empresa:', error.message);
+    if (error) {
+      console.error('[db] upsert configuracao_empresa:', error.message);
+      throw new Error(error.message);
+    }
   },
 };

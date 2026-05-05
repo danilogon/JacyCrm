@@ -16,7 +16,7 @@ interface Props {
   campos: CampoCustomizavel[];
   setCampos: (c: CampoCustomizavel[]) => void;
   empresa: ConfiguracaoEmpresa;
-  setEmpresa: (e: ConfiguracaoEmpresa) => void;
+  setEmpresa: (e: ConfiguracaoEmpresa) => Promise<void>;
   tiposUsuario: TipoUsuario[];
   setTiposUsuario: (t: TipoUsuario[]) => void;
 }
@@ -197,6 +197,25 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
   };
   const [editTipo, setEditTipo] = useState<TipoUsuario | null>(null);
+
+  // Empresa local form state
+  const [formEmpresa, setFormEmpresa] = useState<ConfiguracaoEmpresa>(empresa);
+  const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
+  const [empresaSalva, setEmpresaSalva] = useState(false);
+
+  async function salvarEmpresa() {
+    setSalvandoEmpresa(true);
+    setEmpresaSalva(false);
+    try {
+      await setEmpresa(formEmpresa);
+      setEmpresaSalva(true);
+      setTimeout(() => setEmpresaSalva(false), 3000);
+    } catch (err: unknown) {
+      alert('Erro ao salvar: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setSalvandoEmpresa(false);
+    }
+  }
   const [criandoTipo, setCriandoTipo] = useState(false);
   const [formTipo, setFormTipo] = useState<Omit<TipoUsuario, 'id'>>(tipoVazio);
   const [confirmDelTipo, setConfirmDelTipo] = useState<string | null>(null);
@@ -335,28 +354,38 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
           <h2 className="font-semibold text-gray-800">Dados da Empresa</h2>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Empresa</label>
-            <input value={empresa.nome} onChange={e => setEmpresa({ ...empresa, nome: e.target.value })}
+            <input value={formEmpresa.nome} onChange={e => setFormEmpresa({ ...formEmpresa, nome: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Cor Primária</label>
             <div className="flex items-center gap-3">
-              <input type="color" value={empresa.corPrimaria} onChange={e => setEmpresa({ ...empresa, corPrimaria: e.target.value })}
+              <input type="color" value={formEmpresa.corPrimaria} onChange={e => setFormEmpresa({ ...formEmpresa, corPrimaria: e.target.value })}
                 className="w-10 h-10 rounded border border-gray-300 cursor-pointer" />
-              <input value={empresa.corPrimaria} onChange={e => setEmpresa({ ...empresa, corPrimaria: e.target.value })}
+              <input value={formEmpresa.corPrimaria} onChange={e => setFormEmpresa({ ...formEmpresa, corPrimaria: e.target.value })}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Cor Secundária</label>
             <div className="flex items-center gap-3">
-              <input type="color" value={empresa.corSecundaria} onChange={e => setEmpresa({ ...empresa, corSecundaria: e.target.value })}
+              <input type="color" value={formEmpresa.corSecundaria} onChange={e => setFormEmpresa({ ...formEmpresa, corSecundaria: e.target.value })}
                 className="w-10 h-10 rounded border border-gray-300 cursor-pointer" />
-              <input value={empresa.corSecundaria} onChange={e => setEmpresa({ ...empresa, corSecundaria: e.target.value })}
+              <input value={formEmpresa.corSecundaria} onChange={e => setFormEmpresa({ ...formEmpresa, corSecundaria: e.target.value })}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
-          <div className="text-xs text-gray-400 bg-gray-50 rounded-lg p-3">Alterações são salvas automaticamente no localStorage.</div>
+          <div className="flex items-center gap-3 pt-1">
+            <button onClick={salvarEmpresa} disabled={salvandoEmpresa}
+              className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-60">
+              {salvandoEmpresa ? 'Salvando…' : 'Salvar'}
+            </button>
+            {empresaSalva && (
+              <span className="flex items-center gap-1 text-sm text-green-600">
+                <Check size={14} /> Salvo com sucesso
+              </span>
+            )}
+          </div>
         </div>
       )}
 
