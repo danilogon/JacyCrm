@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import * as XLSX from 'xlsx';
 import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
@@ -352,7 +353,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     setClienteEditando(null);
   }
 
-  // ── CSV: exportar dados ────────────────────────────────────────────────────
+  // ── XLSX: exportar dados ─────────────────────────────────────────────────
   function exportarCSV() {
     const headers = ['ID','Responsável','Cliente','Email','Telefone','CPF/CNPJ','Fim Vigência','Ramo','Seg Anterior','Prêmio Ant','%Com Ant','Com Ant','Seg Nova','Prêmio Novo','%Com Nova','Com Nova','Resultado','Status','Motivo Perda'];
     const rows = renovacoes.map(r => [
@@ -365,11 +366,13 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       STATUS_LABELS[r.status],
       motivos.find(m => m.id === r.motivoPerdaId)?.nome ?? '',
     ]);
-    const csv = [headers, ...rows].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
-    baixarCSV(csv, `renovacoes_${new Date().toISOString().split('T')[0]}.csv`);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, `renovacoes_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
-  // ── CSV: modelo para importação ───────────────────────────────────────────
+  // ── XLSX: modelo para importação ─────────────────────────────────────────
   function baixarModeloCSV() {
     const headers = [
       'Responsavel',
@@ -405,26 +408,32 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       '12',
       'Renovado',
     ];
-    const csv = [headers, exemplo].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
-    baixarCSV(csv, 'modelo_importacao_renovacoes.csv');
+    const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, 'modelo_importacao_renovacoes.xlsx');
   }
 
-  function baixarCSV(conteudo: string, nomeArquivo: string) {
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + conteudo);
-    a.download = nomeArquivo;
-    a.click();
-  }
-
-  // ── CSV: importar ─────────────────────────────────────────────────────────
-  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+  // ── XLSX: importar ────────────────────────────────────────────────────────
+  async function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const text = ev.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim());
-      const dataLines = lines.slice(1); // ignora cabeçalho
+    e.target.value = '';
+
+    const allRows = await new Promise<string[][]>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        resolve(rows);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+
+    const dataLines = allRows.slice(1); // ignora cabeçalho
 
       const clientesAtualizados = [...clientes];
       const clientesCriados: string[] = [];
@@ -434,10 +443,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
       const novas: Renovacao[] = [];
 
-      dataLines.forEach((line, idx) => {
+      dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2; // +2: 1 base + 1 cabeçalho
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        const [respNome, nomeCliente, emailCliente, telefoneCliente, fimVigencia, ramo, seguradoraAnterior, premioStr, percentStr, cpfCnpj, seguradoraNovaCsv, premioNovoStr, percentNovoStr, statusCsv] = cols;
+        const [respNome, nomeCliente, emailCliente, telefoneCliente, fimVigencia, ramo, seguradoraAnterior, premioStr, percentStr, cpfCnpj, seguradoraNovaCsv, premioNovoStr, percentNovoStr, statusCsv] = cols.map(c => String(c ?? ''));
 
         const nome = nomeCliente?.trim() ?? '';
         const cpfDigits = cpfCnpj?.replace(/\D/g, '') ?? '';
@@ -554,9 +562,6 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       }
 
       alert(partes.join('\n'));
-    };
-    reader.readAsText(file);
-    e.target.value = '';
   }
 
   const responsavelNome = (id: string) => usuarios.find(u => u.id === id)?.nome ?? id;
@@ -577,11 +582,11 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100"
                 title="Baixar planilha modelo para preenchimento e importação"
               >
-                <Download size={14} /> Modelo CSV
+                <Download size={14} /> Modelo XLSX
               </button>
               <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
-                <Upload size={14} /> Importar CSV
-                <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+                <Upload size={14} /> Importar XLSX
+                <input type="file" accept=".xlsx" className="hidden" onChange={importarCSV} />
               </label>
             </>
           )}

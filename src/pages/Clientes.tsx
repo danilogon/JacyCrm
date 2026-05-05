@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react';
 import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import type { Cliente, Renovacao, SeguroNovo, Usuario } from '../types';
+import * as XLSX from 'xlsx';
+import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel } from '../types';
 import { formatCpfCnpj, formatDate, generateId } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -13,6 +14,7 @@ interface Props {
   renovacoes: Renovacao[];
   segurosNovos: SeguroNovo[];
   usuarios: Usuario[];
+  camposCustomizaveis?: CampoCustomizavel[];
 }
 
 type FormCliente = Omit<Cliente, 'id' | 'criadoEm' | 'atualizadoEm' | 'tipo'>;
@@ -21,12 +23,16 @@ const formVazio: FormCliente = {
   cpfCnpj: '', nome: '', email: '', telefone: '', dataNascimento: '',
   observacaoImportante: '',
   cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
+  camposCustomizados: [],
 };
 
-export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Props) {
+export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camposCustomizaveis }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin = usuario?.role === 'admin';
+  const camposAplicaveis = (camposCustomizaveis ?? []).filter(c =>
+    c.ativo && c.aplicavelA === 'clientes'
+  );
 
   const [busca, setBusca] = useState('');
   const [modalForm, setModalForm] = useState(false);
@@ -89,6 +95,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
       observacaoImportante: c.observacaoImportante ?? '',
       cep: c.cep, logradouro: c.logradouro,
       numero: c.numero, complemento: c.complemento, bairro: c.bairro, cidade: c.cidade, uf: c.uf,
+      camposCustomizados: c.camposCustomizados ?? [],
     });
     setEditando(c);
     setModalForm(true);
@@ -120,6 +127,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
         bairro: form.bairro,
         cidade: form.cidade,
         uf: form.uf,
+        camposCustomizados: form.camposCustomizados ?? [],
         atualizadoEm: new Date().toISOString(),
       };
       setClientes(clientes.map(c => c.id === updated.id ? updated : c));
@@ -140,6 +148,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
         bairro: form.bairro,
         cidade: form.cidade,
         uf: form.uf,
+        camposCustomizados: form.camposCustomizados ?? [],
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
       };
@@ -159,36 +168,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
     setConfirmExcluir(id);
   }
 
-  // ── CSV helpers ──────────────────────────────────────────────────────────────
+  // ── XLSX helpers ─────────────────────────────────────────────────────────────
 
-  function parseCSVLine(line: string): string[] {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
-        else inQuotes = !inQuotes;
-      } else if (ch === ',' && !inQuotes) {
-        result.push(current.trim());
-        current = '';
-      } else {
-        current += ch;
-      }
-    }
-    result.push(current.trim());
-    return result;
-  }
-
-  function baixarCSVHelper(conteudo: string, nome: string) {
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + conteudo);
-    a.download = nome;
-    a.click();
-  }
-
-  function exportarCSV() {
+  function exportarXLSX() {
     const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
     const rows = clientes.map(c => [
       c.cpfCnpj, c.nome, c.email, c.telefone,
@@ -196,82 +178,95 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
       c.complemento, c.bairro, c.cidade, c.uf,
       c.observacaoImportante ?? '',
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    baixarCSVHelper(csv, `clientes_${new Date().toISOString().split('T')[0]}.csv`);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, `clientes_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
-  function baixarModeloCSV() {
+  function baixarModeloXLSX() {
     const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
     const ex1 = ['12345678901','João da Silva','joao@email.com','11999990000','1985-03-20','01310100','Av. Paulista','1000','Apto 42','Bela Vista','São Paulo','SP','Cliente prefere WhatsApp'];
     const ex2 = ['12345678000195','Empresa ABC Ltda','contato@abc.com.br','1133330000','','04571010','Rua das Flores','200','','Itaim Bibi','São Paulo','SP',''];
-    const csv = [headers, ex1, ex2].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    baixarCSVHelper(csv, 'modelo_importacao_clientes.csv');
+    const ws = XLSX.utils.aoa_to_sheet([headers, ex1, ex2]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, 'modelo_importacao_clientes.xlsx');
   }
 
-  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+  function lerXLSX(file: File): Promise<string[][]> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const data = new Uint8Array(e.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        resolve(rows);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  async function importarXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const raw = ev.target?.result as string;
-      const text = raw.replace(/^﻿/, '');
-      const lines = text.split(/\r?\n/).filter(l => l.trim());
-      if (lines.length < 2) { alert('Arquivo CSV vazio ou sem dados.'); return; }
-
-      const cpfsExistentes = new Set(clientes.map(c => c.cpfCnpj));
-      const novos: Cliente[] = [];
-      const duplicados: string[] = [];
-      const rejeitados: { linha: number; motivo: string }[] = [];
-
-      lines.slice(1).forEach((line, idx) => {
-        const lineNum = idx + 2;
-        const cols = parseCSVLine(line);
-        const [cpfCnpjRaw, nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf, observacaoImportante] = cols;
-
-        const cpfDigits = (cpfCnpjRaw ?? '').replace(/\D/g, '');
-        const nomeClean = (nome ?? '').trim();
-
-        if (!nomeClean) { rejeitados.push({ linha: lineNum, motivo: 'Nome ausente' }); return; }
-        if (!cpfDigits) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ ausente` }); return; }
-
-        const { tipo } = validateCpfCnpj(cpfDigits);
-        if (!tipo) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ inválido (${cpfDigits.length} dígitos)` }); return; }
-
-        if (cpfsExistentes.has(cpfDigits)) { duplicados.push(nomeClean); return; }
-
-        cpfsExistentes.add(cpfDigits);
-        novos.push({
-          id: generateId(),
-          cpfCnpj: cpfDigits,
-          tipo,
-          nome: nomeClean,
-          email: (email ?? '').trim(),
-          telefone: (telefone ?? '').trim(),
-          dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? dataNascimento.trim() : undefined,
-          observacaoImportante: (observacaoImportante ?? '').trim() || undefined,
-          cep: (cep ?? '').replace(/\D/g, ''),
-          logradouro: (logradouro ?? '').trim(),
-          numero: (numero ?? '').trim(),
-          complemento: (complemento ?? '').trim(),
-          bairro: (bairro ?? '').trim(),
-          cidade: (cidade ?? '').trim(),
-          uf: (uf ?? '').trim().toUpperCase().slice(0, 2),
-          criadoEm: new Date().toISOString(),
-          atualizadoEm: new Date().toISOString(),
-        });
-      });
-
-      if (novos.length > 0) setClientes([...clientes, ...novos]);
-
-      const partes: string[] = [];
-      if (novos.length > 0) partes.push(`✅ ${novos.length} cliente(s) importado(s) com sucesso.`);
-      if (duplicados.length > 0) partes.push(`⚠️ ${duplicados.length} ignorado(s) — CPF/CNPJ já cadastrado:\n  ${duplicados.slice(0, 5).join(', ')}${duplicados.length > 5 ? '...' : ''}`);
-      if (rejeitados.length > 0) partes.push(`❌ ${rejeitados.length} linha(s) rejeitada(s):\n${rejeitados.map(r => `  Linha ${r.linha}: ${r.motivo}`).join('\n')}`);
-
-      alert(partes.join('\n\n') || 'Nenhum cliente foi importado.');
-    };
-    reader.readAsText(file, 'UTF-8');
     e.target.value = '';
+
+    const allRows = await lerXLSX(file);
+    if (allRows.length < 2) { alert('Arquivo XLSX vazio ou sem dados.'); return; }
+
+    const cpfsExistentes = new Set(clientes.map(c => c.cpfCnpj));
+    const novos: Cliente[] = [];
+    const duplicados: string[] = [];
+    const rejeitados: { linha: number; motivo: string }[] = [];
+
+    allRows.slice(1).forEach((cols, idx) => {
+      const lineNum = idx + 2;
+      const [cpfCnpjRaw, nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf, observacaoImportante] = cols.map(c => String(c ?? ''));
+
+      const cpfDigits = (cpfCnpjRaw ?? '').replace(/\D/g, '');
+      const nomeClean = (nome ?? '').trim();
+
+      if (!nomeClean) { rejeitados.push({ linha: lineNum, motivo: 'Nome ausente' }); return; }
+      if (!cpfDigits) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ ausente` }); return; }
+
+      const { tipo } = validateCpfCnpj(cpfDigits);
+      if (!tipo) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ inválido (${cpfDigits.length} dígitos)` }); return; }
+
+      if (cpfsExistentes.has(cpfDigits)) { duplicados.push(nomeClean); return; }
+
+      cpfsExistentes.add(cpfDigits);
+      novos.push({
+        id: generateId(),
+        cpfCnpj: cpfDigits,
+        tipo,
+        nome: nomeClean,
+        email: (email ?? '').trim(),
+        telefone: (telefone ?? '').trim(),
+        dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? dataNascimento.trim() : undefined,
+        observacaoImportante: (observacaoImportante ?? '').trim() || undefined,
+        cep: (cep ?? '').replace(/\D/g, ''),
+        logradouro: (logradouro ?? '').trim(),
+        numero: (numero ?? '').trim(),
+        complemento: (complemento ?? '').trim(),
+        bairro: (bairro ?? '').trim(),
+        cidade: (cidade ?? '').trim(),
+        uf: (uf ?? '').trim().toUpperCase().slice(0, 2),
+        criadoEm: new Date().toISOString(),
+        atualizadoEm: new Date().toISOString(),
+      });
+    });
+
+    if (novos.length > 0) setClientes([...clientes, ...novos]);
+
+    const partes: string[] = [];
+    if (novos.length > 0) partes.push(`✅ ${novos.length} cliente(s) importado(s) com sucesso.`);
+    if (duplicados.length > 0) partes.push(`⚠️ ${duplicados.length} ignorado(s) — CPF/CNPJ já cadastrado:\n  ${duplicados.slice(0, 5).join(', ')}${duplicados.length > 5 ? '...' : ''}`);
+    if (rejeitados.length > 0) partes.push(`❌ ${rejeitados.length} linha(s) rejeitada(s):\n${rejeitados.map(r => `  Linha ${r.linha}: ${r.motivo}`).join('\n')}`);
+
+    alert(partes.join('\n\n') || 'Nenhum cliente foi importado.');
   }
 
   const clienteRenovacoes = visualizando
@@ -288,15 +283,15 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
         <div className="flex flex-wrap gap-2">
           {isAdmin && (
             <>
-              <button onClick={exportarCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+              <button onClick={exportarXLSX} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
                 <Download size={14} /> Exportar
               </button>
-              <button onClick={baixarModeloCSV} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
-                <Download size={14} /> Modelo CSV
+              <button onClick={baixarModeloXLSX} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <Download size={14} /> Modelo XLSX
               </button>
               <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
-                <Upload size={14} /> Importar CSV
-                <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+                <Upload size={14} /> Importar XLSX
+                <input type="file" accept=".xlsx" className="hidden" onChange={importarXLSX} />
               </label>
             </>
           )}
@@ -497,6 +492,97 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos }: Pr
                   </div>
                 </div>
               </div>
+
+              {/* ── Campos Adicionais ── */}
+              {camposAplicaveis.length > 0 && (
+                <div className="col-span-2">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-2">Campos Adicionais</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {camposAplicaveis.map(campo => {
+                      const valorAtual = (form.camposCustomizados ?? []).find(c => c.campoId === campo.id)?.valor ?? '';
+                      const setValor = (v: string | string[]) => setForm(f => ({
+                        ...f,
+                        camposCustomizados: (f.camposCustomizados ?? []).some(c => c.campoId === campo.id)
+                          ? (f.camposCustomizados ?? []).map(c => c.campoId === campo.id ? { ...c, valor: v } : c)
+                          : [...(f.camposCustomizados ?? []), { campoId: campo.id, valor: v }],
+                      }));
+                      return (
+                        <div key={campo.id}>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">
+                            {campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-1">*</span>}
+                          </label>
+                          {campo.tipo === 'texto' && (
+                            <input type="text" value={valorAtual as string}
+                              onChange={e => setValor(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          )}
+                          {campo.tipo === 'data' && (
+                            <input type="date" value={valorAtual as string}
+                              onChange={e => setValor(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                          )}
+                          {campo.tipo === 'lista' && (
+                            <select value={valorAtual as string}
+                              onChange={e => setValor(e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              <option value="">— Selecione —</option>
+                              {(campo.opcoes ?? []).map(op => <option key={op} value={op}>{op}</option>)}
+                            </select>
+                          )}
+                          {campo.tipo === 'arquivo' && (
+                            <div className="space-y-2">
+                              <label className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 text-sm text-gray-500">
+                                <span>📎 {campo.multiplosArquivos ? 'Selecionar arquivos' : 'Selecionar arquivo'}</span>
+                                <input type="file" className="hidden"
+                                  accept={(campo.tiposPermitidos ?? []).join(',')}
+                                  multiple={!!campo.multiplosArquivos}
+                                  onChange={e => {
+                                    const files = Array.from(e.target.files ?? []);
+                                    const readers = files.map(f => new Promise<string>(resolve => {
+                                      const r = new FileReader();
+                                      r.onload = ev => resolve(JSON.stringify({ id: crypto.randomUUID(), nome: f.name, tipo: f.type, tamanho: f.size, dataBase64: ev.target?.result as string }));
+                                      r.readAsDataURL(f);
+                                    }));
+                                    Promise.all(readers).then(results => {
+                                      if (campo.multiplosArquivos) {
+                                        const cur = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                        setValor([...cur, ...results]);
+                                      } else {
+                                        setValor(results[0] ?? '');
+                                      }
+                                    });
+                                    e.target.value = '';
+                                  }} />
+                              </label>
+                              {(() => {
+                                const arqs = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                                return arqs.map((arqStr, i) => {
+                                  try {
+                                    const arq = JSON.parse(arqStr) as { nome: string; dataBase64: string };
+                                    return (
+                                      <div key={i} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg text-xs border border-gray-100">
+                                        <span className="text-gray-700 truncate">{arq.nome}</span>
+                                        <div className="flex gap-1 shrink-0 ml-2">
+                                          <button type="button" title="Baixar" onClick={() => { const a = document.createElement('a'); a.href = arq.dataBase64; a.download = arq.nome; a.click(); }}
+                                            className="p-1 text-blue-500 hover:text-blue-700">↓</button>
+                                          <button type="button" title="Remover" onClick={() => {
+                                            if (Array.isArray(valorAtual)) setValor((valorAtual as string[]).filter((_, idx) => idx !== i));
+                                            else setValor('');
+                                          }} className="p-1 text-red-400 hover:text-red-600">×</button>
+                                        </div>
+                                      </div>
+                                    );
+                                  } catch { return null; }
+                                });
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-3 p-5 border-t border-gray-200">

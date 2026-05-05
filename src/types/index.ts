@@ -211,6 +211,7 @@ export interface Cliente {
   bairro: string;
   cidade: string;
   uf: string;
+  camposCustomizados?: CampoCustomizadoValor[];
   criadoEm: string;
   atualizadoEm: string;
 }
@@ -289,7 +290,7 @@ export interface CampoCustomizavel {
   obrigatorio: boolean;
   ativo: boolean;
   /** 'ambos' = renovações + seguros novos; 'todos' = os três módulos */
-  aplicavelA: 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'ambos' | 'todos' | 'seguros_novos_prospeccoes';
+  aplicavelA: 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'ambos' | 'todos' | 'seguros_novos_prospeccoes' | 'clientes';
   opcoes?: string[];
   multiplosArquivos?: boolean;
   tiposPermitidos?: string[];

@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect, lazy, Suspense } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import * as XLSX from 'xlsx';
 import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
@@ -500,18 +501,10 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       s.comissao, s.comissaoAReceber, STATUS_LABELS[s.status],
       motivos.find(m => m.id === s.motivoPerdaId)?.nome ?? '',
     ]);
-    const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
-    a.download = `seguros_novos_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-  }
-
-  function baixarCSV(conteudo: string, nomeArquivo: string) {
-    const a = document.createElement('a');
-    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('﻿' + conteudo);
-    a.download = nomeArquivo;
-    a.click();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, `seguros_novos_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   function baixarModeloCSV() {
@@ -541,18 +534,31 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       '12345678901',
       'A Trabalhar',
     ];
-    const csv = [headers, exemplo].map(row => row.map(v => `"${v}"`).join(',')).join('\n');
-    baixarCSV(csv, 'modelo_importacao_seguros_novos.csv');
+    const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Dados');
+    XLSX.writeFile(wb, 'modelo_importacao_seguros_novos.xlsx');
   }
 
-  function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
+  async function importarCSV(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const text = ev.target?.result as string;
-      const lines = text.split('\n').filter(l => l.trim());
-      const dataLines = lines.slice(1);
+    e.target.value = '';
+
+    const allRows = await new Promise<string[][]>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = ev => {
+        const data = new Uint8Array(ev.target!.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        resolve(rows);
+      };
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(file);
+    });
+
+    const dataLines = allRows.slice(1);
 
       const clientesAtualizados = [...clientes];
       const clientesCriados: string[] = [];
@@ -561,10 +567,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       const rejeitadas: LinhaRejeitada[] = [];
       const novas: SeguroNovo[] = [];
 
-      dataLines.forEach((line, idx) => {
+      dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2;
-        const cols = line.split(',').map(c => c.replace(/^"|"$/g, '').trim());
-        const [respNome, nomeCliente, emailCliente, telefoneCliente, inicioVigencia, ramo, seguradora, premioStr, percentStr, cpfCnpj, statusCsv] = cols;
+        const [respNome, nomeCliente, emailCliente, telefoneCliente, inicioVigencia, ramo, seguradora, premioStr, percentStr, cpfCnpj, statusCsv] = cols.map(c => String(c ?? ''));
 
         const nome = nomeCliente?.trim() ?? '';
         const cpfDigits = cpfCnpj?.replace(/\D/g, '') ?? '';
@@ -652,9 +657,6 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s):\n${detalhe}`);
       }
       alert(partes.join('\n'));
-    };
-    reader.readAsText(file);
-    e.target.value = '';
   }
 
   const { comissao: formComissao } = calcCom(form);
@@ -676,11 +678,11 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                 className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100"
                 title="Baixar planilha modelo para preenchimento e importação"
               >
-                <Download size={14} /> Modelo CSV
+                <Download size={14} /> Modelo XLSX
               </button>
               <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 cursor-pointer">
-                <Upload size={14} /> Importar CSV
-                <input type="file" accept=".csv" className="hidden" onChange={importarCSV} />
+                <Upload size={14} /> Importar XLSX
+                <input type="file" accept=".xlsx" className="hidden" onChange={importarCSV} />
               </label>
               <button onClick={() => setImportandoPdf(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-blue-300 text-blue-700 bg-blue-50 rounded-lg text-sm hover:bg-blue-100">
                 <FileUp size={14} /> Importar PDF

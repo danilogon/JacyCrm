@@ -995,7 +995,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <td className="px-3 py-2.5 text-gray-600 capitalize">{c.tipo}</td>
                       <td className="px-3 py-2.5 text-center">{c.obrigatorio ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-gray-600">
-                        {{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos', seguros_novos_prospeccoes: 'SN + Prospecções' }[c.aplicavelA]}
+                        {{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos', seguros_novos_prospeccoes: 'SN + Prospecções', clientes: 'Clientes' }[c.aplicavelA]}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => setCampos(campos.map(x => x.id === c.id ? {...x, ativo: !x.ativo} : x))}
@@ -1050,6 +1050,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <option value="renovacoes">Renovações</option>
                       <option value="seguros_novos">Seguros Novos</option>
                       <option value="prospeccoes">Prospecções</option>
+                      <option value="clientes">Clientes</option>
                     </select>
                   </div>
                   {formCampo.tipo === 'lista' && (

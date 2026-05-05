@@ -346,6 +346,7 @@ function AppRoutes() {
             renovacoes={renovacoes}
             segurosNovos={segurosNovos}
             usuarios={usuarios}
+            camposCustomizaveis={campos}
           />
         } />
 
