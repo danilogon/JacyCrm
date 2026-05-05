@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Download, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type {
@@ -74,6 +74,92 @@ const formNovaVazio = (): FormNova => ({
   origemId: 'manual',
 });
 
+// ── Busca e seleção de cliente cadastrado ────────────────────────────────────
+interface ClienteSearchProps {
+  clientes: Cliente[];
+  clienteSelecionado: Cliente | null;
+  onSelect: (c: Cliente | null) => void;
+}
+
+function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearchProps) {
+  const [busca, setBusca] = useState('');
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const resultados = useMemo(() => {
+    const q = busca.toLowerCase().trim();
+    if (q.length < 2) return [];
+    return clientes
+      .filter(c =>
+        c.nome.toLowerCase().includes(q) ||
+        c.cpfCnpj.includes(q) ||
+        c.email.toLowerCase().includes(q)
+      )
+      .slice(0, 8);
+  }, [busca, clientes]);
+
+  if (clienteSelecionado) {
+    return (
+      <div className="flex items-center justify-between px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg">
+        <div className="flex items-center gap-2">
+          <UserCheck size={15} className="text-blue-600 shrink-0" />
+          <div>
+            <div className="text-sm font-medium text-blue-800">{clienteSelecionado.nome}</div>
+            <div className="text-xs text-blue-500">
+              {formatCpfCnpj(clienteSelecionado.cpfCnpj)} · {clienteSelecionado.email}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          className="p-1 text-blue-400 hover:text-blue-700 rounded"
+          title="Remover seleção"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={busca}
+          onChange={e => { setBusca(e.target.value); setAberto(true); }}
+          onFocus={() => setAberto(true)}
+          onBlur={() => setTimeout(() => setAberto(false), 150)}
+          placeholder="Buscar cliente por nome, CPF/CNPJ ou email..."
+          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+      {aberto && resultados.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+          {resultados.map(c => (
+            <button
+              key={c.id}
+              type="button"
+              onMouseDown={() => { onSelect(c); setBusca(''); setAberto(false); }}
+              className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0"
+            >
+              <div className="font-medium text-gray-800">{c.nome}</div>
+              <div className="text-xs text-gray-400">{formatCpfCnpj(c.cpfCnpj)} · {c.email}</div>
+            </button>
+          ))}
+        </div>
+      )}
+      {aberto && busca.length >= 2 && resultados.length === 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 px-3 py-2 text-sm text-gray-400">
+          Nenhum cliente encontrado
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ProspeccaoPage({
   prospeccoes, setProspeccoes,
   segurosNovos, setSegurosNovos,
@@ -97,7 +183,21 @@ export function ProspeccaoPage({
   const [confirmAssumir, setConfirmAssumir] = useState(false);
   const [criando, setCriando] = useState(false);
   const [formNova, setFormNova] = useState<FormNova>(formNovaVazio());
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
   const [confirmDescarte, setConfirmDescarte] = useState<string | null>(null);
+
+  function handleSelecionarCliente(c: Cliente | null) {
+    setClienteSelecionado(c);
+    if (c) {
+      setFormNova(f => ({
+        ...f,
+        nomeCliente: c.nome,
+        emailCliente: c.email,
+        telefoneCliente: c.telefone,
+        cpfCnpjCliente: c.cpfCnpj,
+      }));
+    }
+  }
 
   // usuariosVisiveis removido — não utilizado na renderização atual
 
@@ -213,16 +313,23 @@ export function ProspeccaoPage({
 
   // ── Criar prospecção manual ──────────────────────────────────────────────────
   function salvarNova() {
-    if (!formNova.nomeCliente.trim()) { alert('Informe o nome do cliente.'); return; }
+    const nomeCliente = clienteSelecionado?.nome || formNova.nomeCliente.trim();
+    if (!nomeCliente) { alert('Informe o nome do cliente.'); return; }
     if (!formNova.ramo) { alert('Selecione o Ramo. Este campo é obrigatório.'); return; }
+
+    const emailCliente    = clienteSelecionado?.email    || formNova.emailCliente.trim();
+    const telefoneCliente = clienteSelecionado?.telefone || formNova.telefoneCliente.trim();
+    const cpfCnpjCliente  = (clienteSelecionado?.cpfCnpj || formNova.cpfCnpjCliente).replace(/\D/g, '');
+
     const nova: Prospeccao = {
       id: generateId(),
       origem: formNova.origemId || 'manual',
       responsavelId: usuario?.id ?? '',
-      nomeCliente: formNova.nomeCliente.trim(),
-      emailCliente: formNova.emailCliente.trim(),
-      telefoneCliente: formNova.telefoneCliente.trim(),
-      cpfCnpjCliente: formNova.cpfCnpjCliente.replace(/\D/g, ''),
+      clienteId: clienteSelecionado?.id,
+      nomeCliente,
+      emailCliente,
+      telefoneCliente,
+      cpfCnpjCliente,
       ramo: formNova.ramo,
       seguradora: formNova.seguradora,
       premioReferencia: parseFloat(formNova.premioReferencia) || 0,
@@ -236,6 +343,7 @@ export function ProspeccaoPage({
     setProspeccoes([...prospeccoes, nova]);
     setCriando(false);
     setFormNova(formNovaVazio());
+    setClienteSelecionado(null);
   }
 
   function descartar(id: string) {
@@ -425,7 +533,7 @@ export function ProspeccaoPage({
               </label>
             </>
           )}
-          <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); }}
+          <button onClick={() => { setCriando(true); setFormNova(formNovaVazio()); setClienteSelecionado(null); }}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
             <Plus size={14} /> Nova Prospecção
           </button>
@@ -674,29 +782,58 @@ export function ProspeccaoPage({
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-gray-200">
               <h2 className="font-bold text-gray-900">Nova Prospecção</h2>
-              <button onClick={() => setCriando(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+              <button onClick={() => { setCriando(false); setClienteSelecionado(null); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
+              {/* Busca de cliente cadastrado */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Buscar Cliente Cadastrado</label>
+                <ClienteSearch
+                  clientes={clientes}
+                  clienteSelecionado={clienteSelecionado}
+                  onSelect={handleSelecionarCliente}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Cliente <span className="text-red-500">*</span></label>
-                  <input value={formNova.nomeCliente} onChange={e => setFormNova(f => ({ ...f, nomeCliente: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome do Cliente <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    value={formNova.nomeCliente}
+                    onChange={e => setFormNova(f => ({ ...f, nomeCliente: e.target.value }))}
+                    disabled={!!clienteSelecionado}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">CPF / CNPJ</label>
-                  <input value={formNova.cpfCnpjCliente} onChange={e => setFormNova(f => ({ ...f, cpfCnpjCliente: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    value={formNova.cpfCnpjCliente}
+                    onChange={e => setFormNova(f => ({ ...f, cpfCnpjCliente: e.target.value }))}
+                    disabled={!!clienteSelecionado}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-                  <input value={formNova.telefoneCliente} onChange={e => setFormNova(f => ({ ...f, telefoneCliente: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    value={formNova.telefoneCliente}
+                    onChange={e => setFormNova(f => ({ ...f, telefoneCliente: e.target.value }))}
+                    disabled={!!clienteSelecionado}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
                 </div>
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
-                  <input type="email" value={formNova.emailCliente} onChange={e => setFormNova(f => ({ ...f, emailCliente: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input
+                    type="email"
+                    value={formNova.emailCliente}
+                    onChange={e => setFormNova(f => ({ ...f, emailCliente: e.target.value }))}
+                    disabled={!!clienteSelecionado}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
