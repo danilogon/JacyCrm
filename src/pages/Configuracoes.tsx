@@ -194,7 +194,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   // Tipos de Usuário state
   const tipoVazio: Omit<TipoUsuario, 'id'> = {
     nome: '', descricao: '', role: 'usuario', ativo: true,
-    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: false,
+    acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: false, acessoConsultaRenovacoes: false,
     visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
   };
@@ -310,6 +310,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   function abrirEdTipo(t: TipoUsuario) {
     setFormTipo({ nome: t.nome, descricao: t.descricao, role: t.role, ativo: t.ativo,
       acessoRenovacoes: t.acessoRenovacoes, acessoSegurosNovos: t.acessoSegurosNovos, acessoProspeccao: t.acessoProspeccao ?? true,
+      acessoConsultaRenovacoes: t.acessoConsultaRenovacoes ?? false,
       podeDescartarProspeccao: t.podeDescartarProspeccao ?? false,
       visualizarDashboard: t.visualizarDashboard ?? true,
       visualizarProducao: t.visualizarProducao ?? false,
@@ -1121,6 +1122,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                   <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide col-span-2 mb-1">Acesso</div>
                   {[
                     { label: 'Renovações', v: t.acessoRenovacoes },
+                    { label: 'Consulta Ren.', v: t.acessoConsultaRenovacoes ?? false },
                     { label: 'Seguros Novos', v: t.acessoSegurosNovos },
                   ].map(({ label, v }) => (
                     <div key={label} className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -1169,6 +1171,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     <Ck v={formTipo.acessoRenovacoes} label="Acesso a Renovações" onChange={v => setFormTipo(f => ({...f, acessoRenovacoes: v}))} />
                     <Ck v={formTipo.acessoSegurosNovos} label="Acesso a Seguros Novos" onChange={v => setFormTipo(f => ({...f, acessoSegurosNovos: v}))} />
                     <Ck v={formTipo.acessoProspeccao ?? true} label="Acesso a Prospecção" onChange={v => setFormTipo(f => ({...f, acessoProspeccao: v}))} />
+                    <Ck v={formTipo.acessoConsultaRenovacoes ?? false} label="Consulta de Renovações" onChange={v => setFormTipo(f => ({...f, acessoConsultaRenovacoes: v}))} />
                     <Ck v={formTipo.podeDescartarProspeccao ?? false} label="Pode descartar prospecções" onChange={v => setFormTipo(f => ({...f, podeDescartarProspeccao: v}))} />
                   </div>
 

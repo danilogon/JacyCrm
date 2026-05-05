@@ -21,6 +21,7 @@ type FormUsuario = {
   acessoSegurosNovos: boolean;
   acessoProspeccao: boolean;
   podeDescartarProspeccao: boolean;
+  acessoConsultaRenovacoes: boolean;
   visualizarDashboard: boolean;
   visualizarProducao: boolean;
   visualizarMetas: boolean;
@@ -52,6 +53,7 @@ const formVazio: FormUsuario = {
   nome: '', email: '', senha: '', role: 'usuario',
   acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true,
   podeDescartarProspeccao: false,
+  acessoConsultaRenovacoes: false,
   visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
   camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
   recebeRemuneracaoRenovacoes: false, planoMetaRenovacaoId: '',
@@ -94,6 +96,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       nome: u.nome, email: u.email, senha: '', role: u.role,
       acessoRenovacoes: u.acessoRenovacoes, acessoSegurosNovos: u.acessoSegurosNovos, acessoProspeccao: u.acessoProspeccao ?? true,
       podeDescartarProspeccao: u.podeDescartarProspeccao ?? false,
+      acessoConsultaRenovacoes: u.acessoConsultaRenovacoes ?? false,
       visualizarDashboard: u.visualizarDashboard ?? true,
       visualizarProducao: u.visualizarProducao ?? false,
       visualizarMetas: u.visualizarMetas ?? true,
@@ -130,6 +133,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       acessoSegurosNovos: form.acessoSegurosNovos,
       acessoProspeccao: form.acessoProspeccao,
       podeDescartarProspeccao: form.podeDescartarProspeccao,
+      acessoConsultaRenovacoes: form.acessoConsultaRenovacoes,
       visualizarDashboard: form.visualizarDashboard,
       visualizarProducao: form.visualizarProducao,
       visualizarMetas: form.visualizarMetas,
@@ -276,6 +280,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                           acessoRenovacoes: tipo.acessoRenovacoes,
                           acessoSegurosNovos: tipo.acessoSegurosNovos,
                           acessoProspeccao: tipo.acessoProspeccao ?? true,
+                          acessoConsultaRenovacoes: tipo.acessoConsultaRenovacoes ?? false,
                           podeDescartarProspeccao: tipo.podeDescartarProspeccao ?? false,
                           visualizarDashboard: tipo.visualizarDashboard ?? true,
                           visualizarProducao: tipo.visualizarProducao ?? false,
@@ -326,6 +331,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                 <Ck v={form.acessoRenovacoes} label="Acesso a Renovações" onChange={v => setForm(f => ({...f, acessoRenovacoes: v}))} />
                 <Ck v={form.acessoSegurosNovos} label="Acesso a Seguros Novos" onChange={v => setForm(f => ({...f, acessoSegurosNovos: v}))} />
                 <Ck v={form.acessoProspeccao} label="Acesso a Prospecção" onChange={v => setForm(f => ({...f, acessoProspeccao: v}))} />
+                <Ck v={form.acessoConsultaRenovacoes} label="Consulta de Renovações" onChange={v => setForm(f => ({...f, acessoConsultaRenovacoes: v}))} />
                 <Ck v={form.podeDescartarProspeccao} label="Pode descartar prospecções" onChange={v => setForm(f => ({...f, podeDescartarProspeccao: v}))} />
               </div>
 

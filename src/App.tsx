@@ -15,6 +15,7 @@ import { Comissoes } from './pages/Comissoes';
 import { MetasAcompanhamento } from './pages/MetasAcompanhamento';
 import { DashboardProducao } from './pages/DashboardProducao';
 import { Tarefas } from './pages/Tarefas';
+import { ConsultaRenovacoes } from './pages/ConsultaRenovacoes';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
@@ -207,6 +208,7 @@ function AppRoutes() {
   const podeSegurosNovos         = usuario.role !== 'usuario' || usuario.acessoSegurosNovos;
   const podeProspeccao           = usuario.role !== 'usuario' || (usuario.acessoProspeccao ?? true);
   const podeDescartarProspeccao  = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.podeDescartarProspeccao ?? false);
+  const podeConsultarRenovacoes = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoConsultaRenovacoes ?? false);
   const podeVerDashboard         = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarDashboard ?? true);
   const podeVerProducao          = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarProducao ?? false);
   const podeVerMetas             = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarMetas ?? true);
@@ -314,6 +316,15 @@ function AppRoutes() {
               setTarefas={setTarefas}
               podeDescartar={podeDescartarProspeccao}
               origensProspeccao={origensProspeccao}
+            />
+          } />
+        )}
+
+        {podeConsultarRenovacoes && (
+          <Route path="/consulta-renovacoes" element={
+            <ConsultaRenovacoes
+              renovacoes={renovacoes}
+              usuarios={usuarios}
             />
           } />
         )}

@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCw, PlusCircle, Target, Users, Settings,
-  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, CalendarCheck,
+  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, CalendarCheck, BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa } from '../types';
 
 const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao'];
-const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao'];
+const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao', '/consulta-renovacoes'];
 
 export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
   const { usuario } = useAuth();
@@ -69,6 +69,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
     { to: '/renovacoes',    icon: RefreshCw,  label: 'Renovações',    show: usuario.role !== 'usuario' || usuario.acessoRenovacoes },
     { to: '/seguros-novos', icon: PlusCircle, label: 'Seguros Novos', show: usuario.role !== 'usuario' || usuario.acessoSegurosNovos },
     { to: '/prospeccao',    icon: Target,     label: 'Prospecção',    show: usuario.role !== 'usuario' || (usuario.acessoProspeccao ?? true) },
+    { to: '/consulta-renovacoes', icon: BookOpen, label: 'Consulta Renovações', show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoConsultaRenovacoes ?? false) },
   ];
 
   const dashboardAtivo = DASHBOARD_PATHS.some(p => location.pathname.startsWith(p));

@@ -9,6 +9,7 @@ export interface TipoUsuario {
   acessoSegurosNovos: boolean;
   acessoProspeccao: boolean;
   podeDescartarProspeccao: boolean;
+  acessoConsultaRenovacoes: boolean;
   visualizarDashboard: boolean;
   visualizarProducao: boolean;
   visualizarMetas: boolean;
@@ -31,6 +32,7 @@ export interface Usuario {
   acessoSegurosNovos: boolean;
   acessoProspeccao?: boolean;
   podeDescartarProspeccao?: boolean;
+  acessoConsultaRenovacoes?: boolean;
   visualizarDashboard?: boolean;
   visualizarProducao?: boolean;
   visualizarMetas?: boolean;
