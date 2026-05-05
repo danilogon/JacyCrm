@@ -93,6 +93,8 @@ export interface OrigemProspeccao {
   nome: string;      // display label
   isSystem: boolean; // true = locked, cannot be deleted
   ativo: boolean;
+  /** Onde esta origem aparece: apenas prospecções, apenas seguros novos ou ambos. Origens do sistema são sempre 'prospeccoes'. */
+  aplicavelA?: 'prospeccoes' | 'seguros_novos' | 'ambos';
 }
 
 export interface ArquivoAnexo {
@@ -287,7 +289,7 @@ export interface CampoCustomizavel {
   obrigatorio: boolean;
   ativo: boolean;
   /** 'ambos' = renovações + seguros novos; 'todos' = os três módulos */
-  aplicavelA: 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'ambos' | 'todos';
+  aplicavelA: 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'ambos' | 'todos' | 'seguros_novos_prospeccoes';
   opcoes?: string[];
   multiplosArquivos?: boolean;
   tiposPermitidos?: string[];

@@ -857,7 +857,7 @@ export function ProspeccaoPage({
                   <label className="block text-sm font-medium text-gray-700 mb-1">Origem</label>
                   <select value={formNova.origemId} onChange={e => setFormNova(f => ({ ...f, origemId: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {origensProspeccao.filter(o => o.ativo).map(o => (
+                    {origensProspeccao.filter(o => o.ativo && (o.isSystem || !o.aplicavelA || o.aplicavelA === 'prospeccoes' || o.aplicavelA === 'ambos')).map(o => (
                       <option key={o.id} value={o.id}>{o.nome}</option>
                     ))}
                   </select>

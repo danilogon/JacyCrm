@@ -204,6 +204,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [editOrigem, setEditOrigem] = useState<OrigemProspeccao | null>(null);
   const [criandoOrigem, setCriandoOrigem] = useState(false);
   const [formOrigemNome, setFormOrigemNome] = useState('');
+  const [formOrigemAplicavel, setFormOrigemAplicavel] = useState<'prospeccoes' | 'seguros_novos' | 'ambos'>('ambos');
   const [confirmDelOrigem, setConfirmDelOrigem] = useState<string | null>(null);
 
   // Empresa local form state
@@ -343,15 +344,17 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
         nome: formOrigemNome.trim(),
         isSystem: false,
         ativo: true,
+        aplicavelA: formOrigemAplicavel,
       }]);
     } else if (editOrigem) {
       setOrigensProspeccao(origensProspeccao.map(o =>
-        o.id === editOrigem.id ? { ...o, nome: formOrigemNome.trim() } : o
+        o.id === editOrigem.id ? { ...o, nome: formOrigemNome.trim(), aplicavelA: formOrigemAplicavel } : o
       ));
     }
     setEditOrigem(null);
     setCriandoOrigem(false);
     setFormOrigemNome('');
+    setFormOrigemAplicavel('ambos');
   }
 
   const ROLE_LABELS_CFG: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -986,7 +989,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <td className="px-3 py-2.5 text-gray-600 capitalize">{c.tipo}</td>
                       <td className="px-3 py-2.5 text-center">{c.obrigatorio ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-gray-600">
-                        {{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos' }[c.aplicavelA]}
+                        {{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos', seguros_novos_prospeccoes: 'SN + Prospecções' }[c.aplicavelA]}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => setCampos(campos.map(x => x.id === c.id ? {...x, ativo: !x.ativo} : x))}
@@ -1037,6 +1040,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                       <option value="todos">Todos (Ren. + Seg. Novos + Prospecções)</option>
                       <option value="ambos">Ren. + Seg. Novos</option>
+                      <option value="seguros_novos_prospeccoes">Seg. Novos + Prospecções</option>
                       <option value="renovacoes">Renovações</option>
                       <option value="seguros_novos">Seguros Novos</option>
                       <option value="prospeccoes">Prospecções</option>
@@ -1211,7 +1215,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       {tab === 'origens_prospeccao' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button onClick={() => { setFormOrigemNome(''); setCriandoOrigem(true); setEditOrigem(null); }}
+            <button onClick={() => { setFormOrigemNome(''); setFormOrigemAplicavel('ambos'); setCriandoOrigem(true); setEditOrigem(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
               <Plus size={14} /> Nova Origem
             </button>
@@ -1223,13 +1227,14 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Nome</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tipo</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Aplicável a</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {origensProspeccao.length === 0 ? (
-                  <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">Nenhuma origem cadastrada</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Nenhuma origem cadastrada</td></tr>
                 ) : origensProspeccao.map(o => (
                   <tr key={o.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium text-gray-800">
@@ -1243,6 +1248,11 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                         ? <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">Sistema</span>
                         : <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">Personalizada</span>}
                     </td>
+                    <td className="px-4 py-3 text-xs text-gray-600">
+                      {o.isSystem
+                        ? 'Prospecções'
+                        : { prospeccoes: 'Prospecções', seguros_novos: 'Seguros Novos', ambos: 'Seg. Novos + Prosp.' }[o.aplicavelA ?? 'ambos']}
+                    </td>
                     <td className="px-4 py-3">
                       <button onClick={() => setOrigensProspeccao(origensProspeccao.map(x => x.id === o.id ? { ...x, ativo: !x.ativo } : x))}
                         className={`px-2 py-0.5 rounded text-xs font-medium ${o.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -1252,7 +1262,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     <td className="px-4 py-3">
                       <div className="flex gap-1">
                         {!o.isSystem && (
-                          <button onClick={() => { setFormOrigemNome(o.nome); setEditOrigem(o); setCriandoOrigem(false); }}
+                          <button onClick={() => { setFormOrigemNome(o.nome); setFormOrigemAplicavel(o.aplicavelA ?? 'ambos'); setEditOrigem(o); setCriandoOrigem(false); }}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                             <Edit2 size={13} />
                           </button>
@@ -1286,6 +1296,15 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     onKeyDown={e => e.key === 'Enter' && salvarOrigem()}
                     autoFocus
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Aplicável a</label>
+                  <select value={formOrigemAplicavel} onChange={e => setFormOrigemAplicavel(e.target.value as 'prospeccoes' | 'seguros_novos' | 'ambos')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="ambos">Seg. Novos + Prospecções</option>
+                    <option value="seguros_novos">Apenas Seguros Novos</option>
+                    <option value="prospeccoes">Apenas Prospecções</option>
+                  </select>
                 </div>
                 <div className="flex justify-end gap-2">
                   <button onClick={() => { setEditOrigem(null); setCriandoOrigem(false); }}

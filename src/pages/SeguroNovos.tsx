@@ -997,7 +997,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                           disabled={bloqueado}
                           className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}>
                           <option value="">— Selecione a origem —</option>
-                          {origensNegocio.filter(o => o.ativo).map(o => (
+                          {origensNegocio.filter(o => o.ativo && !o.isSystem && (!o.aplicavelA || o.aplicavelA === 'seguros_novos' || o.aplicavelA === 'ambos')).map(o => (
                             <option key={o.id} value={o.id}>{o.nome}</option>
                           ))}
                         </select>

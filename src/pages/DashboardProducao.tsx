@@ -384,7 +384,12 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
             <select value={filtroOrigem} onChange={e => setFiltroOrigem(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">Todas as origens</option>
-              {origensProspeccao.filter(o => o.ativo).map(o => (
+              {origensProspeccao.filter(o => {
+                if (!o.ativo) return false;
+                if (filtroTipo === 'seguros_novos') return !o.isSystem && (!o.aplicavelA || o.aplicavelA === 'seguros_novos' || o.aplicavelA === 'ambos');
+                if (filtroTipo === 'prospeccoes') return o.isSystem || !o.aplicavelA || o.aplicavelA === 'prospeccoes' || o.aplicavelA === 'ambos';
+                return true; // todos: mostra todas
+              }).map(o => (
                 <option key={o.id} value={o.id}>{o.nome}</option>
               ))}
             </select>
