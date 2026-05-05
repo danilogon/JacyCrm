@@ -1115,11 +1115,11 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                 </div>
 
                 {/* ── Campos Customizáveis ── */}
-                {camposAplicaveis.length > 0 && (
+                {camposAplicaveis.filter(c => !c.ramosAplicaveis?.length || c.ramosAplicaveis.includes(form.ramo)).length > 0 && (
                   <div>
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Campos Adicionais</h3>
                     <div className="space-y-3">
-                      {camposAplicaveis.map(campo => {
+                      {camposAplicaveis.filter(c => !c.ramosAplicaveis?.length || c.ramosAplicaveis.includes(form.ramo)).map(campo => {
                         const valorAtual = form.camposCustomizados.find(c => c.campoId === campo.id)?.valor ?? '';
                         const setValor = (v: string | string[]) => setForm(f => ({
                           ...f,

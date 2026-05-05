@@ -187,7 +187,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   // Campos state
   const [editCampo, setEditCampo] = useState<CampoCustomizavel | null>(null);
   const [criandoCampo, setCriandoCampo] = useState(false);
-  const [formCampo, setFormCampo] = useState<Omit<CampoCustomizavel, 'id'>>({ nome: '', tipo: 'texto', obrigatorio: false, ativo: true, aplicavelA: 'todos', opcoes: [] });
+  const [formCampo, setFormCampo] = useState<Omit<CampoCustomizavel, 'id'>>({ nome: '', tipo: 'texto', obrigatorio: false, ativo: true, aplicavelA: 'todos', opcoes: [], ramosAplicaveis: [] });
   const [confirmDelCampo, setConfirmDelCampo] = useState<string | null>(null);
   const [opcoesInput, setOpcoesInput] = useState('');
 
@@ -972,7 +972,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       {tab === 'campos' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button onClick={() => { setFormCampo({ nome: '', tipo: 'texto', obrigatorio: false, ativo: true, aplicavelA: 'todos', opcoes: [] }); setOpcoesInput(''); setCriandoCampo(true); setEditCampo(null); }}
+            <button onClick={() => { setFormCampo({ nome: '', tipo: 'texto', obrigatorio: false, ativo: true, aplicavelA: 'todos', opcoes: [], ramosAplicaveis: [] }); setOpcoesInput(''); setCriandoCampo(true); setEditCampo(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
               <Plus size={14} /> Novo Campo
             </button>
@@ -995,7 +995,12 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <td className="px-3 py-2.5 text-gray-600 capitalize">{c.tipo}</td>
                       <td className="px-3 py-2.5 text-center">{c.obrigatorio ? <Check size={14} className="text-green-600 mx-auto" /> : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2.5 text-gray-600">
-                        {{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos', seguros_novos_prospeccoes: 'SN + Prospecções', clientes: 'Clientes' }[c.aplicavelA]}
+                        <div>{{ ambos: 'Ren. + Seg. Novos', renovacoes: 'Renovações', seguros_novos: 'Seguros Novos', prospeccoes: 'Prospecções', todos: 'Todos', seguros_novos_prospeccoes: 'SN + Prospecções', clientes: 'Clientes' }[c.aplicavelA]}</div>
+                        {c.aplicavelA !== 'clientes' && (
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {(c.ramosAplicaveis ?? []).length === 0 ? 'Todos os ramos' : c.ramosAplicaveis!.join(', ')}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-2.5">
                         <button onClick={() => setCampos(campos.map(x => x.id === c.id ? {...x, ativo: !x.ativo} : x))}
@@ -1005,7 +1010,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
-                          <button onClick={() => { setFormCampo({nome: c.nome, tipo: c.tipo, obrigatorio: c.obrigatorio, ativo: c.ativo, aplicavelA: c.aplicavelA, opcoes: c.opcoes, multiplosArquivos: c.multiplosArquivos, tiposPermitidos: c.tiposPermitidos, tamanhoMaximoMB: c.tamanhoMaximoMB}); setOpcoesInput((c.opcoes ?? []).join('\n')); setEditCampo(c); setCriandoCampo(false); }}
+                          <button onClick={() => { setFormCampo({nome: c.nome, tipo: c.tipo, obrigatorio: c.obrigatorio, ativo: c.ativo, aplicavelA: c.aplicavelA, opcoes: c.opcoes, ramosAplicaveis: c.ramosAplicaveis ?? [], multiplosArquivos: c.multiplosArquivos, tiposPermitidos: c.tiposPermitidos, tamanhoMaximoMB: c.tamanhoMaximoMB}); setOpcoesInput((c.opcoes ?? []).join('\n')); setEditCampo(c); setCriandoCampo(false); }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={13} /></button>
                           <button onClick={() => setConfirmDelCampo(c.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={13} /></button>
                         </div>
@@ -1053,6 +1058,32 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <option value="clientes">Clientes</option>
                     </select>
                   </div>
+                  {formCampo.aplicavelA !== 'clientes' && ramosOrd.length > 0 && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Ramos aplicáveis
+                        <span className="ml-1 text-gray-400 font-normal">(vazio = todos)</span>
+                      </label>
+                      <div className="border border-gray-200 rounded-lg p-2 max-h-36 overflow-y-auto space-y-1">
+                        {ramosOrd.filter(r => r.ativo).map(r => {
+                          const checked = (formCampo.ramosAplicaveis ?? []).includes(r.nome);
+                          return (
+                            <button key={r.id} type="button"
+                              onClick={() => setFormCampo(f => {
+                                const lista = f.ramosAplicaveis ?? [];
+                                return { ...f, ramosAplicaveis: checked ? lista.filter(x => x !== r.nome) : [...lista, r.nome] };
+                              })}
+                              className="flex items-center gap-1.5 text-sm text-gray-700 w-full text-left hover:text-blue-700">
+                              {checked
+                                ? <CheckSquare size={14} className="text-blue-600 shrink-0" />
+                                : <Square size={14} className="text-gray-400 shrink-0" />}
+                              {r.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                   {formCampo.tipo === 'lista' && (
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Opções (uma por linha)</label>

@@ -3,7 +3,7 @@ import { Plus, X, Search, UserCheck, Target, ExternalLink, CheckCircle2, Downloa
 import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
-  SeguroNovo, MotivoPerda, Tarefa, Cliente, OrigemProspeccao,
+  SeguroNovo, MotivoPerda, Tarefa, Cliente, OrigemProspeccao, CampoCustomizavel, CampoCustomizadoValor,
 } from '../types';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
@@ -25,6 +25,7 @@ interface Props {
   setTarefas: (t: Tarefa[]) => void;
   podeDescartar: boolean;
   origensProspeccao: OrigemProspeccao[];
+  camposCustomizaveis?: CampoCustomizavel[];
 }
 
 const STATUS_LABELS: Record<StatusProspeccao, string> = {
@@ -168,6 +169,7 @@ export function ProspeccaoPage({
   tarefas, setTarefas,
   podeDescartar,
   origensProspeccao,
+  camposCustomizaveis = [],
 }: Props) {
   const { usuario } = useAuth();
   const isAdmin  = usuario?.role === 'admin';
@@ -243,6 +245,17 @@ export function ProspeccaoPage({
 
   function nomeUsuario(id?: string) {
     return id ? (usuarios.find(u => u.id === id)?.nome ?? '—') : '—';
+  }
+
+  function setCampoCustom(prospId: string, campoId: string, valor: string | string[]) {
+    setProspeccoes(prospeccoes.map(p => {
+      if (p.id !== prospId) return p;
+      const lista = p.camposCustomizados ?? [];
+      const atualizado: CampoCustomizadoValor[] = lista.some(c => c.campoId === campoId)
+        ? lista.map(c => c.campoId === campoId ? { ...c, valor } : c)
+        : [...lista, { campoId, valor }];
+      return { ...p, camposCustomizados: atualizado };
+    }));
   }
 
   // ── Assumir prospecção ───────────────────────────────────────────────────────
@@ -755,6 +768,66 @@ export function ProspeccaoPage({
                     somenteLeitura
                   />
                 </div>
+
+                {/* Campos Customizáveis */}
+                {(() => {
+                  const campos = camposCustomizaveis.filter(c =>
+                    c.ativo &&
+                    ['prospeccoes', 'seguros_novos_prospeccoes', 'todos'].includes(c.aplicavelA) &&
+                    (!c.ramosAplicaveis?.length || c.ramosAplicaveis.includes(prosp.ramo))
+                  );
+                  if (campos.length === 0) return null;
+                  return (
+                    <div>
+                      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Campos Adicionais</h3>
+                      <div className="space-y-3">
+                        {campos.map(campo => {
+                          const valorAtual = (prosp.camposCustomizados ?? []).find(c => c.campoId === campo.id)?.valor ?? '';
+                          if (campo.tipo === 'texto') return (
+                            <div key={campo.id}>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">{campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}</label>
+                              <input value={valorAtual as string} onChange={e => setCampoCustom(prosp.id, campo.id, e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                          );
+                          if (campo.tipo === 'data') return (
+                            <div key={campo.id}>
+                              <label className="block text-xs font-medium text-gray-600 mb-1">{campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}</label>
+                              <input type="date" value={valorAtual as string} onChange={e => setCampoCustom(prosp.id, campo.id, e.target.value)}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                          );
+                          if (campo.tipo === 'lista') {
+                            const opcoes = campo.opcoes ?? [];
+                            const selecionados = Array.isArray(valorAtual) ? valorAtual as string[] : (valorAtual ? [valorAtual as string] : []);
+                            return (
+                              <div key={campo.id}>
+                                <label className="block text-xs font-medium text-gray-600 mb-1">{campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}</label>
+                                {campo.multiplosArquivos ? (
+                                  <div className="flex flex-wrap gap-2">
+                                    {opcoes.map(op => (
+                                      <button key={op} type="button" onClick={() => {
+                                        const novo = selecionados.includes(op) ? selecionados.filter(x => x !== op) : [...selecionados, op];
+                                        setCampoCustom(prosp.id, campo.id, novo);
+                                      }} className={`px-2 py-1 rounded-full text-xs border ${selecionados.includes(op) ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 text-gray-600 hover:border-blue-400'}`}>{op}</button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <select value={valorAtual as string} onChange={e => setCampoCustom(prosp.id, campo.id, e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Selecione...</option>
+                                    {opcoes.map(op => <option key={op} value={op}>{op}</option>)}
+                                  </select>
+                                )}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

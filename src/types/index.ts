@@ -299,6 +299,8 @@ export interface CampoCustomizavel {
   ativo: boolean;
   /** 'ambos' = renovações + seguros novos; 'todos' = os três módulos */
   aplicavelA: 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'ambos' | 'todos' | 'seguros_novos_prospeccoes' | 'clientes';
+  /** Lista de ramos (nome) aos quais o campo se aplica; vazio = todos os ramos */
+  ramosAplicaveis?: string[];
   opcoes?: string[];
   multiplosArquivos?: boolean;
   tiposPermitidos?: string[];

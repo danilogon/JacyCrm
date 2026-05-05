@@ -318,6 +318,7 @@ function AppRoutes() {
               setTarefas={setTarefas}
               podeDescartar={podeDescartarProspeccao}
               origensProspeccao={origensProspeccao}
+              camposCustomizaveis={campos}
             />
           } />
         )}
