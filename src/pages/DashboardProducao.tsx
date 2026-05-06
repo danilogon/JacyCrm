@@ -693,7 +693,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
               <h3 className="text-sm font-semibold text-violet-700 mb-3 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-violet-500 inline-block" />
                 Renovações que saíram de <span className="italic">{filtroMigOrigem}</span> foram para:
-                <span className="text-gray-400 font-normal">({migDestinosAgrup.reduce((s, r) => s + r.qtd, 0)} ren. migradas)</span>
+                <span className="text-gray-400 font-normal">({migDestinosAgrup.reduce((s, r) => s + r.qtd, 0)} renovações de {totalRenPorSegAnterior.get(filtroMigOrigem) ?? 0} renovações)</span>
               </h3>
               {migDestinosAgrup.length === 0 ? (
                 <p className="text-sm text-gray-400 py-3">Nenhuma migração desta seguradora no período</p>
