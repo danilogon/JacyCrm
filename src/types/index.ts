@@ -245,6 +245,13 @@ export interface Ramo {
   considerarParaTaxaConversao: boolean;
   /** Quando true, a comissão é paga individualmente por venda (fora da meta de produção mensal) */
   remuneracaoIndividual: boolean;
+  /**
+   * Quando true, os registros deste ramo NÃO são contabilizados em:
+   * negócios fechados, prêmio líquido total, comissão total, média de % comissão
+   * nem nos rankings do dashboard. Usado para produtos auxiliares (ex: Cartão Porto)
+   * que geram remuneração individual mas não são seguros em si.
+   */
+  apenasControleRemuneracao?: boolean;
 }
 
 export interface FaixaMeta {

@@ -174,7 +174,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   // Ramos state
   const [editRamo, setEditRamo] = useState<Ramo | null>(null);
   const [criandoRamo, setCriandoRamo] = useState(false);
-  const [formRamo, setFormRamo] = useState<Omit<Ramo, 'id'>>({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false });
+  const [formRamo, setFormRamo] = useState<Omit<Ramo, 'id'>>({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, apenasControleRemuneracao: false });
   const [confirmDelRamo, setConfirmDelRamo] = useState<string | null>(null);
 
   // Metas state
@@ -589,8 +589,34 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div className="space-y-2 pt-2">
+                    {/* Opção especial: apenas controle de remuneração */}
+                    <div className={`rounded-lg border px-3 py-2.5 ${formRamo.apenasControleRemuneracao ? 'bg-amber-50 border-amber-300' : 'border-gray-200'}`}>
+                      <label className="flex items-start gap-2.5 cursor-pointer">
+                        <input type="checkbox" checked={!!formRamo.apenasControleRemuneracao}
+                          onChange={e => {
+                            const v = e.target.checked;
+                            setFormRamo(f => ({
+                              ...f,
+                              apenasControleRemuneracao: v,
+                              // Quando ativado: força remuneração individual e desativa taxas
+                              ...(v ? { remuneracaoIndividual: true, considerarParaTaxaSegurosNovos: false, considerarParaTaxaConversao: false } : {}),
+                            }));
+                          }}
+                          className="mt-0.5 w-4 h-4 text-amber-600 rounded border-gray-300 cursor-pointer" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-800">Apenas controle de remuneração</p>
+                          <p className="text-xs text-amber-600 mt-0.5">
+                            Os valores de prêmio e comissão <strong>não entram</strong> nos totais, rankings,
+                            médias nem contagem de negócios fechados do dashboard.
+                            Use para produtos auxiliares (ex: cartão de crédito) que geram
+                            remuneração individual mas não são seguros.
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
                     <Ck v={formRamo.considerarParaTaxaSegurosNovos} label="Considerar para taxa de seguros novos"
-                      onChange={v => setFormRamo(f => ({...f, considerarParaTaxaSegurosNovos: v}))} />
+                      onChange={v => setFormRamo(f => ({...f, considerarParaTaxaSegurosNovos: v}))}  />
                     <Ck v={formRamo.considerarParaTaxaConversao} label="Considerar Novos para taxa de Renovações (metas)"
                       onChange={v => setFormRamo(f => ({...f, considerarParaTaxaConversao: v}))} />
                     <Ck v={formRamo.remuneracaoIndividual} label="Remuneração individual por venda (fora da meta de produção)"

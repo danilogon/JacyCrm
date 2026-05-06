@@ -93,6 +93,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
     return [...new Set(all)].sort((a, b) => b - a);
   }, [segurosNovos, renovacoes, prospeccoes]);
 
+  /** Retorna true quando o ramo está marcado como "apenas controle de remuneração" — deve ser excluído das estatísticas */
+  function ramoExcluido(nomeRamo: string): boolean {
+    return !!(ramos.find(r => r.nome === nomeRamo)?.apenasControleRemuneracao);
+  }
+
   function dentroPeriodo(dateStr?: string): boolean {
     if (!dateStr) return true;
     const [y, m] = dateStr.split('-').map(Number);
@@ -115,7 +120,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem, filtroUsuario]);
 
-  const snFechados  = useMemo(() => snFiltrados.filter(s => s.status === 'fechado'), [snFiltrados]);
+  const snFechados  = useMemo(() => snFiltrados.filter(s => s.status === 'fechado' && !ramoExcluido(s.ramo)), [snFiltrados, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
   const snPerdidos  = useMemo(() => snFiltrados.filter(s => {
     if (s.status !== 'perdido') return false;
     const m = motivos.find(x => x.id === s.motivoPerdaId);
@@ -135,7 +140,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [renovacoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroUsuario]);
 
-  const renRenovadas = useMemo(() => renFiltradas.filter(r => r.status === 'renovado'), [renFiltradas]);
+  const renRenovadas = useMemo(() => renFiltradas.filter(r => r.status === 'renovado' && !ramoExcluido(r.ramo)), [renFiltradas, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
   const renPerdidas  = useMemo(() => renFiltradas.filter(r => {
     if (r.status !== 'nao_renovada') return false;
     const m = motivos.find(x => x.id === r.motivoPerdaId);
@@ -166,9 +171,10 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
     return segurosNovos.filter(s => {
       if (s.status !== 'fechado') return false;
       if (!s.origemProspeccaoId || !prospIds.has(s.origemProspeccaoId)) return false;
+      if (ramoExcluido(s.ramo)) return false;
       return true;
     });
-  }, [filtroTipo, prospFiltradas, segurosNovos]);
+  }, [filtroTipo, prospFiltradas, segurosNovos, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Painel de Prospecções (sem filtro de período — visão geral) ──────────────
   const hoje = new Date().toISOString().split('T')[0];

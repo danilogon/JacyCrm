@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS ramos (
   valor_fixo NUMERIC DEFAULT 0,
   considerar_para_taxa_seguros_novos BOOLEAN DEFAULT true,
   considerar_para_taxa_conversao BOOLEAN DEFAULT true,
-  remuneracao_individual BOOLEAN DEFAULT false
+  remuneracao_individual BOOLEAN DEFAULT false,
+  apenas_controle_remuneracao BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS motivos_perda (
