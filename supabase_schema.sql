@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
   plano_meta_seguro_novo_id TEXT,
   recebe_remuneracao_sn_comissao BOOLEAN DEFAULT true,
   recebe_remuneracao_sn_taxa BOOLEAN DEFAULT true,
+  dias_permitidos JSONB DEFAULT '[]',
+  config_ramos JSONB DEFAULT '[]',
   ativo BOOLEAN DEFAULT true
 );
 
@@ -64,6 +66,7 @@ CREATE TABLE IF NOT EXISTS ramos (
   considerar_para_taxa_seguros_novos BOOLEAN DEFAULT true,
   considerar_para_taxa_conversao BOOLEAN DEFAULT true,
   remuneracao_individual BOOLEAN DEFAULT false,
+  participa_meta_producao BOOLEAN DEFAULT false,
   apenas_controle_remuneracao BOOLEAN DEFAULT false
 );
 

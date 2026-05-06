@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Edit2, X, Save, Check, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
-import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario } from '../types';
+import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario, ConfigRamoUsuario, Ramo } from '../types';
 import { generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -11,6 +11,7 @@ interface Props {
   setUsuarios: (u: Usuario[]) => void;
   metas: ConfiguracoesMetas;
   tiposUsuario: TipoUsuario[];
+  ramos: Ramo[];
 }
 
 type FormUsuario = {
@@ -42,6 +43,7 @@ type FormUsuario = {
   horarioLoginFim: string;
   diasPermitidos: number[];
   exigir2FA: boolean;
+  configRamos: ConfigRamoUsuario[];
 };
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -65,6 +67,7 @@ const formVazio: FormUsuario = {
   ativo: true,
   tipoUsuarioId: '',
   horarioLoginInicio: '', horarioLoginFim: '', diasPermitidos: [], exigir2FA: false,
+  configRamos: [],
 };
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
@@ -76,7 +79,7 @@ function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: b
   );
 }
 
-export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) {
+export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: Props) {
   const { usuario: me } = useAuth();
   const [editando, setEditando] = useState<Usuario | null>(null);
   const [criando, setCriando] = useState(false);
@@ -119,6 +122,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       horarioLoginFim:    u.horarioLoginFim    ?? '',
       diasPermitidos:     u.diasPermitidos     ?? [],
       exigir2FA:          u.exigir2FA          ?? false,
+      configRamos:        u.configRamos        ?? [],
     });
     setEditando(u);
     setCriando(false);
@@ -180,6 +184,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
         horarioLoginFim:    form.horarioLoginFim    || undefined,
         diasPermitidos:     form.diasPermitidos.length > 0 ? form.diasPermitidos : undefined,
         exigir2FA:          form.exigir2FA,
+        configRamos:        form.configRamos.length > 0 ? form.configRamos : undefined,
       };
 
       if (criando) {
@@ -424,6 +429,47 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                         <Ck v={form.recebeRemuneracaoSnTaxa} label="Taxa de Conversão"
                           onChange={v => setForm(f => ({...f, recebeRemuneracaoSnTaxa: v}))} />
                       </div>
+                      {(() => {
+                        const ramosCfg = ramos.filter(r => r.remuneracaoIndividual && r.ativo);
+                        return ramosCfg.length > 0 ? (
+                          <div className="mt-3 border border-blue-100 rounded-lg p-3 bg-blue-50/50">
+                            <p className="text-xs font-semibold text-blue-700 mb-2">Configuração de remuneração por ramo</p>
+                            <div className="space-y-2">
+                              {ramosCfg.map(r => {
+                                const cfg = form.configRamos.find(c => c.ramoId === r.id);
+                                const recebeInd = cfg ? cfg.recebeIndividual : r.remuneracaoIndividual;
+                                const recebeMeta = cfg ? cfg.recebeMeta : (r.participaMetaProducao ?? false);
+                                const update = (field: 'recebeIndividual' | 'recebeMeta', val: boolean) => {
+                                  setForm(f => {
+                                    const existing = f.configRamos.find(c => c.ramoId === r.id);
+                                    const newCfg: ConfigRamoUsuario = existing
+                                      ? { ...existing, [field]: val }
+                                      : { ramoId: r.id, recebeIndividual: r.remuneracaoIndividual, recebeMeta: r.participaMetaProducao ?? false, [field]: val };
+                                    return { ...f, configRamos: [...f.configRamos.filter(c => c.ramoId !== r.id), newCfg] };
+                                  });
+                                };
+                                return (
+                                  <div key={r.id} className="flex items-center gap-4 py-1.5 px-2 bg-white rounded border border-blue-100">
+                                    <span className="text-xs font-medium text-gray-700 w-32 truncate">{r.nome}</span>
+                                    <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                      <input type="checkbox" checked={recebeInd} onChange={e => update('recebeIndividual', e.target.checked)}
+                                        className="w-3.5 h-3.5 text-blue-600 rounded" />
+                                      Individual
+                                    </label>
+                                    {r.participaMetaProducao && (
+                                      <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+                                        <input type="checkbox" checked={recebeMeta} onChange={e => update('recebeMeta', e.target.checked)}
+                                          className="w-3.5 h-3.5 text-blue-600 rounded" />
+                                        Meta
+                                      </label>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null;
+                      })()}
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Plano de Metas</label>
                         {metas.planosSeguroNovo.length === 0 ? (

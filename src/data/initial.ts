@@ -48,7 +48,7 @@ export const SEGURADORAS_INICIAIS: Seguradora[] = [
 ];
 
 export const RAMOS_INICIAIS: Ramo[] = [
-  { id: 'r01', nome: 'AUTOMOVEL',       ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0,  valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: false },
+  { id: 'r01', nome: 'AUTOMOVEL',       ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0,  valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: false, participaMetaProducao: true },
   { id: 'r02', nome: 'BIKE',            ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },
   { id: 'r03', nome: 'CARTÃO PORTO',    ativo: true, tipoComissaoSegurosNovos: 'valor_fixo',  percentualComissao: 0,  valorFixo: 20, considerarParaTaxaSegurosNovos: false, considerarParaTaxaConversao: false, remuneracaoIndividual: true, apenasControleRemuneracao: true },
   { id: 'r04', nome: 'CONDOMÍNIO',      ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 25, valorFixo: 0,  considerarParaTaxaSegurosNovos: true,  considerarParaTaxaConversao: true,  remuneracaoIndividual: true  },

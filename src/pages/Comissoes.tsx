@@ -7,6 +7,8 @@ import {
   calcularTaxaConversaoSegurosNovos,
   calcularAumentoComissao,
   calcularRemuneracaoFaixa,
+  ramoRecebeIndividual,
+  ramoRecebeMeta,
 } from '../utils/calculations';
 
 interface Props {
@@ -89,10 +91,10 @@ function calcularParaUsuario(
 
   const snFechados = sn.filter(s => s.status === 'fechado');
   const comissaoGeradaSnMeta = snFechados
-    .filter(s => !(ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
+    .filter(s => ramoRecebeMeta(u, ramoByNome(s.ramo)))
     .reduce((acc, x) => acc + x.comissao, 0);
   const comissaoIndividualSn = snFechados
-    .filter(s => ramoByNome(s.ramo)?.remuneracaoIndividual ?? false)
+    .filter(s => ramoRecebeIndividual(u, ramoByNome(s.ramo)))
     .reduce((acc, x) => acc + x.comissaoAReceber, 0);
 
   // Planos — mesma lógica do Dashboard

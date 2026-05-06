@@ -7,6 +7,7 @@ import {
   calcularTaxaConversaoRenovacoes,
   calcularTaxaConversaoSegurosNovos,
   calcularAumentoComissao,
+  ramoRecebeMeta,
 } from '../utils/calculations';
 
 interface Props {
@@ -187,7 +188,7 @@ function calcularDadosUsuario(
 
   const taxaSn          = calcularTaxaConversaoSegurosNovos(sn, ramos, motivosSn);
   const aumentoComissao = calcularAumentoComissao(rv);
-  const comissaoSnMeta  = sn.filter(s => s.status === 'fechado' && !(ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
+  const comissaoSnMeta  = sn.filter(s => s.status === 'fechado' && ramoRecebeMeta(u, ramoByNome(s.ramo)))
     .reduce((acc, x) => acc + x.comissao, 0);
 
   const planoRen = u.recebeRemuneracaoRenovacoes

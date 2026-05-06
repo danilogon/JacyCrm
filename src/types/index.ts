@@ -22,6 +22,12 @@ export interface TipoUsuario {
   ativo: boolean;
 }
 
+export interface ConfigRamoUsuario {
+  ramoId: string;
+  recebeIndividual: boolean;
+  recebeMeta: boolean;
+}
+
 export interface Usuario {
   id: string;
   authUid?: string;
@@ -60,6 +66,8 @@ export interface Usuario {
   horarioLoginFim?: string;
   /** Dias da semana permitidos para login: 0=Dom, 1=Seg … 6=Sáb. Vazio/undefined = todos os dias. */
   diasPermitidos?: number[];
+  /** Configuração de remuneração por ramo (para ramos com remuneracaoIndividual: true) */
+  configRamos?: ConfigRamoUsuario[];
   /** Requer código 2FA enviado por e-mail a cada login */
   exigir2FA?: boolean;
 }
@@ -245,6 +253,8 @@ export interface Ramo {
   considerarParaTaxaConversao: boolean;
   /** Quando true, a comissão é paga individualmente por venda (fora da meta de produção mensal) */
   remuneracaoIndividual: boolean;
+  /** Quando true, este ramo também contribui para a meta de produção mesmo sendo individual */
+  participaMetaProducao?: boolean;
   /**
    * Quando true, os registros deste ramo NÃO são contabilizados em:
    * negócios fechados, prêmio líquido total, comissão total, média de % comissão

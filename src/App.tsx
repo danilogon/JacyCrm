@@ -392,6 +392,7 @@ function AppRoutes() {
               setUsuarios={setUsuarios}
               metas={metas}
               tiposUsuario={tiposUsuario}
+              ramos={ramos}
             />
           } />
         )}

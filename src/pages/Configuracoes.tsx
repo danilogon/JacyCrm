@@ -174,7 +174,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   // Ramos state
   const [editRamo, setEditRamo] = useState<Ramo | null>(null);
   const [criandoRamo, setCriandoRamo] = useState(false);
-  const [formRamo, setFormRamo] = useState<Omit<Ramo, 'id'>>({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, apenasControleRemuneracao: false });
+  const [formRamo, setFormRamo] = useState<Omit<Ramo, 'id'>>({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, participaMetaProducao: false, apenasControleRemuneracao: false });
   const [confirmDelRamo, setConfirmDelRamo] = useState<string | null>(null);
 
   // Metas state
@@ -527,7 +527,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       {tab === 'ramos' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button onClick={() => { setFormRamo({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false }); setCriandoRamo(true); setEditRamo(null); }}
+            <button onClick={() => { setFormRamo({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, participaMetaProducao: false }); setCriandoRamo(true); setEditRamo(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
               <Plus size={14} /> Novo Ramo
             </button>
@@ -563,7 +563,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
-                          <button onClick={() => { setFormRamo({nome: r.nome, ativo: r.ativo, tipoComissaoSegurosNovos: r.tipoComissaoSegurosNovos, percentualComissao: r.percentualComissao, valorFixo: r.valorFixo, considerarParaTaxaSegurosNovos: r.considerarParaTaxaSegurosNovos, considerarParaTaxaConversao: r.considerarParaTaxaConversao, remuneracaoIndividual: r.remuneracaoIndividual ?? false}); setEditRamo(r); setCriandoRamo(false); }}
+                          <button onClick={() => { setFormRamo({nome: r.nome, ativo: r.ativo, tipoComissaoSegurosNovos: r.tipoComissaoSegurosNovos, percentualComissao: r.percentualComissao, valorFixo: r.valorFixo, considerarParaTaxaSegurosNovos: r.considerarParaTaxaSegurosNovos, considerarParaTaxaConversao: r.considerarParaTaxaConversao, remuneracaoIndividual: r.remuneracaoIndividual ?? false, participaMetaProducao: r.participaMetaProducao ?? false}); setEditRamo(r); setCriandoRamo(false); }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={13} /></button>
                           <button onClick={() => setConfirmDelRamo(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={13} /></button>
                         </div>
@@ -630,6 +630,8 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       <p className="text-xs font-medium text-purple-700">
                         Comissão paga <strong>por venda</strong> — não entra na meta de produção mensal.
                       </p>
+                      <Ck v={!!formRamo.participaMetaProducao} label="Também contribui para a meta de produção mensal"
+                        onChange={v => setFormRamo(f => ({...f, participaMetaProducao: v}))} />
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Comissão</label>
                         <select value={formRamo.tipoComissaoSegurosNovos} onChange={e => setFormRamo(f => ({...f, tipoComissaoSegurosNovos: e.target.value as 'percentual' | 'valor_fixo'}))}

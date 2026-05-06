@@ -8,6 +8,8 @@ import {
   calcularTaxaConversaoSegurosNovos,
   calcularAumentoComissao,
   calcularRemuneracaoFaixa,
+  ramoRecebeIndividual,
+  ramoRecebeMeta,
 } from '../utils/calculations';
 
 interface Props {
@@ -96,11 +98,17 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   // Separa seguros novos fechados entre ramos com meta e ramos com remuneração individual
   const snFechados = sn.filter(s => s.status === 'fechado');
   const ramoByNome = (nome: string) => ramos.find(r => r.nome === nome);
+
+  // Resolve o usuário para config de ramo
+  const uConfig = responsavelId
+    ? usuarios.find(u => u.id === responsavelId)
+    : (usuario?.role === 'usuario' ? usuario : null);
+
   const comissaoGeradaSnMeta = snFechados
-    .filter(s => !(ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
+    .filter(s => uConfig ? ramoRecebeMeta(uConfig, ramoByNome(s.ramo)) : !(ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
     .reduce((acc, x) => acc + x.comissao, 0);
   const comissaoIndividualSn = snFechados
-    .filter(s => ramoByNome(s.ramo)?.remuneracaoIndividual ?? false)
+    .filter(s => uConfig ? ramoRecebeIndividual(uConfig, ramoByNome(s.ramo)) : (ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
     .reduce((acc, x) => acc + x.comissaoAReceber, 0);
   // Total bruto para exibição nos KPIs
   const comissaoGeradaSn = snFechados.reduce((s, x) => s + x.comissao, 0);
@@ -459,7 +467,7 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
               <div className="text-sm font-medium text-gray-700 mb-2">Seguros Novos — Comissão Individual por Ramo</div>
               <div className="space-y-1.5">
                 {snFechados
-                  .filter(s => ramoByNome(s.ramo)?.remuneracaoIndividual ?? false)
+                  .filter(s => uConfig ? ramoRecebeIndividual(uConfig, ramoByNome(s.ramo)) : (ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
                   .reduce<{ramo: string; comissaoAReceber: number}[]>((acc, s) => {
                     const ex = acc.find(a => a.ramo === s.ramo);
                     if (ex) { ex.comissaoAReceber += s.comissaoAReceber; return acc; }

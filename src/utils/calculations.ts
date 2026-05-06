@@ -1,4 +1,4 @@
-import type { Renovacao, SeguroNovo, Ramo, MotivoPerda, FaixaMeta } from '../types';
+import type { Renovacao, SeguroNovo, Ramo, MotivoPerda, FaixaMeta, Usuario, ConfigRamoUsuario } from '../types';
 
 export function calcularComissaoAReceber(ramo: string, comissao: number, ramos: Ramo[]): number {
   const r = ramos.find(x => x.nome === ramo);
@@ -69,4 +69,20 @@ export function calcularRemuneracaoFaixa(valor: number, faixas: FaixaMeta[], bas
     }
   }
   return { remuneracao: 0, faixa: null };
+}
+
+/** Retorna true se o usuário recebe remuneração individual por venda neste ramo */
+export function ramoRecebeIndividual(u: Usuario, ramo: Ramo | undefined): boolean {
+  if (!ramo) return false;
+  const cfg = u.configRamos?.find((c: ConfigRamoUsuario) => c.ramoId === ramo.id);
+  if (cfg !== undefined) return cfg.recebeIndividual;
+  return ramo.remuneracaoIndividual;
+}
+
+/** Retorna true se vendas neste ramo contam para a meta de produção do usuário */
+export function ramoRecebeMeta(u: Usuario, ramo: Ramo | undefined): boolean {
+  if (!ramo) return true;
+  const cfg = u.configRamos?.find((c: ConfigRamoUsuario) => c.ramoId === ramo.id);
+  if (cfg !== undefined) return cfg.recebeMeta;
+  return !ramo.remuneracaoIndividual || (ramo.participaMetaProducao ?? false);
 }
