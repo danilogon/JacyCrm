@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS seguros_novos (
   comissao_a_receber NUMERIC DEFAULT 0,
   status TEXT DEFAULT 'a_trabalhar',
   motivo_perda_id TEXT,
+  origem TEXT DEFAULT '',
   origem_prospeccao_id TEXT,
   observacoes JSONB DEFAULT '[]',
   campos_customizados JSONB DEFAULT '[]',

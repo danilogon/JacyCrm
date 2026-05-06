@@ -130,13 +130,22 @@ export async function fetchAll() {
 async function upsertRows(table: string, items: Record<string, unknown>[]) {
   if (!items.length) return;
   const { error } = await supabase.from(table).upsert(items.map(objToSnake));
-  if (error) console.error(`[db] upsert ${table}:`, error.message);
+  if (error) {
+    console.error(`[db] upsert ${table}:`, error);
+    // Mostra alerta visível para que erros de persistência não passem despercebidos
+    alert(`Erro ao salvar dados (${table}): ${error.message}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
+    throw new Error(`[db] upsert ${table}: ${error.message}`);
+  }
 }
 
 async function deleteRows(table: string, ids: string[]) {
   if (!ids.length) return;
   const { error } = await supabase.from(table).delete().in('id', ids);
-  if (error) console.error(`[db] delete ${table}:`, error.message);
+  if (error) {
+    console.error(`[db] delete ${table}:`, error);
+    alert(`Erro ao excluir dados (${table}): ${error.message}`);
+    throw new Error(`[db] delete ${table}: ${error.message}`);
+  }
 }
 
 // ─── CRUD tipado ─────────────────────────────────────────────
