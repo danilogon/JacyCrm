@@ -14,7 +14,7 @@ import type {
   Usuario, Renovacao, SeguroNovo, Prospeccao, Cliente,
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
-  ImportacaoLote, ModeloEmail, EmailDisparo,
+  ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -76,6 +76,7 @@ export async function fetchAll() {
     r_importacoes,
     r_modelos_email,
     r_emails_disparo,
+    r_config_gatilhos,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -94,6 +95,7 @@ export async function fetchAll() {
     supabase.from('importacoes_lote').select('*'),
     supabase.from('modelos_email').select('*').order('criado_em', { ascending: false }),
     supabase.from('emails_disparo').select('*').order('criado_em', { ascending: false }),
+    supabase.from('config_gatilhos').select('*').order('criado_em', { ascending: true }),
   ]);
 
   // Detecta erros críticos
@@ -101,7 +103,7 @@ export async function fetchAll() {
     r_usuarios, r_seguradoras, r_ramos, r_motivos, r_campos,
     r_clientes, r_renovacoes, r_sn, r_prosp, r_tarefas, r_tipos, r_origens,
   ].filter(r => r.error).map(r => r.error!.message);
-  // Non-critical (tables may not exist yet): r_modelos_email, r_emails_disparo
+  // Non-critical (tables may not exist yet): r_modelos_email, r_emails_disparo, r_config_gatilhos
 
   if (erros.length) {
     throw new Error(`Falha ao carregar dados: ${erros.join('; ')}`);
@@ -123,6 +125,7 @@ export async function fetchAll() {
     importacoes: (r_importacoes.data || []).map(r => rowToCamel<ImportacaoLote>(r as Record<string, unknown>)),
     modelosEmail: (r_modelos_email.data || []).map(r => rowToCamel<ModeloEmail>(r as Record<string, unknown>)),
     emailsDisparo: (r_emails_disparo.data || []).map(r => rowToCamel<EmailDisparo>(r as Record<string, unknown>)),
+    configGatilhos: (r_config_gatilhos.data || []).map(r => rowToCamel<ConfigGatilho>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -217,6 +220,10 @@ export const db = {
   // Disparos de E-mail
   upsertEmailsDisparo: (items: EmailDisparo[]) => upsertRows('emails_disparo', items as unknown as Record<string, unknown>[]),
   deleteEmailsDisparo: (ids: string[])         => deleteRows('emails_disparo', ids),
+
+  // Configuração de Gatilhos
+  upsertConfigGatilhos: (items: ConfigGatilho[]) => upsertRows('config_gatilhos', items as unknown as Record<string, unknown>[]),
+  deleteConfigGatilhos: (ids: string[])           => deleteRows('config_gatilhos', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

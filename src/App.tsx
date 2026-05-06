@@ -22,7 +22,7 @@ import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
-  ImportacaoLote, ModeloEmail, EmailDisparo,
+  ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -114,6 +114,7 @@ function AppRoutes() {
   const [importacoes, setImportacoesState] = useState<ImportacaoLote[]>([]);
   const [modelosEmail, setModelosEmailState] = useState<ModeloEmail[]>([]);
   const [emailsDisparo, setEmailsDisparoState] = useState<EmailDisparo[]>([]);
+  const [configGatilhos, setConfigGatilhosState] = useState<ConfigGatilho[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -138,6 +139,7 @@ function AppRoutes() {
         setImportacoesState(data.importacoes);
         setModelosEmailState(data.modelosEmail);
         setEmailsDisparoState(data.emailsDisparo);
+        setConfigGatilhosState(data.configGatilhos);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -193,6 +195,9 @@ function AppRoutes() {
 
   const setEmailsDisparo = useCallback(
     makeSyncer(setEmailsDisparoState, db.upsertEmailsDisparo, db.deleteEmailsDisparo), []);
+
+  const setConfigGatilhos = useCallback(
+    makeSyncer(setConfigGatilhosState, db.upsertConfigGatilhos, db.deleteConfigGatilhos), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -455,6 +460,8 @@ function AppRoutes() {
               setModelosEmail={setModelosEmail}
               emailsDisparo={emailsDisparo}
               setEmailsDisparo={setEmailsDisparo}
+              configGatilhos={configGatilhos}
+              setConfigGatilhos={setConfigGatilhos}
               clientes={clientes}
               segurosNovos={segurosNovos}
               renovacoes={renovacoes}

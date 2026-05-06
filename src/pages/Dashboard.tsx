@@ -104,11 +104,23 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
     ? usuarios.find(u => u.id === responsavelId)
     : (usuario?.role === 'usuario' ? usuario : null);
 
+  // snFechadosIndividual inclui ramos apenasControleRemuneracao (ex: Cartão Porto):
+  // esses ramos são excluídos de sn/snFechados para não poluir stats/taxa,
+  // mas devem entrar normalmente no cálculo de comissão individual por ramo.
+  const snFechadosIndividual = filtrar(segurosNovos, 'inicioVigencia').filter(s => s.status === 'fechado');
+
   const comissaoGeradaSnMeta = snFechados
     .filter(s => uConfig ? ramoRecebeMeta(uConfig, ramoByNome(s.ramo)) : !(ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
     .reduce((acc, x) => acc + x.comissao, 0);
-  const comissaoIndividualSn = snFechados
+  const comissaoIndividualSn = snFechadosIndividual
     .filter(s => uConfig ? ramoRecebeIndividual(uConfig, ramoByNome(s.ramo)) : (ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
+    .reduce((acc, x) => acc + x.comissaoAReceber, 0);
+
+  // Parcela de ramos "apenas controle de remuneração" (ex: Cartão Porto):
+  // por definição esses ramos SEMPRE geram remuneração individual — não depende de
+  // ramoRecebeIndividual nem de recebeRemuneracaoSegurosNovos.
+  const comissaoIndividualControle = snFechadosIndividual
+    .filter(s => ramoByNome(s.ramo)?.apenasControleRemuneracao === true)
     .reduce((acc, x) => acc + x.comissaoAReceber, 0);
   // Total bruto para exibição nos KPIs
   const comissaoGeradaSn = snFechados.reduce((s, x) => s + x.comissao, 0);
@@ -151,13 +163,13 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   // Para admin/gestor sem filtro, não há responsável definido → metas ficam indisponíveis
   // (mostrar metas do admin sobre produção de todos seria conceitualmente incorreto)
   const metasDisponiveisParaRole = usuario?.role === 'usuario'
-    ? (usuario.recebeRemuneracaoRenovacoes || usuario.recebeRemuneracaoSegurosNovos)
+    ? (usuario.recebeRemuneracaoRenovacoes || usuario.recebeRemuneracaoSegurosNovos || comissaoIndividualControle > 0)
     : !!responsavelId; // admin/gestor só exibe metas quando um responsável está selecionado
 
   const exibirMetas = metasDisponiveisParaRole;
   const usuarioTemMetas = usuarioAtual
-    ? (usuarioAtual.recebeRemuneracaoRenovacoes || usuarioAtual.recebeRemuneracaoSegurosNovos)
-    : (usuario?.recebeRemuneracaoRenovacoes || usuario?.recebeRemuneracaoSegurosNovos) ?? false;
+    ? (usuarioAtual.recebeRemuneracaoRenovacoes || usuarioAtual.recebeRemuneracaoSegurosNovos || comissaoIndividualControle > 0)
+    : (((usuario?.recebeRemuneracaoRenovacoes || usuario?.recebeRemuneracaoSegurosNovos) ?? false) || comissaoIndividualControle > 0);
 
   // Resolver planos e flags: usuário selecionado no filtro, ou o próprio usuário logado (role=usuario)
   const uParaMeta = usuarioAtual ?? (usuario?.role === 'usuario' ? usuario : null);
@@ -182,8 +194,12 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   const { remuneracao: remAumento }    = calcularRemuneracaoFaixa(aumentoComissao,   faixasAumento,    comissaoGeradaRen);
   const { remuneracao: remSnComissao } = calcularRemuneracaoFaixa(comissaoGeradaSnMeta, faixasSnComissao, comissaoGeradaSnMeta);
   const { remuneracao: remSnTaxa }     = calcularRemuneracaoFaixa(taxaSn,            faixasSnTaxa,     comissaoGeradaSnMeta);
-  // comissaoIndividualSn é somada diretamente (não passa por faixas de meta)
-  const remIndividualSn = (uParaMeta?.recebeRemuneracaoSegurosNovos ?? false) ? comissaoIndividualSn : 0;
+  // comissaoIndividualSn é somada diretamente (não passa por faixas de meta).
+  // Ramos apenasControleRemuneracao sempre aparecem; demais ramos dependem de recebeRemuneracaoSegurosNovos.
+  const remIndividualSn = comissaoIndividualControle +
+    ((uParaMeta?.recebeRemuneracaoSegurosNovos ?? false)
+      ? (comissaoIndividualSn - comissaoIndividualControle)
+      : 0);
   const totalRemuneracao = remTaxaRen + remAumento + remSnComissao + remSnTaxa + remIndividualSn;
 
   type StatusFaixa = 'recebendo' | 'atingida' | 'potencial';
@@ -466,8 +482,13 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
             <div>
               <div className="text-sm font-medium text-gray-700 mb-2">Seguros Novos — Comissão Individual por Ramo</div>
               <div className="space-y-1.5">
-                {snFechados
-                  .filter(s => uConfig ? ramoRecebeIndividual(uConfig, ramoByNome(s.ramo)) : (ramoByNome(s.ramo)?.remuneracaoIndividual ?? false))
+                {snFechadosIndividual
+                  .filter(s => {
+                    const r = ramoByNome(s.ramo);
+                    // ramos apenasControleRemuneracao sempre aparecem
+                    if (r?.apenasControleRemuneracao) return true;
+                    return uConfig ? ramoRecebeIndividual(uConfig, r) : (r?.remuneracaoIndividual ?? false);
+                  })
                   .reduce<{ramo: string; comissaoAReceber: number}[]>((acc, s) => {
                     const ex = acc.find(a => a.ramo === s.ramo);
                     if (ex) { ex.comissaoAReceber += s.comissaoAReceber; return acc; }

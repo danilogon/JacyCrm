@@ -384,6 +384,18 @@ export type GatilhoEmail =
   | 'massa'
   | 'manual';
 
+/** Configuração de um gatilho de e-mail (gerenciável pelo admin) */
+export interface ConfigGatilho {
+  id: string;
+  nome: string;
+  descricao?: string;
+  evento: GatilhoEmail;        // qual evento do sistema dispara
+  modeloId?: string;           // ID do ModeloEmail associado
+  ativo: boolean;
+  diasAntecedencia?: number;   // apenas para evento 'seguro_a_renovar'
+  criadoEm: string;
+}
+
 export interface ModeloEmail {
   id: string;
   nome: string;
