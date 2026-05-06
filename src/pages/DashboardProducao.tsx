@@ -110,6 +110,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   const snFiltrados = useMemo(() => {
     if (filtroTipo === 'renovacoes' || filtroTipo === 'prospeccoes') return [];
     return segurosNovos.filter(s => {
+      if (ramoExcluido(s.ramo)) return false;
       if (!dentroPeriodo(s.inicioVigencia)) return false;
       if (filtroRamo && s.ramo !== filtroRamo) return false;
       if (filtroSeguradora && s.seguradora !== filtroSeguradora) return false;
@@ -118,7 +119,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem, filtroUsuario]);
+  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem, filtroUsuario, ramos]);
 
   const snFechados  = useMemo(() => snFiltrados.filter(s => s.status === 'fechado' && !ramoExcluido(s.ramo)), [snFiltrados, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
   const snPerdidos  = useMemo(() => snFiltrados.filter(s => {
@@ -131,6 +132,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   const renFiltradas = useMemo(() => {
     if (filtroTipo === 'seguros_novos' || filtroTipo === 'prospeccoes') return [];
     return renovacoes.filter(r => {
+      if (ramoExcluido(r.ramo)) return false;
       if (!dentroPeriodo(r.fimVigencia)) return false;
       if (filtroRamo && r.ramo !== filtroRamo) return false;
       if (filtroSeguradora && r.seguradoraAnterior !== filtroSeguradora && r.seguradoraNova !== filtroSeguradora) return false;
@@ -138,7 +140,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renovacoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroUsuario]);
+  }, [renovacoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroUsuario, ramos]);
 
   const renRenovadas = useMemo(() => renFiltradas.filter(r => r.status === 'renovado' && !ramoExcluido(r.ramo)), [renFiltradas, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
   const renPerdidas  = useMemo(() => renFiltradas.filter(r => {
