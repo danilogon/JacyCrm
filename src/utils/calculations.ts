@@ -56,8 +56,8 @@ export function calcularAumentoComissao(renovacoes: Renovacao[]): number {
   const renovadas = renovacoes.filter(r => r.status === 'renovado');
   const totalNova = renovadas.reduce((s, r) => s + r.comissaoNova, 0);
   const totalAnt = renovadas.reduce((s, r) => s + r.comissaoAnterior, 0);
-  if (totalAnt === 0) return 0;
-  return ((totalNova - totalAnt) / totalAnt) * 100;
+  if (totalNova === 0) return 0;
+  return ((totalNova - totalAnt) / totalNova) * 100;
 }
 
 export function calcularRemuneracaoFaixa(valor: number, faixas: FaixaMeta[], baseCalculo: number): { remuneracao: number; faixa: FaixaMeta | null } {
