@@ -82,6 +82,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocio>('todos');
   const [filtroMigOrigem, setFiltroMigOrigem] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('');
+  const [filtroUsuario, setFiltroUsuario] = useState('');
 
   const anos = useMemo(() => {
     const all = [
@@ -108,10 +109,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       if (filtroRamo && s.ramo !== filtroRamo) return false;
       if (filtroSeguradora && s.seguradora !== filtroSeguradora) return false;
       if (filtroOrigem && s.origem !== filtroOrigem) return false;
+      if (filtroUsuario && s.responsavelId !== filtroUsuario) return false;
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem]);
+  }, [segurosNovos, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem, filtroUsuario]);
 
   const snFechados  = useMemo(() => snFiltrados.filter(s => s.status === 'fechado'), [snFiltrados]);
   const snPerdidos  = useMemo(() => snFiltrados.filter(s => {
@@ -127,10 +129,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       if (!dentroPeriodo(r.fimVigencia)) return false;
       if (filtroRamo && r.ramo !== filtroRamo) return false;
       if (filtroSeguradora && r.seguradoraAnterior !== filtroSeguradora && r.seguradoraNova !== filtroSeguradora) return false;
+      if (filtroUsuario && r.responsavelId !== filtroUsuario) return false;
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renovacoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo]);
+  }, [renovacoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroUsuario]);
 
   const renRenovadas = useMemo(() => renFiltradas.filter(r => r.status === 'renovado'), [renFiltradas]);
   const renPerdidas  = useMemo(() => renFiltradas.filter(r => {
@@ -147,10 +150,11 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       if (filtroRamo && p.ramo !== filtroRamo) return false;
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroOrigem && p.origem !== filtroOrigem) return false;
+      if (filtroUsuario && p.responsavelId !== filtroUsuario) return false;
       return true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prospeccoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem]);
+  }, [prospeccoes, filtroAno, filtroMes, filtroRamo, filtroSeguradora, filtroTipo, filtroOrigem, filtroUsuario]);
 
   // prospConvertidas removido — não utilizado nos rankings atuais
   const prospDescartadas  = useMemo(() => prospFiltradas.filter(p => p.status === 'descartado'),  [prospFiltradas]);
@@ -325,7 +329,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
 
   const showMig  = filtroTipo === 'todos' || filtroTipo === 'renovacoes';
   const showRamo = !filtroRamo;
-  const temFiltro = filtroAno || filtroMes || filtroRamo || filtroSeguradora || filtroTipo !== 'todos' || !!filtroOrigem;
+  const temFiltro = filtroAno || filtroMes || filtroRamo || filtroSeguradora || filtroTipo !== 'todos' || !!filtroOrigem || !!filtroUsuario;
 
   return (
     <div className="p-6 space-y-6">
@@ -395,9 +399,18 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
             </select>
           )}
 
+          {/* Usuário */}
+          <select value={filtroUsuario} onChange={e => setFiltroUsuario(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos os usuários</option>
+            {usuarios.filter(u => u.ativo !== false).map(u => (
+              <option key={u.id} value={u.id}>{u.nome}</option>
+            ))}
+          </select>
+
           {temFiltro && (
             <button
-              onClick={() => { setFiltroAno(0); setFiltroMes(0); setFiltroRamo(''); setFiltroSeguradora(''); setFiltroTipo('todos'); setFiltroOrigem(''); }}
+              onClick={() => { setFiltroAno(0); setFiltroMes(0); setFiltroRamo(''); setFiltroSeguradora(''); setFiltroTipo('todos'); setFiltroOrigem(''); setFiltroUsuario(''); }}
               className="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
               Limpar
             </button>
