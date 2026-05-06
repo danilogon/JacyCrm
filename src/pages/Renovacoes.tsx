@@ -494,7 +494,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         const premioNovo = parseFloat(premioNovoStr ?? '') || 0;
         const percentComissaoNova = parsePercent(percentNovoStr ?? '');
         const comissaoNova = premioNovo * percentComissaoNova / 100;
-        const seguradoraNova = seguradoraNovaCsv?.trim() ?? '';
+        const seguradoraNova = (seguradoraNovaCsv?.trim() ?? '').toUpperCase();
 
         // Mapeia o label de status para o valor interno
         const statusImportado = ((): StatusRenovacao => {
@@ -551,8 +551,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           telefoneCliente: clienteVinc?.telefone ?? telefoneCliente?.trim() ?? '',
           cpfCnpjCliente: cpfDigits,
           fimVigencia: parseImportDate(fimVigencia),
-          ramo: ramo?.trim() ?? '',
-          seguradoraAnterior: seguradoraAnterior?.trim() ?? '',
+          ramo: (ramo?.trim() ?? '').toUpperCase(),
+          seguradoraAnterior: (seguradoraAnterior?.trim() ?? '').toUpperCase(),
           premioAnterior,
           percentComissaoAnterior,
           comissaoAnterior: premioAnterior * percentComissaoAnterior / 100,

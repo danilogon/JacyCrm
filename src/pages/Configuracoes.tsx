@@ -282,9 +282,9 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   function salvarSeg() {
     if (!formSegNome.trim()) return;
     if (criandoSeg) {
-      setSeguradoras([...seguradoras, { id: generateId(), nome: formSegNome.trim(), ativo: true }]);
+      setSeguradoras([...seguradoras, { id: generateId(), nome: formSegNome.trim().toUpperCase(), ativo: true }]);
     } else if (editSeg) {
-      setSeguradoras(seguradoras.map(s => s.id === editSeg.id ? { ...s, nome: formSegNome.trim() } : s));
+      setSeguradoras(seguradoras.map(s => s.id === editSeg.id ? { ...s, nome: formSegNome.trim().toUpperCase() } : s));
     }
     setEditSeg(null); setCriandoSeg(false);
   }
@@ -292,10 +292,11 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   // --- Ramos ---
   function salvarRamo() {
     if (!formRamo.nome.trim()) return;
+    const ramoComNome = { ...formRamo, nome: formRamo.nome.trim().toUpperCase() };
     if (criandoRamo) {
-      setRamos([...ramos, { id: generateId(), ...formRamo }]);
+      setRamos([...ramos, { id: generateId(), ...ramoComNome }]);
     } else if (editRamo) {
-      setRamos(ramos.map(r => r.id === editRamo.id ? { ...editRamo, ...formRamo } : r));
+      setRamos(ramos.map(r => r.id === editRamo.id ? { ...editRamo, ...ramoComNome } : r));
     }
     setEditRamo(null); setCriandoRamo(false);
   }
