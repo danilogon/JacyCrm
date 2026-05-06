@@ -295,7 +295,10 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     const premioAnt = parseFloat(form.premioAnterior) || 0;
     const percentAnt = parseFloat(form.percentComissaoAnterior) || 0;
     const comissaoAnteriorCalc = premioAnt * percentAnt / 100;
-    const { comissaoNova, resultado } = calcular(form.premioNovo, form.percentComissaoNova, comissaoAnteriorCalc);
+    const naoRenovada = form.status === 'nao_renovada';
+    const { comissaoNova, resultado } = naoRenovada
+      ? { comissaoNova: 0, resultado: 0 }
+      : calcular(form.premioNovo, form.percentComissaoNova, comissaoAnteriorCalc);
     const obs: Observacao[] = (form.novaObservacao.trim() || form.novosArquivos.length > 0)
       ? [...editando.observacoes, { id: generateId(), texto: form.novaObservacao.trim(), autor: usuario?.nome ?? '', data: new Date().toISOString(), arquivos: form.novosArquivos }]
       : editando.observacoes;
@@ -314,9 +317,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       percentComissaoAnterior: percentAnt,
       comissaoAnterior: comissaoAnteriorCalc,
       status: form.status,
-      seguradoraNova: form.seguradoraNova,
-      premioNovo: parseFloat(form.premioNovo) || 0,
-      percentComissaoNova: parseFloat(form.percentComissaoNova) || 0,
+      seguradoraNova: naoRenovada ? '' : form.seguradoraNova,
+      premioNovo: naoRenovada ? 0 : (parseFloat(form.premioNovo) || 0),
+      percentComissaoNova: naoRenovada ? 0 : (parseFloat(form.percentComissaoNova) || 0),
       comissaoNova,
       resultado,
       motivoPerdaId: form.status === 'nao_renovada' ? form.motivoPerdaId : undefined,
@@ -490,12 +493,6 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         const premioAnterior = parseFloat(premioStr) || 0;
         const percentComissaoAnterior = parsePercent(percentStr);
 
-        // Campos da renovação nova (opcionais)
-        const premioNovo = parseFloat(premioNovoStr ?? '') || 0;
-        const percentComissaoNova = parsePercent(percentNovoStr ?? '');
-        const comissaoNova = premioNovo * percentComissaoNova / 100;
-        const seguradoraNova = (seguradoraNovaCsv?.trim() ?? '').toUpperCase();
-
         // Mapeia o label de status para o valor interno
         const statusImportado = ((): StatusRenovacao => {
           const labelMap: Record<string, StatusRenovacao> = {
@@ -507,6 +504,13 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           };
           return labelMap[(statusCsv ?? '').toLowerCase().trim()] ?? 'a_trabalhar';
         })();
+
+        // Campos da renovação nova (opcionais — zerados se não renovada)
+        const isNaoRenovada = statusImportado === 'nao_renovada';
+        const premioNovo = isNaoRenovada ? 0 : (parseFloat(premioNovoStr ?? '') || 0);
+        const percentComissaoNova = isNaoRenovada ? 0 : parsePercent(percentNovoStr ?? '');
+        const comissaoNova = premioNovo * percentComissaoNova / 100;
+        const seguradoraNova = isNaoRenovada ? '' : (seguradoraNovaCsv?.trim() ?? '').toUpperCase();
 
         // Tenta encontrar cliente já cadastrado pelo CPF/CNPJ
         let clienteVinc = clientesAtualizados.find(c => c.cpfCnpj === cpfDigits);
@@ -557,7 +561,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           percentComissaoAnterior,
           comissaoAnterior: premioAnterior * percentComissaoAnterior / 100,
           seguradoraNova, premioNovo, percentComissaoNova, comissaoNova,
-          resultado: comissaoNova - (premioAnterior * percentComissaoAnterior / 100),
+          resultado: isNaoRenovada ? 0 : comissaoNova - (premioAnterior * percentComissaoAnterior / 100),
           status: statusImportado,
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
