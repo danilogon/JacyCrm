@@ -17,11 +17,12 @@ import { MetasAcompanhamento } from './pages/MetasAcompanhamento';
 import { DashboardProducao } from './pages/DashboardProducao';
 import { Tarefas } from './pages/Tarefas';
 import { ConsultaRenovacoes } from './pages/ConsultaRenovacoes';
+import { Emails } from './pages/Emails';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
-  ImportacaoLote,
+  ImportacaoLote, ModeloEmail, EmailDisparo,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -111,6 +112,8 @@ function AppRoutes() {
   const [tarefas,      setTarefasState]      = useState<Tarefa[]>([]);
   const [origensProspeccao, setOrigensProspeccaoState] = useState<OrigemProspeccao[]>([]);
   const [importacoes, setImportacoesState] = useState<ImportacaoLote[]>([]);
+  const [modelosEmail, setModelosEmailState] = useState<ModeloEmail[]>([]);
+  const [emailsDisparo, setEmailsDisparoState] = useState<EmailDisparo[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -133,6 +136,8 @@ function AppRoutes() {
         setTiposUsuarioState(data.tiposUsuario);
         setOrigensProspeccaoState(data.origensProspeccao);
         setImportacoesState(data.importacoes);
+        setModelosEmailState(data.modelosEmail);
+        setEmailsDisparoState(data.emailsDisparo);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -182,6 +187,12 @@ function AppRoutes() {
 
   const setImportacoes = useCallback(
     makeSyncer(setImportacoesState, db.upsertImportacoes, db.deleteImportacoes), []);
+
+  const setModelosEmail = useCallback(
+    makeSyncer(setModelosEmailState, db.upsertModelosEmail, db.deleteModelosEmail), []);
+
+  const setEmailsDisparo = useCallback(
+    makeSyncer(setEmailsDisparoState, db.upsertEmailsDisparo, db.deleteEmailsDisparo), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -289,6 +300,9 @@ function AppRoutes() {
               setTarefas={setTarefas}
               importacoes={importacoes}
               setImportacoes={setImportacoes}
+              modelosEmail={modelosEmail}
+              emailsDisparo={emailsDisparo}
+              setEmailsDisparo={setEmailsDisparo}
             />
           } />
         )}
@@ -312,6 +326,9 @@ function AppRoutes() {
               origensNegocio={origensProspeccao}
               importacoes={importacoes}
               setImportacoes={setImportacoes}
+              modelosEmail={modelosEmail}
+              emailsDisparo={emailsDisparo}
+              setEmailsDisparo={setEmailsDisparo}
             />
           } />
         )}
@@ -430,6 +447,19 @@ function AppRoutes() {
             />
           } />
         )}
+
+        <Route path="/emails" element={
+          <Emails
+            modelosEmail={modelosEmail}
+            setModelosEmail={setModelosEmail}
+            emailsDisparo={emailsDisparo}
+            setEmailsDisparo={setEmailsDisparo}
+            clientes={clientes}
+            segurosNovos={segurosNovos}
+            renovacoes={renovacoes}
+            usuarios={usuarios}
+          />
+        } />
 
         <Route path="/"  element={<Navigate to="/dashboard" replace />} />
         <Route path="*"  element={<Navigate to="/dashboard" replace />} />

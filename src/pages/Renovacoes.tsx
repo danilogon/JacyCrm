@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, ImportacaoLote } from '../types';
+import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, ImportacaoLote, ModeloEmail, EmailDisparo } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
@@ -27,6 +27,9 @@ interface Props {
   setTarefas: (t: Tarefa[]) => void;
   importacoes: ImportacaoLote[];
   setImportacoes: (items: ImportacaoLote[]) => void;
+  modelosEmail?: ModeloEmail[];
+  emailsDisparo?: EmailDisparo[];
+  setEmailsDisparo?: (items: EmailDisparo[]) => void;
 }
 
 const STATUS_LABELS: Record<StatusRenovacao, string> = {
@@ -153,7 +156,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis, importacoes, setImportacoes }: Props) {
+export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis, importacoes, setImportacoes, modelosEmail, emailsDisparo, setEmailsDisparo }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -332,6 +335,28 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       atualizadoEm: new Date().toISOString(),
     };
     setRenovacoes(renovacoes.map(r => r.id === updated.id ? updated : r));
+
+    // Trigger email for status change (renovado / nao_renovada)
+    if (updated.status === 'renovado' || updated.status === 'nao_renovada') {
+      const gatilhoRen = updated.status === 'renovado' ? 'seguro_renovado' : 'seguro_nao_renovado';
+      const modeloRen = modelosEmail?.find(m => m.ativo && m.gatilho === gatilhoRen);
+      if (modeloRen && updated.emailCliente) {
+        const disparoRen: EmailDisparo = {
+          id: generateId(),
+          modeloId: modeloRen.id,
+          modeloNome: modeloRen.nome,
+          destinatarioEmail: updated.emailCliente,
+          destinatarioNome: updated.nomeCliente,
+          assunto: modeloRen.assunto.replace(/\{\{nome\}\}/g, updated.nomeCliente).replace(/\{\{produto\}\}/g, updated.ramo).replace(/\{\{seguradora\}\}/g, updated.seguradoraAnterior).replace(/\{\{vencimento\}\}/g, updated.fimVigencia),
+          corpo: modeloRen.corpo.replace(/\{\{nome\}\}/g, updated.nomeCliente).replace(/\{\{produto\}\}/g, updated.ramo).replace(/\{\{seguradora\}\}/g, updated.seguradoraAnterior).replace(/\{\{vencimento\}\}/g, updated.fimVigencia),
+          status: 'pendente',
+          gatilho: gatilhoRen,
+          referenciaId: updated.id,
+          criadoEm: new Date().toISOString(),
+        };
+        setEmailsDisparo?.([...(emailsDisparo ?? []), disparoRen]);
+      }
+    }
 
     // Auto-criar prospecção se motivo gera prospeccao e não existe ainda
     if (updated.status === 'nao_renovada' && updated.motivoPerdaId) {

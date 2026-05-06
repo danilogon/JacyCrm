@@ -374,3 +374,39 @@ export interface ImportacaoLote {
   linhasValidas?: LinhaImportValida[];
   linhasInvalidas?: LinhaImportInvalida[];
 }
+
+export type GatilhoEmail =
+  | 'aniversario'
+  | 'seguro_novo_fechado'
+  | 'seguro_renovado'
+  | 'seguro_a_renovar'
+  | 'seguro_nao_renovado'
+  | 'massa'
+  | 'manual';
+
+export interface ModeloEmail {
+  id: string;
+  nome: string;
+  assunto: string;
+  corpo: string;
+  gatilho: GatilhoEmail;
+  ativo: boolean;
+  diasAntecedencia?: number; // only for 'seguro_a_renovar'
+  criadoEm: string;
+}
+
+export interface EmailDisparo {
+  id: string;
+  modeloId: string;
+  modeloNome: string;
+  destinatarioEmail: string;
+  destinatarioNome: string;
+  assunto: string;
+  corpo: string;
+  status: 'pendente' | 'enviado' | 'erro';
+  gatilho: GatilhoEmail;
+  referenciaId?: string;
+  criadoEm: string;
+  enviadoEm?: string;
+  erroMsg?: string;
+}

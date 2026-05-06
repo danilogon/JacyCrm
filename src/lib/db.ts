@@ -14,7 +14,7 @@ import type {
   Usuario, Renovacao, SeguroNovo, Prospeccao, Cliente,
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
-  ImportacaoLote,
+  ImportacaoLote, ModeloEmail, EmailDisparo,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -74,6 +74,8 @@ export async function fetchAll() {
     r_tipos,
     r_origens,
     r_importacoes,
+    r_modelos_email,
+    r_emails_disparo,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -90,6 +92,8 @@ export async function fetchAll() {
     supabase.from('tipos_usuario').select('*'),
     supabase.from('origens_prospeccao').select('*').order('nome'),
     supabase.from('importacoes_lote').select('*'),
+    supabase.from('modelos_email').select('*').order('criado_em', { ascending: false }),
+    supabase.from('emails_disparo').select('*').order('criado_em', { ascending: false }),
   ]);
 
   // Detecta erros críticos
@@ -97,6 +101,7 @@ export async function fetchAll() {
     r_usuarios, r_seguradoras, r_ramos, r_motivos, r_campos,
     r_clientes, r_renovacoes, r_sn, r_prosp, r_tarefas, r_tipos, r_origens,
   ].filter(r => r.error).map(r => r.error!.message);
+  // Non-critical (tables may not exist yet): r_modelos_email, r_emails_disparo
 
   if (erros.length) {
     throw new Error(`Falha ao carregar dados: ${erros.join('; ')}`);
@@ -116,6 +121,8 @@ export async function fetchAll() {
     tiposUsuario: (r_tipos.data       || []).map(r => rowToCamel<TipoUsuario>(r as Record<string, unknown>)),
     origensProspeccao: (r_origens.data || []).map(r => rowToCamel<OrigemProspeccao>(r as Record<string, unknown>)),
     importacoes: (r_importacoes.data || []).map(r => rowToCamel<ImportacaoLote>(r as Record<string, unknown>)),
+    modelosEmail: (r_modelos_email.data || []).map(r => rowToCamel<ModeloEmail>(r as Record<string, unknown>)),
+    emailsDisparo: (r_emails_disparo.data || []).map(r => rowToCamel<EmailDisparo>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -202,6 +209,14 @@ export const db = {
   // Importações em lote
   upsertImportacoes: (items: ImportacaoLote[]) => upsertRows('importacoes_lote', items as unknown as Record<string, unknown>[]),
   deleteImportacoes: (ids: string[])           => deleteRows('importacoes_lote', ids),
+
+  // Modelos de E-mail
+  upsertModelosEmail: (items: ModeloEmail[]) => upsertRows('modelos_email', items as unknown as Record<string, unknown>[]),
+  deleteModelosEmail: (ids: string[])        => deleteRows('modelos_email', ids),
+
+  // Disparos de E-mail
+  upsertEmailsDisparo: (items: EmailDisparo[]) => upsertRows('emails_disparo', items as unknown as Record<string, unknown>[]),
+  deleteEmailsDisparo: (ids: string[])         => deleteRows('emails_disparo', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

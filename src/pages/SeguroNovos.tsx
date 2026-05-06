@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao, ImportacaoLote } from '../types';
+import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao, ImportacaoLote, ModeloEmail, EmailDisparo } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
@@ -33,6 +33,9 @@ interface Props {
   origensNegocio: OrigemProspeccao[];
   importacoes: ImportacaoLote[];
   setImportacoes: (items: ImportacaoLote[]) => void;
+  modelosEmail?: ModeloEmail[];
+  emailsDisparo?: EmailDisparo[];
+  setEmailsDisparo?: (items: EmailDisparo[]) => void;
 }
 
 const STATUS_LABELS: Record<StatusSeguroNovo, string> = {
@@ -167,7 +170,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio, camposCustomizaveis, importacoes, setImportacoes }: Props) {
+export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio, camposCustomizaveis, importacoes, setImportacoes, modelosEmail, emailsDisparo, setEmailsDisparo }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -477,6 +480,25 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       };
       setSegurosNovos([...segurosNovos, novo]);
 
+      // Trigger email for status change (seguro_novo_fechado)
+      const modeloFechado = modelosEmail?.find(m => m.ativo && m.gatilho === 'seguro_novo_fechado');
+      if (novo.status === 'fechado' && modeloFechado && novo.emailCliente) {
+        const disparo: EmailDisparo = {
+          id: generateId(),
+          modeloId: modeloFechado.id,
+          modeloNome: modeloFechado.nome,
+          destinatarioEmail: novo.emailCliente,
+          destinatarioNome: nomeCliente,
+          assunto: modeloFechado.assunto.replace(/\{\{nome\}\}/g, nomeCliente).replace(/\{\{produto\}\}/g, novo.ramo).replace(/\{\{seguradora\}\}/g, novo.seguradora),
+          corpo: modeloFechado.corpo.replace(/\{\{nome\}\}/g, nomeCliente).replace(/\{\{produto\}\}/g, novo.ramo).replace(/\{\{seguradora\}\}/g, novo.seguradora),
+          status: 'pendente',
+          gatilho: 'seguro_novo_fechado',
+          referenciaId: novo.id,
+          criadoEm: new Date().toISOString(),
+        };
+        setEmailsDisparo?.([...(emailsDisparo ?? []), disparo]);
+      }
+
       // Auto-criar prospecção se motivo gera prospeccao
       if (novo.status === 'perdido' && novo.motivoPerdaId) {
         const motivoSel = motivos.find(m => m.id === novo.motivoPerdaId);
@@ -528,6 +550,25 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         atualizadoEm: new Date().toISOString(),
       };
       setSegurosNovos(segurosNovos.map(s => s.id === updated.id ? updated : s));
+
+      // Trigger email for status change (seguro_novo_fechado)
+      const modeloFechadoEdit = modelosEmail?.find(m => m.ativo && m.gatilho === 'seguro_novo_fechado');
+      if (updated.status === 'fechado' && modeloFechadoEdit && updated.emailCliente) {
+        const disparoEdit: EmailDisparo = {
+          id: generateId(),
+          modeloId: modeloFechadoEdit.id,
+          modeloNome: modeloFechadoEdit.nome,
+          destinatarioEmail: updated.emailCliente,
+          destinatarioNome: updated.nomeCliente,
+          assunto: modeloFechadoEdit.assunto.replace(/\{\{nome\}\}/g, updated.nomeCliente).replace(/\{\{produto\}\}/g, updated.ramo).replace(/\{\{seguradora\}\}/g, updated.seguradora),
+          corpo: modeloFechadoEdit.corpo.replace(/\{\{nome\}\}/g, updated.nomeCliente).replace(/\{\{produto\}\}/g, updated.ramo).replace(/\{\{seguradora\}\}/g, updated.seguradora),
+          status: 'pendente',
+          gatilho: 'seguro_novo_fechado',
+          referenciaId: updated.id,
+          criadoEm: new Date().toISOString(),
+        };
+        setEmailsDisparo?.([...(emailsDisparo ?? []), disparoEdit]);
+      }
 
       // Auto-criar prospecção se motivo gera prospeccao e não existe ainda
       if (updated.status === 'perdido' && updated.motivoPerdaId) {
