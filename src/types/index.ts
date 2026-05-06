@@ -325,7 +325,7 @@ export interface CampoCustomizavel {
   opcoes?: string[];
   multiplosArquivos?: boolean;
   tiposPermitidos?: string[];
-  tamanhoMaximoMB?: number;
+  tamanhoMaximoMb?: number;
 }
 
 export interface ConfiguracaoEmpresa {

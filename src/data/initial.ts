@@ -130,8 +130,8 @@ export const CAMPOS_CUSTOMIZAVEIS_INICIAIS: CampoCustomizavel[] = [
   { id: 'cc1', nome: 'Número da Apólice', tipo: 'texto', obrigatorio: false, ativo: true, aplicavelA: 'ambos' },
   { id: 'cc2', nome: 'Data de Vistoria', tipo: 'data', obrigatorio: false, ativo: true, aplicavelA: 'seguros_novos' },
   { id: 'cc3', nome: 'Forma de Pagamento', tipo: 'lista', obrigatorio: true, ativo: true, aplicavelA: 'ambos', opcoes: ['À Vista', 'Parcelado 2x', 'Parcelado 3x', 'Parcelado 6x', 'Parcelado 12x'] },
-  { id: 'cc4', nome: 'Documentos do Veículo', tipo: 'arquivo', obrigatorio: false, ativo: true, aplicavelA: 'seguros_novos', multiplosArquivos: true, tiposPermitidos: ['.pdf', '.jpg', '.png'], tamanhoMaximoMB: 10 },
-  { id: 'cc5', nome: 'Comprovante de Pagamento', tipo: 'arquivo', obrigatorio: false, ativo: true, aplicavelA: 'ambos', multiplosArquivos: false, tiposPermitidos: ['.pdf', '.jpg', '.png'], tamanhoMaximoMB: 5 },
+  { id: 'cc4', nome: 'Documentos do Veículo', tipo: 'arquivo', obrigatorio: false, ativo: true, aplicavelA: 'seguros_novos', multiplosArquivos: true, tiposPermitidos: ['.pdf', '.jpg', '.png'], tamanhoMaximoMb: 10 },
+  { id: 'cc5', nome: 'Comprovante de Pagamento', tipo: 'arquivo', obrigatorio: false, ativo: true, aplicavelA: 'ambos', multiplosArquivos: false, tiposPermitidos: ['.pdf', '.jpg', '.png'], tamanhoMaximoMb: 5 },
 ];
 
 export const TIPOS_USUARIO_INICIAIS: TipoUsuario[] = [

@@ -1069,7 +1069,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
-                          <button onClick={() => { setFormCampo({nome: c.nome, tipo: c.tipo, obrigatorio: c.obrigatorio, ativo: c.ativo, aplicavelA: c.aplicavelA, opcoes: c.opcoes, ramosAplicaveis: c.ramosAplicaveis ?? [], multiplosArquivos: c.multiplosArquivos, tiposPermitidos: c.tiposPermitidos, tamanhoMaximoMB: c.tamanhoMaximoMB}); setOpcoesInput((c.opcoes ?? []).join('\n')); setEditCampo(c); setCriandoCampo(false); }}
+                          <button onClick={() => { setFormCampo({nome: c.nome, tipo: c.tipo, obrigatorio: c.obrigatorio, ativo: c.ativo, aplicavelA: c.aplicavelA, opcoes: c.opcoes, ramosAplicaveis: c.ramosAplicaveis ?? [], multiplosArquivos: c.multiplosArquivos, tiposPermitidos: c.tiposPermitidos, tamanhoMaximoMb: c.tamanhoMaximoMb}); setOpcoesInput((c.opcoes ?? []).join('\n')); setEditCampo(c); setCriandoCampo(false); }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={13} /></button>
                           <button onClick={() => setConfirmDelCampo(c.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={13} /></button>
                         </div>
@@ -1159,7 +1159,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </div>
                       <div>
                         <label className="block text-xs font-medium text-gray-600 mb-1">Tamanho máximo (MB)</label>
-                        <input type="number" min="1" value={formCampo.tamanhoMaximoMB ?? ''} onChange={e => setFormCampo(f => ({...f, tamanhoMaximoMB: parseFloat(e.target.value) || undefined}))}
+                        <input type="number" min="1" value={formCampo.tamanhoMaximoMb ?? ''} onChange={e => setFormCampo(f => ({...f, tamanhoMaximoMb: parseFloat(e.target.value) || undefined}))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                       </div>
                       <Ck v={formCampo.multiplosArquivos ?? false} label="Permitir múltiplos arquivos"
