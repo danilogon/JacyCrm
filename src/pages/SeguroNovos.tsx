@@ -8,7 +8,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
-import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate, parsePercent } from '../utils/formatters';
 import { calcularComissaoAReceber } from '../utils/calculations';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 const ImportarPdfModal = lazy(() =>
@@ -626,7 +626,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           respNaoEncontrados.push(respNome.trim());
         }
         const premioLiquido = parseFloat(premioStr) || 0;
-        const percentComissao = parseFloat(percentStr) || 0;
+        const percentComissao = parsePercent(percentStr);
         const comissao = premioLiquido * percentComissao / 100;
 
         const statusImportado = ((): StatusSeguroNovo => {

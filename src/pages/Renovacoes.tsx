@@ -8,7 +8,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
-import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate, parsePercent } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface Props {
@@ -488,11 +488,11 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           respNaoEncontrados.push(respNome.trim());
         }
         const premioAnterior = parseFloat(premioStr) || 0;
-        const percentComissaoAnterior = parseFloat(percentStr) || 0;
+        const percentComissaoAnterior = parsePercent(percentStr);
 
         // Campos da renovação nova (opcionais)
         const premioNovo = parseFloat(premioNovoStr ?? '') || 0;
-        const percentComissaoNova = parseFloat(percentNovoStr ?? '') || 0;
+        const percentComissaoNova = parsePercent(percentNovoStr ?? '');
         const comissaoNova = premioNovo * percentComissaoNova / 100;
         const seguradoraNova = seguradoraNovaCsv?.trim() ?? '';
 

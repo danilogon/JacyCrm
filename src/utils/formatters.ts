@@ -13,6 +13,29 @@ export function formatDate(dateStr: string): string {
 }
 
 /**
+ * Converte um valor de percentual vindo de planilha para número real (ex: 10.5).
+ * Excel armazena células formatadas como % no valor decimal (10% → 0.1).
+ * Com raw:true o XLSX retorna 0.1 → precisamos multiplicar por 100.
+ *
+ * Regras:
+ *  - String terminando em "%" → strip e usa o número (ex: "10%" → 10)
+ *  - Número 0 < n < 1         → multiplica por 100 (raw decimal do Excel, ex: 0.1 → 10)
+ *  - Qualquer outro número    → usa como está (já em % real, ex: "10" → 10)
+ */
+export function parsePercent(raw: string | number | unknown): number {
+  if (raw === null || raw === undefined || raw === '') return 0;
+  const s = String(raw).trim();
+  if (!s) return 0;
+  // String com sinal de %: "10%" → 10
+  if (s.endsWith('%')) return parseFloat(s) || 0;
+  const n = parseFloat(s);
+  if (isNaN(n)) return 0;
+  // Decimal do Excel (0 < n < 1): 0.1 → 10%
+  if (n > 0 && n < 1) return n * 100;
+  return n;
+}
+
+/**
  * Converte qualquer representação de data vinda de planilha para YYYY-MM-DD.
  * Suporta:
  *  - Número serial do Excel  (ex: "46950" ou 46950)
