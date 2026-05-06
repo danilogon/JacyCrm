@@ -611,6 +611,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         idsClientesCriados: previewImport.idsClientesCriados,
         criadoEm: new Date().toISOString(),
         criadoPor: usuario?.id ?? '',
+        linhasValidas: previewImport.linhasValidas,
+        linhasInvalidas: previewImport.linhasInvalidas,
       };
       setImportacoes([...importacoes, lote]);
       setPreviewImport(null);

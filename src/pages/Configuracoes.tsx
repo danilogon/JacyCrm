@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check, Lock } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario } from '../types';
+import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario } from '../types';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -250,6 +250,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   }, [origensProspeccao]);
 
   const [confirmUndo, setConfirmUndo] = useState<ImportacaoLote | null>(null);
+  const [auditoriaLote, setAuditoriaLote] = useState<ImportacaoLote | null>(null);
 
   const TABS: { key: Tab; label: string }[] = [
     { key: 'empresa', label: 'Empresa' },
@@ -1451,6 +1452,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <p className="text-xs text-gray-400 mt-2 px-4 pb-1">Clique duas vezes em uma importação para ver o relatório detalhado.</p>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
@@ -1471,7 +1473,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                         hour: '2-digit', minute: '2-digit',
                       });
                       return (
-                        <tr key={lote.id} className="hover:bg-gray-50">
+                        <tr key={lote.id} className="hover:bg-gray-50 cursor-pointer select-none" onDoubleClick={() => setAuditoriaLote(lote)}>
                           <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{dataHora}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-medium ${TIPO_COLORS[lote.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
@@ -1498,6 +1500,107 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                 </table>
               </div>
             )}
+
+            {auditoriaLote && (() => {
+              const audAutor = usuarios.find(u => u.id === auditoriaLote.criadoPor);
+              const audDataHora = new Date(auditoriaLote.criadoEm).toLocaleString('pt-BR', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit',
+              });
+              const validas: LinhaImportValida[] = auditoriaLote.linhasValidas ?? [];
+              const invalidas: LinhaImportInvalida[] = auditoriaLote.linhasInvalidas ?? [];
+              return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAuditoriaLote(null)}>
+                  <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200">
+                      <div className="flex-1 min-w-0">
+                        <h2 className="text-base font-semibold text-gray-900 truncate">{auditoriaLote.nomeArquivo}</h2>
+                        <div className="flex flex-wrap items-center gap-3 mt-1">
+                          <span className="text-xs text-gray-500">{audDataHora}</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${TIPO_COLORS[auditoriaLote.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {TIPO_LABELS[auditoriaLote.tipo] ?? auditoriaLote.tipo}
+                          </span>
+                          <span className="text-xs text-gray-500">por {audAutor?.nome ?? auditoriaLote.criadoPor}</span>
+                        </div>
+                      </div>
+                      <button onClick={() => setAuditoriaLote(null)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg shrink-0">
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                      {/* Válidas */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <CheckCircle2 size={16} className="text-green-600" />
+                          <h3 className="text-sm font-semibold text-green-700">Importados com sucesso ({validas.length})</h3>
+                        </div>
+                        {validas.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Sem dados de auditoria</p>
+                        ) : (
+                          <div className="overflow-x-auto rounded-lg border border-green-100">
+                            <table className="w-full text-xs">
+                              <thead className="bg-green-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-semibold text-green-800">Linha</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-green-800">Nome</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-green-800">Detalhes</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-green-800">Cliente Novo?</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-green-50">
+                                {validas.map((v, i) => (
+                                  <tr key={i} className="hover:bg-green-50/50">
+                                    <td className="px-3 py-2 text-gray-500">{v.linha}</td>
+                                    <td className="px-3 py-2 text-gray-800">{v.nome}</td>
+                                    <td className="px-3 py-2 text-gray-600">{v.detalhe ?? '—'}</td>
+                                    <td className="px-3 py-2 text-gray-600">{v.clienteNovo ? 'Sim' : 'Não'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Inválidas */}
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <XCircle size={16} className="text-red-500" />
+                          <h3 className="text-sm font-semibold text-red-700">Rejeitados / Erros ({invalidas.length})</h3>
+                        </div>
+                        {invalidas.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Nenhum erro</p>
+                        ) : (
+                          <div className="overflow-x-auto rounded-lg border border-red-100">
+                            <table className="w-full text-xs">
+                              <thead className="bg-red-50">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Linha</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Nome</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Motivo</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-red-50">
+                                {invalidas.map((inv, i) => (
+                                  <tr key={i} className="hover:bg-red-50/50">
+                                    <td className="px-3 py-2 text-gray-500">{inv.linha}</td>
+                                    <td className="px-3 py-2 text-gray-800">{inv.nome}</td>
+                                    <td className="px-3 py-2 text-red-700">{inv.motivo}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             <ConfirmDialog
               open={confirmUndo !== null}

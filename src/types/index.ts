@@ -356,6 +356,9 @@ export interface Tarefa {
 
 export type TipoImportacao = 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'clientes';
 
+export interface LinhaImportValida { linha: number; nome: string; detalhe?: string; clienteNovo?: boolean; }
+export interface LinhaImportInvalida { linha: number; nome: string; motivo: string; }
+
 export interface ImportacaoLote {
   id: string;
   tipo: TipoImportacao;
@@ -368,4 +371,6 @@ export interface ImportacaoLote {
   idsClientesCriados: string[];
   criadoEm: string;
   criadoPor: string; // userId
+  linhasValidas?: LinhaImportValida[];
+  linhasInvalidas?: LinhaImportInvalida[];
 }
