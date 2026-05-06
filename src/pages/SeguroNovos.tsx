@@ -210,6 +210,10 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
   const [clienteVisualizando, setClienteVisualizando] = useState<Cliente | null>(null);
   const [importandoPdf, setImportandoPdf] = useState(false);
+  const [clienteEditandoModal, setClienteEditandoModal] = useState<Cliente | null>(null);
+  const [formCliEdit, setFormCliEdit] = useState<Partial<Cliente>>({});
+  const [buscandoCepCli, setBuscandoCepCli] = useState(false);
+  const [erroCepCli, setErroCepCli] = useState('');
 
   const anos = useMemo(() => {
     const set = new Set<number>();
@@ -327,6 +331,42 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     setEditando(null);
     setCriando(false);
     setClienteSelecionado(null);
+  }
+
+  function abrirEditarCliente(cli: Cliente) {
+    setClienteEditandoModal(cli);
+    setFormCliEdit({ ...cli });
+    setErroCepCli('');
+  }
+
+  async function buscarCepCli(cep: string) {
+    const digits = cep.replace(/\D/g, '');
+    if (digits.length !== 8) return;
+    setBuscandoCepCli(true);
+    setErroCepCli('');
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await resp.json();
+      if (data.erro) { setErroCepCli('CEP não encontrado.'); return; }
+      setFormCliEdit(f => ({
+        ...f,
+        logradouro: data.logradouro ?? f.logradouro,
+        bairro: data.bairro ?? f.bairro,
+        cidade: data.localidade ?? f.cidade,
+        uf: data.uf ?? f.uf,
+      }));
+    } catch {
+      setErroCepCli('Erro ao buscar CEP.');
+    } finally {
+      setBuscandoCepCli(false);
+    }
+  }
+
+  function salvarClienteEdit() {
+    if (!clienteEditandoModal) return;
+    const updated: Cliente = { ...clienteEditandoModal, ...formCliEdit } as Cliente;
+    setClientes(clientes.map(c => c.id === updated.id ? updated : c));
+    setClienteEditandoModal(null);
   }
 
   function calcCom(f: FormState) {
@@ -908,12 +948,22 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                   const nome = cli?.nome ?? editando?.nomeCliente;
                   if (!nome) return null;
                   return cli ? (
-                    <div
-                      className="text-sm text-blue-600 mt-0.5 cursor-pointer hover:text-blue-800 underline underline-offset-2 select-none inline-flex items-center gap-1"
-                      onClick={() => setClienteVisualizando(cli)}
-                      title="Clique para ver dados do cliente"
-                    >
-                      {nome}
+                    <div className="inline-flex items-center gap-1.5 mt-0.5">
+                      <span
+                        className="text-sm text-blue-600 cursor-pointer hover:text-blue-800 underline underline-offset-2 select-none"
+                        onClick={() => setClienteVisualizando(cli)}
+                        title="Ver dados do cliente"
+                      >
+                        {nome}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => abrirEditarCliente(cli)}
+                        className="p-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                        title="Editar dados do cliente"
+                      >
+                        <Edit2 size={12} />
+                      </button>
                     </div>
                   ) : (
                     <div className="text-sm text-gray-500 mt-0.5">{nome}</div>
@@ -1340,6 +1390,114 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         onConfirm={() => { setSegurosNovos(segurosNovos.filter(s => s.id !== confirmExcluir)); setConfirmExcluir(null); }}
         onCancel={() => setConfirmExcluir(null)}
       />
+
+      {/* Modal de edição de cliente */}
+      {clienteEditandoModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={() => setClienteEditandoModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <div>
+                <h2 className="font-bold text-gray-900">Editar Cliente</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{clienteEditandoModal.nome}</p>
+              </div>
+              <button onClick={() => setClienteEditandoModal(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Nome */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
+                <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  value={formCliEdit.nome ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, nome: e.target.value }))} />
+              </div>
+              {/* Email + Telefone */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">E-mail</label>
+                  <input type="email" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.email ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, email: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Telefone</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.telefone ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, telefone: e.target.value }))} />
+                </div>
+              </div>
+              {/* Nascimento */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Data de Nascimento</label>
+                <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                  value={formCliEdit.dataNascimento ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, dataNascimento: e.target.value }))} />
+              </div>
+              {/* CEP */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">CEP</label>
+                <div className="flex gap-2">
+                  <input className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.cep ?? ''} maxLength={9}
+                    onChange={e => setFormCliEdit(f => ({ ...f, cep: e.target.value.replace(/\D/g, '') }))}
+                    onBlur={e => buscarCepCli(e.target.value)} />
+                  <button type="button" onClick={() => buscarCepCli(formCliEdit.cep ?? '')} disabled={buscandoCepCli}
+                    className="px-3 py-2 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-600">
+                    {buscandoCepCli ? '...' : 'Buscar'}
+                  </button>
+                </div>
+                {erroCepCli && <p className="text-xs text-red-500 mt-1">{erroCepCli}</p>}
+              </div>
+              {/* Logradouro + Número */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Logradouro</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.logradouro ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, logradouro: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Número</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.numero ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, numero: e.target.value }))} />
+                </div>
+              </div>
+              {/* Complemento + Bairro */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Complemento</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.complemento ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, complemento: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Bairro</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.bairro ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, bairro: e.target.value }))} />
+                </div>
+              </div>
+              {/* Cidade + UF */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Cidade</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    value={formCliEdit.cidade ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, cidade: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">UF</label>
+                  <input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" maxLength={2}
+                    value={formCliEdit.uf ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, uf: e.target.value.toUpperCase() }))} />
+                </div>
+              </div>
+              {/* Observação importante */}
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Observação importante</label>
+                <textarea rows={2} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+                  value={formCliEdit.observacaoImportante ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, observacaoImportante: e.target.value }))} />
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-200 flex justify-end gap-2">
+              <button type="button" onClick={() => setClienteEditandoModal(null)}
+                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+              <button type="button" onClick={salvarClienteEdit}
+                className="px-4 py-2 text-sm bg-blue-700 text-white rounded-lg hover:bg-blue-800">Salvar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de dados do cliente */}
       {clienteVisualizando && (
