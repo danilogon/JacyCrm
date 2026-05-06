@@ -83,7 +83,7 @@ export function Sidebar({ tarefas, onNavigate }: Props) {
   const bottomLinks = [
     { to: '/tarefas',       icon: CalendarCheck, label: 'Tarefas',       show: true, badge: tarefasPendentes },
     { to: '/clientes',      icon: Users,         label: 'Clientes',      show: true, badge: 0 },
-    { to: '/emails',        icon: Mail,          label: 'E-mails',       show: true, badge: 0 },
+    { to: '/emails',        icon: Mail,          label: 'E-mails',       show: usuario.role === 'admin', badge: 0 },
     { to: '/usuarios',      icon: UserCog,       label: 'Usuários',      show: usuario.role === 'admin', badge: 0 },
     { to: '/configuracoes', icon: Settings,      label: 'Configurações', show: usuario.role === 'admin', badge: 0 },
   ];

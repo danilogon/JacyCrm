@@ -448,18 +448,20 @@ function AppRoutes() {
           } />
         )}
 
-        <Route path="/emails" element={
-          <Emails
-            modelosEmail={modelosEmail}
-            setModelosEmail={setModelosEmail}
-            emailsDisparo={emailsDisparo}
-            setEmailsDisparo={setEmailsDisparo}
-            clientes={clientes}
-            segurosNovos={segurosNovos}
-            renovacoes={renovacoes}
-            usuarios={usuarios}
-          />
-        } />
+        {usuario.role === 'admin' && (
+          <Route path="/emails" element={
+            <Emails
+              modelosEmail={modelosEmail}
+              setModelosEmail={setModelosEmail}
+              emailsDisparo={emailsDisparo}
+              setEmailsDisparo={setEmailsDisparo}
+              clientes={clientes}
+              segurosNovos={segurosNovos}
+              renovacoes={renovacoes}
+              usuarios={usuarios}
+            />
+          } />
+        )}
 
         <Route path="/"  element={<Navigate to="/dashboard" replace />} />
         <Route path="*"  element={<Navigate to="/dashboard" replace />} />
