@@ -76,8 +76,8 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
     });
   };
 
-  const rv = filtrar(renovacoes, 'fimVigencia');
-  const sn = filtrar(segurosNovos, 'inicioVigencia');
+  const rv = filtrar(renovacoes, 'fimVigencia').filter(r => !(ramos.find(x => x.nome === r.ramo)?.apenasControleRemuneracao));
+  const sn = filtrar(segurosNovos, 'inicioVigencia').filter(s => !(ramos.find(x => x.nome === s.ramo)?.apenasControleRemuneracao));
 
   const motivosRen = motivos.filter(m => m.tipo === 'negocio' && m.aplicaRenovacoes);
   const motivosSn = motivos.filter(m => m.tipo === 'negocio' && m.aplicaSegurosNovos);
