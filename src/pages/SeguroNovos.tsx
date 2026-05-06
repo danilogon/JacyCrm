@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Plus, Download, Upload, Edit2, X, Save, MessageSquare, Search, UserCheck, Bell, Lock, FileUp, AlertTriangle, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao } from '../types';
+import type { SeguroNovo, Prospeccao, StatusSeguroNovo, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, OrigemProspeccao, ImportacaoLote } from '../types';
+import { ImportPreviewModal } from '../components/ImportPreviewModal';
+import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -29,6 +31,8 @@ interface Props {
   tarefas: Tarefa[];
   setTarefas: (t: Tarefa[]) => void;
   origensNegocio: OrigemProspeccao[];
+  importacoes: ImportacaoLote[];
+  setImportacoes: (items: ImportacaoLote[]) => void;
 }
 
 const STATUS_LABELS: Record<StatusSeguroNovo, string> = {
@@ -163,7 +167,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio, camposCustomizaveis }: Props) {
+export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, usuarios, seguradoras, ramos, motivos, clientes, setClientes, tarefas, setTarefas, origensNegocio, camposCustomizaveis, importacoes, setImportacoes }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -177,6 +181,17 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     if (!usuario || usuario.role === 'admin' || usuario.role === 'gestor') return false;
     return usuario.camposRestritos?.segurosNovos?.includes(campo) ?? false;
   };
+
+  type PreviewImportSN = {
+    linhasValidas: LinhaValida[];
+    linhasInvalidas: LinhaInvalida[];
+    novas: SeguroNovo[];
+    clientesAtualizados: Cliente[];
+    idsClientesCriados: string[];
+    nomeArquivo: string;
+  };
+  const [previewImport, setPreviewImport] = useState<PreviewImportSN | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const now = new Date();
   const [filtroAno, setFiltroAno] = useState(now.getFullYear());
@@ -581,6 +596,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       type LinhaRejeitada = { linha: number; nome: string; motivo: string };
       const rejeitadas: LinhaRejeitada[] = [];
       const novas: SeguroNovo[] = [];
+      const linhasValidas: LinhaValida[] = [];
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2;
@@ -658,20 +674,54 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
         });
+        const isNovo = !clientes.some(c => c.cpfCnpj === cpfDigits);
+        linhasValidas.push({
+          linha: lineNum,
+          nome: clienteVinc?.nome ?? nome,
+          detalhe: `CPF ${cpfDigits} · início ${inicioVigencia?.trim() || '?'}`,
+          clienteNovo: isNovo,
+        });
       });
 
-      if (clientesCriados.length > 0) setClientes(clientesAtualizados);
+      const linhasInvalidas: LinhaInvalida[] = rejeitadas;
+      const idsClientesCriados = clientesAtualizados
+        .slice(clientes.length)
+        .map(c => c.id);
+
+      setPreviewImport({
+        linhasValidas,
+        linhasInvalidas,
+        novas,
+        clientesAtualizados,
+        idsClientesCriados,
+        nomeArquivo: file.name,
+      });
+  }
+
+  async function confirmarImportSN() {
+    if (!previewImport) return;
+    setImportando(true);
+    try {
+      if (previewImport.idsClientesCriados.length > 0) setClientes(previewImport.clientesAtualizados);
+      const novas = previewImport.novas;
       if (novas.length > 0) setSegurosNovos([...segurosNovos, ...novas]);
 
-      const partes: string[] = [];
-      partes.push(`✅ ${novas.length} seguro(s) novo(s) importado(s) com sucesso.`);
-      if (clientesCriados.length > 0) partes.push(`\n🆕 ${clientesCriados.length} cliente(s) criado(s) automaticamente:\n  • ${clientesCriados.join('\n  • ')}`);
-      if (clientesIncompletos.length > 0) partes.push(`\n⚠️ ${clientesIncompletos.length} cliente(s) com dados incompletos (sem email e/ou telefone):\n  • ${clientesIncompletos.join('\n  • ')}\n  → Ao abrir esses negócios um aviso será exibido.`);
-      if (rejeitadas.length > 0) {
-        const detalhe = rejeitadas.map(r => `  • Linha ${r.linha} — "${r.nome}": ${r.motivo}`).join('\n');
-        partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s):\n${detalhe}`);
-      }
-      alert(partes.join('\n'));
+      const lote: ImportacaoLote = {
+        id: generateId(),
+        tipo: 'seguros_novos',
+        nomeArquivo: previewImport.nomeArquivo,
+        totalImportados: novas.length,
+        totalRejeitados: previewImport.linhasInvalidas.length,
+        idsSalvos: novas.map(s => s.id),
+        idsClientesCriados: previewImport.idsClientesCriados,
+        criadoEm: new Date().toISOString(),
+        criadoPor: usuario?.id ?? '',
+      };
+      setImportacoes([...importacoes, lote]);
+      setPreviewImport(null);
+    } finally {
+      setImportando(false);
+    }
   }
 
   const { comissao: formComissao } = calcCom(form);
@@ -1317,6 +1367,18 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             </div>
           </div>
         </div>
+      )}
+
+      {previewImport && (
+        <ImportPreviewModal
+          titulo="Importação de Seguros Novos"
+          nomeArquivo={previewImport.nomeArquivo}
+          linhasValidas={previewImport.linhasValidas}
+          linhasInvalidas={previewImport.linhasInvalidas}
+          importando={importando}
+          onConfirmar={confirmarImportSN}
+          onCancelar={() => setPreviewImport(null)}
+        />
       )}
     </div>
   );

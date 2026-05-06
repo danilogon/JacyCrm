@@ -14,6 +14,7 @@ import type {
   Usuario, Renovacao, SeguroNovo, Prospeccao, Cliente,
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
+  ImportacaoLote,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -72,6 +73,7 @@ export async function fetchAll() {
     r_tarefas,
     r_tipos,
     r_origens,
+    r_importacoes,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -87,6 +89,7 @@ export async function fetchAll() {
     supabase.from('tarefas').select('*'),
     supabase.from('tipos_usuario').select('*'),
     supabase.from('origens_prospeccao').select('*').order('nome'),
+    supabase.from('importacoes_lote').select('*'),
   ]);
 
   // Detecta erros críticos
@@ -112,6 +115,7 @@ export async function fetchAll() {
     tarefas:      (r_tarefas.data     || []).map(r => rowToCamel<Tarefa>(r as Record<string, unknown>)),
     tiposUsuario: (r_tipos.data       || []).map(r => rowToCamel<TipoUsuario>(r as Record<string, unknown>)),
     origensProspeccao: (r_origens.data || []).map(r => rowToCamel<OrigemProspeccao>(r as Record<string, unknown>)),
+    importacoes: (r_importacoes.data || []).map(r => rowToCamel<ImportacaoLote>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -185,6 +189,10 @@ export const db = {
   // Origens de Prospecção
   upsertOrigensProspeccao:(items: OrigemProspeccao[]) => upsertRows('origens_prospeccao', items as unknown as Record<string, unknown>[]),
   deleteOrigensProspeccao:(ids: string[])             => deleteRows('origens_prospeccao', ids),
+
+  // Importações em lote
+  upsertImportacoes: (items: ImportacaoLote[]) => upsertRows('importacoes_lote', items as unknown as Record<string, unknown>[]),
+  deleteImportacoes: (ids: string[])           => deleteRows('importacoes_lote', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

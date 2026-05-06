@@ -3,7 +3,9 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock, Link2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa } from '../types';
+import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, ImportacaoLote } from '../types';
+import { ImportPreviewModal } from '../components/ImportPreviewModal';
+import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -23,6 +25,8 @@ interface Props {
   setClientes: (c: Cliente[]) => void;
   tarefas: Tarefa[];
   setTarefas: (t: Tarefa[]) => void;
+  importacoes: ImportacaoLote[];
+  setImportacoes: (items: ImportacaoLote[]) => void;
 }
 
 const STATUS_LABELS: Record<StatusRenovacao, string> = {
@@ -149,7 +153,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis }: Props) {
+export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis, importacoes, setImportacoes }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -163,6 +167,17 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     if (!usuario || usuario.role === 'admin' || usuario.role === 'gestor') return false;
     return usuario.camposRestritos?.renovacoes?.includes(campo) ?? false;
   };
+
+  type PreviewImport = {
+    linhasValidas: LinhaValida[];
+    linhasInvalidas: LinhaInvalida[];
+    novas: Renovacao[];
+    clientesAtualizados: Cliente[];
+    idsClientesCriados: string[];
+    nomeArquivo: string;
+  };
+  const [previewImport, setPreviewImport] = useState<PreviewImport | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const now = new Date();
   const [filtroAno, setFiltroAno] = useState(now.getFullYear());
@@ -442,6 +457,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       const rejeitadas: LinhaRejeitada[] = [];
 
       const novas: Renovacao[] = [];
+      const linhasValidas: LinhaValida[] = [];
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2; // +2: 1 base + 1 cabeçalho
@@ -518,7 +534,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           }
         }
 
-        novas.push({
+        const renovacaoNova: Renovacao = {
           id: generateId(),
           responsavelId: resp?.id ?? usuario?.id ?? '',
           clienteId: clienteVinc?.id,
@@ -537,31 +553,57 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           status: statusImportado,
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
+        };
+        novas.push(renovacaoNova);
+        const isNovo = !clientes.some(c => c.cpfCnpj === cpfDigits);
+        linhasValidas.push({
+          linha: lineNum,
+          nome: clienteVinc?.nome ?? nome,
+          detalhe: `CPF ${cpfDigits} · venc. ${fimVigencia?.trim() || '?'}`,
+          clienteNovo: isNovo,
         });
       });
 
-      // Persiste novos clientes criados
-      if (clientesCriados.length > 0) setClientes(clientesAtualizados);
+      const linhasInvalidas: LinhaInvalida[] = rejeitadas;
+
+      const idsClientesCriados = clientesAtualizados
+        .slice(clientes.length)
+        .map(c => c.id);
+
+      setPreviewImport({
+        linhasValidas,
+        linhasInvalidas,
+        novas,
+        clientesAtualizados,
+        idsClientesCriados,
+        nomeArquivo: file.name,
+      });
+  }
+
+  async function confirmarImportRenovacoes() {
+    if (!previewImport) return;
+    setImportando(true);
+    try {
+      if (previewImport.idsClientesCriados.length > 0) setClientes(previewImport.clientesAtualizados);
+      const novas = previewImport.novas;
       if (novas.length > 0) setRenovacoes([...renovacoes, ...novas]);
 
-      // ── Monta relatório ────────────────────────────────────────────────
-      const partes: string[] = [];
-      partes.push(`✅ ${novas.length} renovação(ões) importada(s) com sucesso.`);
-
-      if (clientesCriados.length > 0) {
-        partes.push(`\n🆕 ${clientesCriados.length} cliente(s) criado(s) automaticamente:\n  • ${clientesCriados.join('\n  • ')}`);
-      }
-
-      if (clientesIncompletos.length > 0) {
-        partes.push(`\n⚠️ ${clientesIncompletos.length} cliente(s) com dados incompletos (sem email e/ou telefone):\n  • ${clientesIncompletos.join('\n  • ')}\n  → Ao abrir esses negócios um aviso será exibido.`);
-      }
-
-      if (rejeitadas.length > 0) {
-        const detalhe = rejeitadas.map(r => `  • Linha ${r.linha} — "${r.nome}": ${r.motivo}`).join('\n');
-        partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s) por falta de dados obrigatórios:\n${detalhe}`);
-      }
-
-      alert(partes.join('\n'));
+      const lote: ImportacaoLote = {
+        id: generateId(),
+        tipo: 'renovacoes',
+        nomeArquivo: previewImport.nomeArquivo,
+        totalImportados: novas.length,
+        totalRejeitados: previewImport.linhasInvalidas.length,
+        idsSalvos: novas.map(r => r.id),
+        idsClientesCriados: previewImport.idsClientesCriados,
+        criadoEm: new Date().toISOString(),
+        criadoPor: usuario?.id ?? '',
+      };
+      setImportacoes([...importacoes, lote]);
+      setPreviewImport(null);
+    } finally {
+      setImportando(false);
+    }
   }
 
   const responsavelNome = (id: string) => usuarios.find(u => u.id === id)?.nome ?? id;
@@ -1222,6 +1264,18 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
             </div>
           </div>
         </div>
+      )}
+
+      {previewImport && (
+        <ImportPreviewModal
+          titulo="Importação de Renovações"
+          nomeArquivo={previewImport.nomeArquivo}
+          linhasValidas={previewImport.linhasValidas}
+          linhasInvalidas={previewImport.linhasInvalidas}
+          importando={importando}
+          onConfirmar={confirmarImportRenovacoes}
+          onCancelar={() => setPreviewImport(null)}
+        />
       )}
     </div>
   );

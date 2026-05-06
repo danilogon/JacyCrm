@@ -3,7 +3,9 @@ import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell, Link
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo } from '../types';
+import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo, ImportacaoLote } from '../types';
+import { ImportPreviewModal } from '../components/ImportPreviewModal';
+import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { formatCpfCnpj, formatDate, generateId } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -15,6 +17,8 @@ interface Props {
   segurosNovos: SeguroNovo[];
   usuarios: Usuario[];
   camposCustomizaveis?: CampoCustomizavel[];
+  importacoes: ImportacaoLote[];
+  setImportacoes: (items: ImportacaoLote[]) => void;
 }
 
 type FormCliente = Omit<Cliente, 'id' | 'criadoEm' | 'atualizadoEm' | 'tipo'>;
@@ -26,13 +30,22 @@ const formVazio: FormCliente = {
   camposCustomizados: [],
 };
 
-export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camposCustomizaveis }: Props) {
+export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camposCustomizaveis, importacoes, setImportacoes }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin = usuario?.role === 'admin';
   const camposAplicaveis = (camposCustomizaveis ?? []).filter(c =>
     c.ativo && c.aplicavelA === 'clientes'
   );
+
+  type PreviewImportCli = {
+    linhasValidas: LinhaValida[];
+    linhasInvalidas: LinhaInvalida[];
+    novos: Cliente[];
+    nomeArquivo: string;
+  };
+  const [previewImport, setPreviewImport] = useState<PreviewImportCli | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const [busca, setBusca] = useState('');
   const [modalForm, setModalForm] = useState(false);
@@ -286,6 +299,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
     const cpfsExistentes = new Set(clientes.map(c => c.cpfCnpj));
     const novos: Cliente[] = [];
+    const linhasValidas: LinhaValida[] = [];
     const duplicados: string[] = [];
     const rejeitados: { linha: number; motivo: string }[] = [];
 
@@ -305,7 +319,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       if (cpfsExistentes.has(cpfDigits)) { duplicados.push(nomeClean); return; }
 
       cpfsExistentes.add(cpfDigits);
-      novos.push({
+      const novoCliente: Cliente = {
         id: generateId(),
         cpfCnpj: cpfDigits,
         tipo,
@@ -323,17 +337,61 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         uf: (uf ?? '').trim().toUpperCase().slice(0, 2),
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
+      };
+      novos.push(novoCliente);
+      linhasValidas.push({
+        linha: lineNum,
+        nome: nomeClean,
+        detalhe: `CPF ${cpfDigits}`,
+        clienteNovo: false,
       });
     });
 
-    if (novos.length > 0) setClientes([...clientes, ...novos]);
+    // Duplicates and rejections become invalid lines
+    const linhasInvalidas: LinhaInvalida[] = [
+      ...duplicados.map(nome => ({
+        linha: 0,
+        nome,
+        motivo: 'CPF/CNPJ já cadastrado',
+      })),
+      ...rejeitados.map(r => ({
+        linha: r.linha,
+        nome: '',
+        motivo: r.motivo,
+      })),
+    ];
 
-    const partes: string[] = [];
-    if (novos.length > 0) partes.push(`✅ ${novos.length} cliente(s) importado(s) com sucesso.`);
-    if (duplicados.length > 0) partes.push(`⚠️ ${duplicados.length} ignorado(s) — CPF/CNPJ já cadastrado:\n  ${duplicados.slice(0, 5).join(', ')}${duplicados.length > 5 ? '...' : ''}`);
-    if (rejeitados.length > 0) partes.push(`❌ ${rejeitados.length} linha(s) rejeitada(s):\n${rejeitados.map(r => `  Linha ${r.linha}: ${r.motivo}`).join('\n')}`);
+    setPreviewImport({
+      linhasValidas,
+      linhasInvalidas,
+      novos,
+      nomeArquivo: file.name,
+    });
+  }
 
-    alert(partes.join('\n\n') || 'Nenhum cliente foi importado.');
+  async function confirmarImportCli() {
+    if (!previewImport) return;
+    setImportando(true);
+    try {
+      const novos = previewImport.novos;
+      if (novos.length > 0) setClientes([...clientes, ...novos]);
+
+      const lote: ImportacaoLote = {
+        id: generateId(),
+        tipo: 'clientes',
+        nomeArquivo: previewImport.nomeArquivo,
+        totalImportados: novos.length,
+        totalRejeitados: previewImport.linhasInvalidas.length,
+        idsSalvos: novos.map(c => c.id),
+        idsClientesCriados: [],
+        criadoEm: new Date().toISOString(),
+        criadoPor: usuario?.id ?? '',
+      };
+      setImportacoes([...importacoes, lote]);
+      setPreviewImport(null);
+    } finally {
+      setImportando(false);
+    }
   }
 
   const clienteRenovacoes = visualizando
@@ -925,6 +983,18 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
             </div>
           </div>
         </div>
+      )}
+
+      {previewImport && (
+        <ImportPreviewModal
+          titulo="Importação de Clientes"
+          nomeArquivo={previewImport.nomeArquivo}
+          linhasValidas={previewImport.linhasValidas}
+          linhasInvalidas={previewImport.linhasInvalidas}
+          importando={importando}
+          onConfirmar={confirmarImportCli}
+          onCancelar={() => setPreviewImport(null)}
+        />
       )}
     </div>
   );

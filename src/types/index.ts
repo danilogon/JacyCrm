@@ -336,3 +336,19 @@ export interface Tarefa {
   criadoEm: string;
   atualizadoEm: string;
 }
+
+export type TipoImportacao = 'renovacoes' | 'seguros_novos' | 'prospeccoes' | 'clientes';
+
+export interface ImportacaoLote {
+  id: string;
+  tipo: TipoImportacao;
+  nomeArquivo: string;
+  totalImportados: number;
+  totalRejeitados: number;
+  /** IDs dos registros principais (renovações/seguros/prospecções/clientes) criados */
+  idsSalvos: string[];
+  /** IDs dos clientes criados automaticamente junto com a importação */
+  idsClientesCriados: string[];
+  criadoEm: string;
+  criadoPor: string; // userId
+}

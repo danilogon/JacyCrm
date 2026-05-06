@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check, Lock } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao } from '../types';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario } from '../types';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -21,9 +21,20 @@ interface Props {
   setTiposUsuario: (t: TipoUsuario[]) => void;
   origensProspeccao: OrigemProspeccao[];
   setOrigensProspeccao: (o: OrigemProspeccao[]) => void;
+  importacoes: ImportacaoLote[];
+  setImportacoes: (i: ImportacaoLote[]) => void;
+  renovacoes: Renovacao[];
+  setRenovacoes: (r: Renovacao[]) => void;
+  segurosNovos: SeguroNovo[];
+  setSegurosNovos: (s: SeguroNovo[]) => void;
+  prospeccoes: Prospeccao[];
+  setProspeccoes: (p: Prospeccao[]) => void;
+  clientes: Cliente[];
+  setClientes: (c: Cliente[]) => void;
+  usuarios: Usuario[];
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'importacoes';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -151,7 +162,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -238,6 +249,8 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     return [...sistema, ...custom];
   }, [origensProspeccao]);
 
+  const [confirmUndo, setConfirmUndo] = useState<ImportacaoLote | null>(null);
+
   const TABS: { key: Tab; label: string }[] = [
     { key: 'empresa', label: 'Empresa' },
     { key: 'tipos_usuario', label: 'Tipos de Usuário' },
@@ -247,7 +260,23 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'motivos', label: 'Motivos de Perda' },
     { key: 'campos', label: 'Campos Customizáveis' },
     { key: 'origens_prospeccao', label: 'Origem do Negócio' },
+    { key: 'importacoes', label: 'Importações' },
   ];
+
+  function desfazerImportacao(lote: ImportacaoLote) {
+    const ids = new Set(lote.idsSalvos);
+    const idsClientes = new Set(lote.idsClientesCriados);
+
+    if (lote.tipo === 'renovacoes') setRenovacoes(renovacoes.filter(r => !ids.has(r.id)));
+    else if (lote.tipo === 'seguros_novos') setSegurosNovos(segurosNovos.filter(s => !ids.has(s.id)));
+    else if (lote.tipo === 'prospeccoes') setProspeccoes(prospeccoes.filter(p => !ids.has(p.id)));
+    else if (lote.tipo === 'clientes') setClientes(clientes.filter(c => !ids.has(c.id)));
+
+    if (idsClientes.size > 0) setClientes(clientes.filter(c => !idsClientes.has(c.id)));
+
+    setImportacoes(importacoes.filter(i => i.id !== lote.id));
+    setConfirmUndo(null);
+  }
 
   // --- Seguradoras ---
   function salvarSeg() {
@@ -1366,6 +1395,95 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
           />
         </div>
       )}
+
+      {/* Importações */}
+      {tab === 'importacoes' && (() => {
+        const TIPO_LABELS: Record<string, string> = {
+          renovacoes: 'Renovações',
+          seguros_novos: 'Seguros Novos',
+          prospeccoes: 'Prospecções',
+          clientes: 'Clientes',
+        };
+        const TIPO_COLORS: Record<string, string> = {
+          renovacoes: 'bg-blue-100 text-blue-700',
+          seguros_novos: 'bg-indigo-100 text-indigo-700',
+          prospeccoes: 'bg-amber-100 text-amber-700',
+          clientes: 'bg-green-100 text-green-700',
+        };
+        const sorted = [...importacoes].sort(
+          (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
+        );
+
+        return (
+          <div className="space-y-3">
+            {sorted.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-10 text-center text-gray-400 text-sm">
+                Nenhuma importação registrada.
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Data/Hora</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Tipo</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Arquivo</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Importados</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600">Rejeitados</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Importado por</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {sorted.map(lote => {
+                      const autor = usuarios.find(u => u.id === lote.criadoPor);
+                      const dataHora = new Date(lote.criadoEm).toLocaleString('pt-BR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit',
+                      });
+                      return (
+                        <tr key={lote.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{dataHora}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${TIPO_COLORS[lote.tipo] ?? 'bg-gray-100 text-gray-600'}`}>
+                              {TIPO_LABELS[lote.tipo] ?? lote.tipo}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 max-w-[160px] truncate" title={lote.nomeArquivo}>{lote.nomeArquivo}</td>
+                          <td className="px-4 py-3 text-right font-medium text-green-700">{lote.totalImportados}</td>
+                          <td className="px-4 py-3 text-right font-medium text-red-600">{lote.totalRejeitados}</td>
+                          <td className="px-4 py-3 text-gray-600">{autor?.nome ?? lote.criadoPor}</td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => setConfirmUndo(lote)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Desfazer importação"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <ConfirmDialog
+              open={confirmUndo !== null}
+              title="Desfazer importação"
+              message={confirmUndo
+                ? `Tem certeza que deseja desfazer a importação de "${confirmUndo.nomeArquivo}"? Isso removerá ${confirmUndo.totalImportados} registro(s) e não pode ser desfeito.`
+                : ''}
+              confirmLabel="Desfazer"
+              danger
+              onConfirm={() => confirmUndo && desfazerImportacao(confirmUndo)}
+              onCancel={() => setConfirmUndo(null)}
+            />
+          </div>
+        );
+      })()}
     </div>
   );
 }

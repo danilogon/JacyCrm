@@ -4,7 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import type {
   Prospeccao, StatusProspeccao, Usuario, Seguradora, Ramo,
   SeguroNovo, MotivoPerda, Tarefa, Cliente, OrigemProspeccao, CampoCustomizavel, CampoCustomizadoValor,
+  ImportacaoLote,
 } from '../types';
+import { ImportPreviewModal } from '../components/ImportPreviewModal';
+import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
@@ -26,6 +29,8 @@ interface Props {
   podeDescartar: boolean;
   origensProspeccao: OrigemProspeccao[];
   camposCustomizaveis?: CampoCustomizavel[];
+  importacoes: ImportacaoLote[];
+  setImportacoes: (items: ImportacaoLote[]) => void;
 }
 
 const STATUS_LABELS: Record<StatusProspeccao, string> = {
@@ -171,6 +176,7 @@ export function ProspeccaoPage({
   podeDescartar,
   origensProspeccao,
   camposCustomizaveis = [],
+  importacoes, setImportacoes,
 }: Props) {
   const { usuario } = useAuth();
   const isAdmin  = usuario?.role === 'admin';
@@ -181,6 +187,17 @@ export function ProspeccaoPage({
   const [busca, setBusca]             = useState('');
   const [filtroRamo, setFiltroRamo]   = useState('');
   const [mostrarEncerradas, setMostrarEncerradas] = useState(false);
+
+  type PreviewImportProsp = {
+    linhasValidas: LinhaValida[];
+    linhasInvalidas: LinhaInvalida[];
+    novas: Prospeccao[];
+    clientesAtualizados: Cliente[];
+    idsClientesCriados: string[];
+    nomeArquivo: string;
+  };
+  const [previewImport, setPreviewImport] = useState<PreviewImportProsp | null>(null);
+  const [importando, setImportando] = useState(false);
 
   const [visualizando, setVisualizando] = useState<Prospeccao | null>(null);
   const [confirmAssumir, setConfirmAssumir] = useState(false);
@@ -473,6 +490,7 @@ export function ProspeccaoPage({
       type LinhaRejeitada = { linha: number; nome: string; motivo: string };
       const rejeitadas: LinhaRejeitada[] = [];
       const novas: Prospeccao[] = [];
+      const linhasValidas: LinhaValida[] = [];
 
       dataLines.forEach((line, idx) => {
         const lineNum = idx + 2;
@@ -538,23 +556,57 @@ export function ProspeccaoPage({
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
         });
+        const isNovo = !clientes.some(c => c.cpfCnpj === cpfDigits);
+        linhasValidas.push({
+          linha: lineNum,
+          nome: clienteVinc?.nome ?? nome,
+          detalhe: `CPF ${cpfDigits} · ramo ${ramo?.trim() || '?'}`,
+          clienteNovo: isNovo,
+        });
       });
 
-      if (clientesCriados.length > 0) setClientes(clientesAtualizados);
-      if (novas.length > 0) setProspeccoes([...prospeccoes, ...novas]);
+      const linhasInvalidas: LinhaInvalida[] = rejeitadas;
+      const idsClientesCriados = clientesAtualizados
+        .slice(clientes.length)
+        .map(c => c.id);
 
-      const partes: string[] = [];
-      partes.push(`✅ ${novas.length} prospecção(ões) importada(s) com sucesso.`);
-      if (clientesCriados.length > 0) partes.push(`\n🆕 ${clientesCriados.length} cliente(s) criado(s) automaticamente:\n  • ${clientesCriados.join('\n  • ')}`);
-      if (clientesIncompletos.length > 0) partes.push(`\n⚠️ ${clientesIncompletos.length} cliente(s) com dados incompletos:\n  • ${clientesIncompletos.join('\n  • ')}`);
-      if (rejeitadas.length > 0) {
-        const detalhe = rejeitadas.map(r => `  • Linha ${r.linha} — "${r.nome}": ${r.motivo}`).join('\n');
-        partes.push(`\n❌ ${rejeitadas.length} linha(s) não importada(s):\n${detalhe}`);
-      }
-      alert(partes.join('\n'));
+      setPreviewImport({
+        linhasValidas,
+        linhasInvalidas,
+        novas,
+        clientesAtualizados,
+        idsClientesCriados,
+        nomeArquivo: file.name,
+      });
     };
     reader.readAsText(file);
     e.target.value = '';
+  }
+
+  async function confirmarImportProsp() {
+    if (!previewImport) return;
+    setImportando(true);
+    try {
+      if (previewImport.idsClientesCriados.length > 0) setClientes(previewImport.clientesAtualizados);
+      const novas = previewImport.novas;
+      if (novas.length > 0) setProspeccoes([...prospeccoes, ...novas]);
+
+      const lote: ImportacaoLote = {
+        id: generateId(),
+        tipo: 'prospeccoes',
+        nomeArquivo: previewImport.nomeArquivo,
+        totalImportados: novas.length,
+        totalRejeitados: previewImport.linhasInvalidas.length,
+        idsSalvos: novas.map(p => p.id),
+        idsClientesCriados: previewImport.idsClientesCriados,
+        criadoEm: new Date().toISOString(),
+        criadoPor: usuario?.id ?? '',
+      };
+      setImportacoes([...importacoes, lote]);
+      setPreviewImport(null);
+    } finally {
+      setImportando(false);
+    }
   }
 
   return (
@@ -1047,6 +1099,18 @@ export function ProspeccaoPage({
         onConfirm={() => confirmDescarte && descartar(confirmDescarte)}
         onCancel={() => setConfirmDescarte(null)}
       />
+
+      {previewImport && (
+        <ImportPreviewModal
+          titulo="Importação de Prospecções"
+          nomeArquivo={previewImport.nomeArquivo}
+          linhasValidas={previewImport.linhasValidas}
+          linhasInvalidas={previewImport.linhasInvalidas}
+          importando={importando}
+          onConfirmar={confirmarImportProsp}
+          onCancelar={() => setPreviewImport(null)}
+        />
+      )}
     </div>
   );
 }

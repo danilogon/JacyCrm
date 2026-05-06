@@ -21,6 +21,7 @@ import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
+  ImportacaoLote,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -109,6 +110,7 @@ function AppRoutes() {
   const [tiposUsuario, setTiposUsuarioState] = useState<TipoUsuario[]>([]);
   const [tarefas,      setTarefasState]      = useState<Tarefa[]>([]);
   const [origensProspeccao, setOrigensProspeccaoState] = useState<OrigemProspeccao[]>([]);
+  const [importacoes, setImportacoesState] = useState<ImportacaoLote[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -130,6 +132,7 @@ function AppRoutes() {
         setTarefasState(data.tarefas);
         setTiposUsuarioState(data.tiposUsuario);
         setOrigensProspeccaoState(data.origensProspeccao);
+        setImportacoesState(data.importacoes);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -176,6 +179,9 @@ function AppRoutes() {
 
   const setTarefas = useCallback(
     makeSyncer(setTarefasState, db.upsertTarefas, db.deleteTarefas), []);
+
+  const setImportacoes = useCallback(
+    makeSyncer(setImportacoesState, db.upsertImportacoes, db.deleteImportacoes), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -281,6 +287,8 @@ function AppRoutes() {
               setClientes={setClientes}
               tarefas={tarefas}
               setTarefas={setTarefas}
+              importacoes={importacoes}
+              setImportacoes={setImportacoes}
             />
           } />
         )}
@@ -302,6 +310,8 @@ function AppRoutes() {
               tarefas={tarefas}
               setTarefas={setTarefas}
               origensNegocio={origensProspeccao}
+              importacoes={importacoes}
+              setImportacoes={setImportacoes}
             />
           } />
         )}
@@ -324,6 +334,8 @@ function AppRoutes() {
               podeDescartar={podeDescartarProspeccao}
               origensProspeccao={origensProspeccao}
               camposCustomizaveis={campos}
+              importacoes={importacoes}
+              setImportacoes={setImportacoes}
             />
           } />
         )}
@@ -355,6 +367,8 @@ function AppRoutes() {
             segurosNovos={segurosNovos}
             usuarios={usuarios}
             camposCustomizaveis={campos}
+            importacoes={importacoes}
+            setImportacoes={setImportacoes}
           />
         } />
 
@@ -401,6 +415,17 @@ function AppRoutes() {
               setTiposUsuario={setTiposUsuario}
               origensProspeccao={origensProspeccao}
               setOrigensProspeccao={setOrigensProspeccao}
+              importacoes={importacoes}
+              setImportacoes={setImportacoes}
+              renovacoes={renovacoes}
+              setRenovacoes={setRenovacoes}
+              segurosNovos={segurosNovos}
+              setSegurosNovos={setSegurosNovos}
+              prospeccoes={prospeccoes}
+              setProspeccoes={setProspeccoes}
+              clientes={clientes}
+              setClientes={setClientes}
+              usuarios={usuarios}
             />
           } />
         )}
