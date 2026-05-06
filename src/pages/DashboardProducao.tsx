@@ -318,6 +318,15 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       .slice(0, 10);
   }, [migradas, filtroSeguradora]);
 
+  // Total de renovações por seguradora anterior no período (para exibir ao lado do nome)
+  const totalRenPorSegAnterior = useMemo(() => {
+    const map = new Map<string, number>();
+    renParaMig.forEach(r => {
+      if (r.seguradoraAnterior) map.set(r.seguradoraAnterior, (map.get(r.seguradoraAnterior) ?? 0) + 1);
+    });
+    return map;
+  }, [renParaMig]);
+
   // Origens disponíveis para o filtro local de migração
   const migOrigensDisp = useMemo(() => {
     const set = new Set<string>();
@@ -774,7 +783,10 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
                     {topMig.map((row, i) => (
                       <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                         <td className="py-2.5 px-3 text-gray-400 text-xs">{i + 1}</td>
-                        <td className="py-2.5 px-3 text-gray-700 font-medium">{row.de}</td>
+                        <td className="py-2.5 px-3 text-gray-700 font-medium">
+                          {row.de}
+                          <span className="text-gray-300 font-normal text-xs ml-1.5">({totalRenPorSegAnterior.get(row.de) ?? 0})</span>
+                        </td>
                         <td className="py-2.5 text-center">
                           <ArrowRight size={12} className="text-gray-300 mx-auto" />
                         </td>
