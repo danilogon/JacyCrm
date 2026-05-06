@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Bell, LogOut, Sun, Moon } from 'lucide-react';
+import { Search, Bell, LogOut, Sun, Moon, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -8,6 +8,7 @@ import type { Renovacao, SeguroNovo } from '../types';
 interface Props {
   renovacoes: Renovacao[];
   segurosNovos: SeguroNovo[];
+  onMenuToggle: () => void;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -24,7 +25,7 @@ type SearchResult = {
   route: string;
 };
 
-export function Header({ renovacoes, segurosNovos }: Props) {
+export function Header({ renovacoes, segurosNovos, onMenuToggle }: Props) {
   const { usuario, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -72,12 +73,21 @@ export function Header({ renovacoes, segurosNovos }: Props) {
   }, []);
 
   return (
-    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-4 gap-4 sticky top-0 z-30 shrink-0">
+    <header className="h-14 bg-white border-b border-gray-200 flex items-center px-3 sm:px-4 gap-2 sm:gap-4 sticky top-0 z-30 shrink-0">
+      {/* Hamburger — mobile only */}
+      <button
+        onClick={onMenuToggle}
+        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors md:hidden shrink-0"
+        aria-label="Abrir menu"
+      >
+        <Menu size={20} />
+      </button>
+
       <div className="flex-1 relative max-w-md" ref={inputRef as React.RefObject<HTMLDivElement>}>
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
         <input
           type="text"
-          placeholder="Buscar clientes, renovações, seguros..."
+          placeholder="Buscar..."
           value={search}
           onChange={e => { setSearch(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
@@ -105,20 +115,20 @@ export function Header({ renovacoes, segurosNovos }: Props) {
       <button
         onClick={toggleTheme}
         title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
-        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+        className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors shrink-0 hidden sm:flex"
       >
         {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
       </button>
 
-      <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+      <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors shrink-0 hidden sm:flex">
         <Bell size={17} />
       </button>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <div className="w-8 h-8 rounded-full bg-blue-700 text-white flex items-center justify-center text-sm font-bold shrink-0">
           {usuario?.nome?.charAt(0).toUpperCase()}
         </div>
-        <div className="text-right hidden sm:block">
+        <div className="text-right hidden md:block">
           <div className="text-sm font-medium text-gray-800 leading-tight">{usuario?.nome}</div>
           <div className="text-xs text-gray-500">{ROLE_LABELS[usuario?.role ?? '']}</div>
         </div>
@@ -126,7 +136,7 @@ export function Header({ renovacoes, segurosNovos }: Props) {
 
       <button
         onClick={() => { logout(); navigate('/login'); }}
-        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors shrink-0"
         title="Sair"
       >
         <LogOut size={17} />

@@ -735,7 +735,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
 
       {/* Tabela */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[700px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {['Cliente / Responsável','Vigência','Ramo','Seguradora / Prêmio','Comissão','Status',''].map((h, i) => (
@@ -831,6 +832,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal Criar / Editar */}

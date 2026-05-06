@@ -10,7 +10,12 @@ import type { Tarefa } from '../types';
 const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao'];
 const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao', '/consulta-renovacoes'];
 
-export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
+interface Props {
+  tarefas: Tarefa[];
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ tarefas, onNavigate }: Props) {
   const { usuario } = useAuth();
   const location = useLocation();
 
@@ -115,7 +120,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
             <button
               onClick={toggle}
               title="Recolher menu"
-              className="p-1.5 rounded-lg text-blue-400 hover:text-white hover:bg-blue-800 transition-colors shrink-0"
+              className="p-1.5 rounded-lg text-blue-400 hover:text-white hover:bg-blue-800 transition-colors shrink-0 hidden md:flex"
             >
               <ChevronLeft size={16} />
             </button>
@@ -130,7 +135,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
         {(collapsed ? (
           <div className="space-y-0.5">
             {dashboardSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
-              <NavLink key={to} to={to} title={label}
+              <NavLink key={to} to={to} title={label} onClick={onNavigate}
                 className={({ isActive }) =>
                   `flex items-center justify-center px-3 py-2.5 rounded-lg transition-colors ${
                     isActive ? 'bg-blue-700 text-white' : 'text-blue-300 hover:bg-blue-900 hover:text-white'
@@ -156,7 +161,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
             {dashboardOpen && (
               <div className="mt-0.5 ml-3 pl-3 border-l border-blue-800 space-y-0.5">
                 {dashboardSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
-                  <NavLink key={to} to={to}
+                  <NavLink key={to} to={to} onClick={onNavigate}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive ? 'bg-blue-700 text-white' : 'text-blue-400 hover:bg-blue-900 hover:text-white'
@@ -198,7 +203,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
             {!collapsed && negociosOpen && (
               <div className="mt-0.5 ml-3 pl-3 border-l border-blue-800 space-y-0.5">
                 {negociosSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
-                  <NavLink key={to} to={to}
+                  <NavLink key={to} to={to} onClick={onNavigate}
                     className={({ isActive }) =>
                       `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                         isActive ? 'bg-blue-700 text-white' : 'text-blue-400 hover:bg-blue-900 hover:text-white'
@@ -214,7 +219,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
             {collapsed && (
               <div className="space-y-0.5 mt-0.5">
                 {negociosSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
-                  <NavLink key={to} to={to} title={label}
+                  <NavLink key={to} to={to} title={label} onClick={onNavigate}
                     className={({ isActive }) =>
                       `flex items-center justify-center px-3 py-2 rounded-lg text-sm transition-colors ${
                         isActive ? 'bg-blue-700 text-white' : 'text-blue-400 hover:bg-blue-900 hover:text-white'
@@ -239,6 +244,7 @@ export function Sidebar({ tarefas }: { tarefas: Tarefa[] }) {
             key={to}
             to={to}
             title={collapsed ? label : undefined}
+            onClick={onNavigate}
             className={({ isActive }) => linkClass(isActive, collapsed ? 'justify-center' : '')}
           >
             <div className="relative shrink-0">

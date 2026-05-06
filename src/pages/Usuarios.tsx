@@ -223,7 +223,8 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[700px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {['Nome','Email','Perfil','Renovações','Seg. Novos','Remuneração / Plano','Status','Ações'].map(h => (
@@ -278,6 +279,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Modal */}

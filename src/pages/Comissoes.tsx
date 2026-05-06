@@ -219,7 +219,8 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
 
       {/* Tabela */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-xs">
+        <div className="overflow-x-auto">
+        <table className="w-full text-xs min-w-[700px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600">Usuário</th>
@@ -328,6 +329,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
             </tr>
           </tbody>
         </table>
+        </div>
 
         {dados.every(d => d.total === 0) && (
           <div className="px-4 py-10 text-center text-gray-400 text-sm">
