@@ -175,6 +175,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     clientesAtualizados: Cliente[];
     idsClientesCriados: string[];
     nomeArquivo: string;
+    respNaoEncontrados: string[];
   };
   const [previewImport, setPreviewImport] = useState<PreviewImport | null>(null);
   const [importando, setImportando] = useState(false);
@@ -458,6 +459,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
       const novas: Renovacao[] = [];
       const linhasValidas: LinhaValida[] = [];
+      const respNaoEncontrados: string[] = []; // nomes da planilha sem match no sistema
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2; // +2: 1 base + 1 cabeçalho
@@ -478,7 +480,13 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           return; // pula esta linha
         }
 
-        const resp = usuarios.find(u => u.nome === respNome);
+        const respNomeTrim = respNome?.trim().toLowerCase() ?? '';
+        const resp = respNomeTrim
+          ? usuarios.find(u => u.nome.trim().toLowerCase() === respNomeTrim)
+          : undefined;
+        if (respNomeTrim && !resp && !respNaoEncontrados.includes(respNome.trim())) {
+          respNaoEncontrados.push(respNome.trim());
+        }
         const premioAnterior = parseFloat(premioStr) || 0;
         const percentComissaoAnterior = parseFloat(percentStr) || 0;
 
@@ -536,7 +544,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
         const renovacaoNova: Renovacao = {
           id: generateId(),
-          responsavelId: resp?.id ?? usuario?.id ?? '',
+          responsavelId: resp?.id ?? '',
           clienteId: clienteVinc?.id,
           nomeCliente: clienteVinc?.nome ?? nome,
           emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
@@ -577,6 +585,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         clientesAtualizados,
         idsClientesCriados,
         nomeArquivo: file.name,
+        respNaoEncontrados,
       });
   }
 
@@ -1272,6 +1281,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           nomeArquivo={previewImport.nomeArquivo}
           linhasValidas={previewImport.linhasValidas}
           linhasInvalidas={previewImport.linhasInvalidas}
+          avisos={previewImport.respNaoEncontrados.length > 0
+            ? [`Responsável(is) não encontrado(s) no sistema — os registros ficarão sem responsável definido: ${previewImport.respNaoEncontrados.join(', ')}`]
+            : []}
           importando={importando}
           onConfirmar={confirmarImportRenovacoes}
           onCancelar={() => setPreviewImport(null)}

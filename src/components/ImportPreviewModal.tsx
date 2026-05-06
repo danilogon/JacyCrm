@@ -1,4 +1,4 @@
-import { X, CheckCircle2, XCircle, UserPlus } from 'lucide-react';
+import { X, CheckCircle2, XCircle, UserPlus, AlertTriangle } from 'lucide-react';
 
 export interface LinhaValida {
   linha: number;
@@ -18,6 +18,8 @@ interface ImportPreviewModalProps {
   nomeArquivo: string;
   linhasValidas: LinhaValida[];
   linhasInvalidas: LinhaInvalida[];
+  /** Avisos gerais exibidos antes da confirmação (ex: responsável não encontrado) */
+  avisos?: string[];
   importando?: boolean;
   onConfirmar(): void;
   onCancelar(): void;
@@ -28,6 +30,7 @@ export function ImportPreviewModal({
   nomeArquivo,
   linhasValidas,
   linhasInvalidas,
+  avisos = [],
   importando,
   onConfirmar,
   onCancelar,
@@ -69,6 +72,18 @@ export function ImportPreviewModal({
               <div className={`text-xs mt-0.5 ${clientesNovos > 0 ? 'text-blue-600' : 'text-gray-400'}`}>clientes novos</div>
             </div>
           </div>
+
+          {/* Avisos */}
+          {avisos.length > 0 && (
+            <div className="space-y-2">
+              {avisos.map((aviso, i) => (
+                <div key={i} className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-sm text-amber-800">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5 text-amber-500" />
+                  <span>{aviso}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Rejected rows */}
           {linhasInvalidas.length > 0 && (

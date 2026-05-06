@@ -189,6 +189,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     clientesAtualizados: Cliente[];
     idsClientesCriados: string[];
     nomeArquivo: string;
+    respNaoEncontrados: string[];
   };
   const [previewImport, setPreviewImport] = useState<PreviewImportSN | null>(null);
   const [importando, setImportando] = useState(false);
@@ -597,6 +598,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       const rejeitadas: LinhaRejeitada[] = [];
       const novas: SeguroNovo[] = [];
       const linhasValidas: LinhaValida[] = [];
+      const respNaoEncontrados: string[] = [];
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2;
@@ -616,7 +618,13 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           return;
         }
 
-        const resp = usuarios.find(u => u.nome === respNome);
+        const respNomeTrim = respNome?.trim().toLowerCase() ?? '';
+        const resp = respNomeTrim
+          ? usuarios.find(u => u.nome.trim().toLowerCase() === respNomeTrim)
+          : undefined;
+        if (respNomeTrim && !resp && !respNaoEncontrados.includes(respNome.trim())) {
+          respNaoEncontrados.push(respNome.trim());
+        }
         const premioLiquido = parseFloat(premioStr) || 0;
         const percentComissao = parseFloat(percentStr) || 0;
         const comissao = premioLiquido * percentComissao / 100;
@@ -657,7 +665,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
 
         novas.push({
           id: generateId(),
-          responsavelId: resp?.id ?? usuario?.id ?? '',
+          responsavelId: resp?.id ?? '',
           clienteId: clienteVinc?.id,
           nomeCliente: clienteVinc?.nome ?? nome,
           emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
@@ -695,6 +703,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         clientesAtualizados,
         idsClientesCriados,
         nomeArquivo: file.name,
+        respNaoEncontrados,
       });
   }
 
@@ -1375,6 +1384,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           nomeArquivo={previewImport.nomeArquivo}
           linhasValidas={previewImport.linhasValidas}
           linhasInvalidas={previewImport.linhasInvalidas}
+          avisos={previewImport.respNaoEncontrados.length > 0
+            ? [`Responsável(is) não encontrado(s) no sistema: ${previewImport.respNaoEncontrados.join(', ')}`]
+            : []}
           importando={importando}
           onConfirmar={confirmarImportSN}
           onCancelar={() => setPreviewImport(null)}

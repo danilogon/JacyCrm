@@ -195,6 +195,7 @@ export function ProspeccaoPage({
     clientesAtualizados: Cliente[];
     idsClientesCriados: string[];
     nomeArquivo: string;
+    respNaoEncontrados: string[];
   };
   const [previewImport, setPreviewImport] = useState<PreviewImportProsp | null>(null);
   const [importando, setImportando] = useState(false);
@@ -491,6 +492,7 @@ export function ProspeccaoPage({
       const rejeitadas: LinhaRejeitada[] = [];
       const novas: Prospeccao[] = [];
       const linhasValidas: LinhaValida[] = [];
+      const respNaoEncontrados: string[] = [];
 
       dataLines.forEach((line, idx) => {
         const lineNum = idx + 2;
@@ -512,7 +514,13 @@ export function ProspeccaoPage({
           return;
         }
 
-        const resp = usuarios.find(u => u.nome === respNome);
+        const respNomeTrim = respNome?.trim().toLowerCase() ?? '';
+        const resp = respNomeTrim
+          ? usuarios.find(u => u.nome.trim().toLowerCase() === respNomeTrim)
+          : undefined;
+        if (respNomeTrim && !resp && !respNaoEncontrados.includes(respNome.trim())) {
+          respNaoEncontrados.push(respNome.trim());
+        }
 
         let clienteVinc = clientesAtualizados.find(c => c.cpfCnpj === cpfDigits);
         if (!clienteVinc) {
@@ -542,7 +550,7 @@ export function ProspeccaoPage({
         novas.push({
           id: generateId(),
           origem: 'manual' as const,
-          responsavelId: resp?.id ?? usuario?.id ?? '',
+          responsavelId: resp?.id ?? '',
           clienteId: clienteVinc?.id,
           nomeCliente: clienteVinc?.nome ?? nome,
           emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
@@ -577,6 +585,7 @@ export function ProspeccaoPage({
         clientesAtualizados,
         idsClientesCriados,
         nomeArquivo: file.name,
+        respNaoEncontrados,
       });
     };
     reader.readAsText(file);
@@ -1106,6 +1115,9 @@ export function ProspeccaoPage({
           nomeArquivo={previewImport.nomeArquivo}
           linhasValidas={previewImport.linhasValidas}
           linhasInvalidas={previewImport.linhasInvalidas}
+          avisos={previewImport.respNaoEncontrados.length > 0
+            ? [`Responsável(is) não encontrado(s) no sistema: ${previewImport.respNaoEncontrados.join(', ')}`]
+            : []}
           importando={importando}
           onConfirmar={confirmarImportProsp}
           onCancelar={() => setPreviewImport(null)}
