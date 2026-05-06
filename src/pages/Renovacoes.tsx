@@ -8,7 +8,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
-import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface Props {
@@ -439,9 +439,9 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       const reader = new FileReader();
       reader.onload = ev => {
         const data = new Uint8Array(ev.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = XLSX.read(data, { type: 'array', cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '', raw: true }) as string[][];
         resolve(rows);
       };
       reader.onerror = reject;
@@ -542,7 +542,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
           telefoneCliente: clienteVinc?.telefone ?? telefoneCliente?.trim() ?? '',
           cpfCnpjCliente: cpfDigits,
-          fimVigencia: fimVigencia?.trim() ?? '',
+          fimVigencia: parseImportDate(fimVigencia),
           ramo: ramo?.trim() ?? '',
           seguradoraAnterior: seguradoraAnterior?.trim() ?? '',
           premioAnterior,

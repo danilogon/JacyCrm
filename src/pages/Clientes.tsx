@@ -6,7 +6,7 @@ import * as XLSX from 'xlsx';
 import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo, ImportacaoLote } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
-import { formatCpfCnpj, formatDate, generateId } from '../utils/formatters';
+import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -279,9 +279,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       const reader = new FileReader();
       reader.onload = e => {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = XLSX.read(data, { type: 'array', cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '', raw: true }) as string[][];
         resolve(rows);
       };
       reader.onerror = reject;
@@ -326,7 +326,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         nome: nomeClean,
         email: (email ?? '').trim(),
         telefone: (telefone ?? '').trim(),
-        dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? dataNascimento.trim() : undefined,
+        dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? (parseImportDate(dataNascimento) || dataNascimento.trim()) : undefined,
         observacaoImportante: (observacaoImportante ?? '').trim() || undefined,
         cep: (cep ?? '').replace(/\D/g, ''),
         logradouro: (logradouro ?? '').trim(),

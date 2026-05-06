@@ -8,7 +8,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
-import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
+import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
 import { calcularComissaoAReceber } from '../utils/calculations';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 const ImportarPdfModal = lazy(() =>
@@ -579,9 +579,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       const reader = new FileReader();
       reader.onload = ev => {
         const data = new Uint8Array(ev.target!.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
+        const wb = XLSX.read(data, { type: 'array', cellDates: false });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '' }) as string[][];
+        const rows = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, defval: '', raw: true }) as string[][];
         resolve(rows);
       };
       reader.onerror = reject;
@@ -663,7 +663,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           emailCliente: clienteVinc?.email ?? emailCliente?.trim() ?? '',
           telefoneCliente: clienteVinc?.telefone ?? telefoneCliente?.trim() ?? '',
           cpfCnpjCliente: cpfDigits,
-          inicioVigencia: inicioVigencia?.trim() ?? '',
+          inicioVigencia: parseImportDate(inicioVigencia),
           ramo: ramo?.trim() ?? '',
           seguradora: seguradora?.trim() ?? '',
           premioLiquido,

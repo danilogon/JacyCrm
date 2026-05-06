@@ -10,7 +10,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
-import { formatCurrency, formatDate, generateId, formatCpfCnpj } from '../utils/formatters';
+import { formatCurrency, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface Props {
@@ -551,7 +551,7 @@ export function ProspeccaoPage({
           ramo: ramo.trim(),
           seguradora: seguradora?.trim() ?? '',
           premioReferencia: parseFloat(premioStr) || 0,
-          dataContato: dataContato?.trim() || new Date().toISOString().split('T')[0],
+          dataContato: parseImportDate(dataContato) || new Date().toISOString().split('T')[0],
           status: 'a_contatar' as const,
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),

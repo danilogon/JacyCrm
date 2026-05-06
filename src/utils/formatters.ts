@@ -12,6 +12,62 @@ export function formatDate(dateStr: string): string {
   return `${day}/${month}/${year}`;
 }
 
+/**
+ * Converte qualquer representação de data vinda de planilha para YYYY-MM-DD.
+ * Suporta:
+ *  - Número serial do Excel  (ex: "46950" ou 46950)
+ *  - DD/MM/YYYY              (ex: "29/04/2026")
+ *  - DD-MM-YYYY              (ex: "29-04-2026")
+ *  - YYYY-MM-DD              (já no formato correto)
+ *  - YYYY/MM/DD
+ * Retorna '' se não reconhecer.
+ */
+export function parseImportDate(raw: string | number | unknown): string {
+  if (raw === null || raw === undefined || raw === '') return '';
+
+  // JS Date object (pode vir de cellDates:true)
+  if (raw instanceof Date) {
+    if (isNaN(raw.getTime())) return '';
+    const y = raw.getFullYear();
+    const m = String(raw.getMonth() + 1).padStart(2, '0');
+    const d = String(raw.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  const s = String(raw).trim();
+  if (!s) return '';
+
+  // Número serial do Excel (dias desde 1900-01-01, com bug do ano bissexto 1900)
+  const serial = Number(s);
+  if (!isNaN(serial) && serial > 1 && serial < 2958466 && !/\/|-/.test(s)) {
+    // Fórmula de conversão: serial 1 = 1900-01-01 no Excel
+    const ms = (serial - 25569) * 86400 * 1000;
+    const dt = new Date(ms);
+    if (!isNaN(dt.getTime())) {
+      const y = dt.getUTCFullYear();
+      const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(dt.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+  }
+
+  // DD/MM/YYYY ou DD-MM-YYYY
+  const dmy = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  // YYYY-MM-DD ou YYYY/MM/DD
+  const ymd = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymd) {
+    const [, y, m, d] = ymd;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  return '';
+}
+
 export function generateId(): string {
   // Usa crypto.randomUUID quando disponível; fallback com getRandomValues
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
