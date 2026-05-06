@@ -527,7 +527,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       {tab === 'ramos' && (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <button onClick={() => { setFormRamo({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, participaMetaProducao: false }); setCriandoRamo(true); setEditRamo(null); }}
+            <button onClick={() => { setFormRamo({ nome: '', ativo: true, tipoComissaoSegurosNovos: 'percentual', percentualComissao: 0, valorFixo: 0, considerarParaTaxaSegurosNovos: true, considerarParaTaxaConversao: true, remuneracaoIndividual: false, participaMetaProducao: false, apenasControleRemuneracao: false }); setCriandoRamo(true); setEditRamo(null); }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
               <Plus size={14} /> Novo Ramo
             </button>
@@ -563,7 +563,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                       </td>
                       <td className="px-3 py-2.5">
                         <div className="flex gap-1">
-                          <button onClick={() => { setFormRamo({nome: r.nome, ativo: r.ativo, tipoComissaoSegurosNovos: r.tipoComissaoSegurosNovos, percentualComissao: r.percentualComissao, valorFixo: r.valorFixo, considerarParaTaxaSegurosNovos: r.considerarParaTaxaSegurosNovos, considerarParaTaxaConversao: r.considerarParaTaxaConversao, remuneracaoIndividual: r.remuneracaoIndividual ?? false, participaMetaProducao: r.participaMetaProducao ?? false}); setEditRamo(r); setCriandoRamo(false); }}
+                          <button onClick={() => { setFormRamo({nome: r.nome, ativo: r.ativo, tipoComissaoSegurosNovos: r.tipoComissaoSegurosNovos, percentualComissao: r.percentualComissao, valorFixo: r.valorFixo, considerarParaTaxaSegurosNovos: r.considerarParaTaxaSegurosNovos, considerarParaTaxaConversao: r.considerarParaTaxaConversao, remuneracaoIndividual: r.remuneracaoIndividual ?? false, participaMetaProducao: r.participaMetaProducao ?? false, apenasControleRemuneracao: r.apenasControleRemuneracao ?? false}); setEditRamo(r); setCriandoRamo(false); }}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"><Edit2 size={13} /></button>
                           <button onClick={() => setConfirmDelRamo(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 size={13} /></button>
                         </div>
