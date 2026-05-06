@@ -21,15 +21,32 @@ function getFirstRoute(u: Usuario): string {
   return '/clientes';
 }
 
-/** Verifica se o horário atual está dentro da janela permitida */
-function dentroDoHorario(u: Usuario): boolean {
-  if (!u.horarioLoginInicio || !u.horarioLoginFim) return true;
-  const now   = new Date();
-  const atual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  return atual >= u.horarioLoginInicio && atual <= u.horarioLoginFim;
-}
+/** Verifica se o dia e horário atuais estão dentro das restrições de acesso */
+function dentroDoAcesso(u: Usuario): { ok: boolean; motivo?: string } {
+  const now = new Date();
 
-const fmtHora = (h: string) => h.replace(':', 'h');
+  // Verificar dia da semana
+  if (u.diasPermitidos && u.diasPermitidos.length > 0) {
+    const hoje = now.getDay(); // 0=Dom … 6=Sáb
+    if (!u.diasPermitidos.includes(hoje)) {
+      const nomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+      const permitidos = u.diasPermitidos.map(d => nomes[d]).join(', ');
+      return { ok: false, motivo: `Acesso permitido somente nos dias: ${permitidos}.` };
+    }
+  }
+
+  // Verificar horário
+  if (u.horarioLoginInicio && u.horarioLoginFim) {
+    const atual = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    if (atual < u.horarioLoginInicio || atual > u.horarioLoginFim) {
+      const ini = u.horarioLoginInicio.replace(':', 'h');
+      const fim = u.horarioLoginFim.replace(':', 'h');
+      return { ok: false, motivo: `Acesso permitido somente das ${ini} às ${fim}.` };
+    }
+  }
+
+  return { ok: true };
+}
 
 export function Login() {
   const { login, completarLogin, usuario } = useAuth();
@@ -75,12 +92,11 @@ export function Login() {
 
     const perfil = result.perfil;
 
-    // Restrição de horário — se fora do horário, encerra sessão no Supabase
-    if (!dentroDoHorario(perfil)) {
+    // Restrição de dia/horário — encerra sessão se fora da janela permitida
+    const acesso = dentroDoAcesso(perfil);
+    if (!acesso.ok) {
       await supabase.auth.signOut();
-      const ini = fmtHora(perfil.horarioLoginInicio!);
-      const fim = fmtHora(perfil.horarioLoginFim!);
-      setErro(`Acesso permitido somente das ${ini} às ${fim}.`);
+      setErro(acesso.motivo ?? 'Acesso negado neste momento.');
       setLoading(false);
       return;
     }

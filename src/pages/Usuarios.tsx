@@ -40,6 +40,7 @@ type FormUsuario = {
   tipoUsuarioId: string;
   horarioLoginInicio: string;
   horarioLoginFim: string;
+  diasPermitidos: number[];
   exigir2FA: boolean;
 };
 
@@ -63,7 +64,7 @@ const formVazio: FormUsuario = {
   recebeRemuneracaoSnComissao: true, recebeRemuneracaoSnTaxa: true,
   ativo: true,
   tipoUsuarioId: '',
-  horarioLoginInicio: '', horarioLoginFim: '', exigir2FA: false,
+  horarioLoginInicio: '', horarioLoginFim: '', diasPermitidos: [], exigir2FA: false,
 };
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
@@ -116,6 +117,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
       tipoUsuarioId:      u.tipoUsuarioId      ?? '',
       horarioLoginInicio: u.horarioLoginInicio ?? '',
       horarioLoginFim:    u.horarioLoginFim    ?? '',
+      diasPermitidos:     u.diasPermitidos     ?? [],
       exigir2FA:          u.exigir2FA          ?? false,
     });
     setEditando(u);
@@ -176,6 +178,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
         tipoUsuarioId:      form.tipoUsuarioId      || undefined,
         horarioLoginInicio: form.horarioLoginInicio || undefined,
         horarioLoginFim:    form.horarioLoginFim    || undefined,
+        diasPermitidos:     form.diasPermitidos.length > 0 ? form.diasPermitidos : undefined,
         exigir2FA:          form.exigir2FA,
       };
 
@@ -479,6 +482,50 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario }: Props) 
                     {form.horarioLoginInicio && form.horarioLoginFim
                       ? `Acesso permitido das ${form.horarioLoginInicio.replace(':', 'h')} às ${form.horarioLoginFim.replace(':', 'h')}`
                       : 'Sem restrição de horário'}
+                  </p>
+                </div>
+
+                {/* Dias da semana */}
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Dias permitidos para login</p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {([
+                      { label: 'Dom', value: 0 },
+                      { label: 'Seg', value: 1 },
+                      { label: 'Ter', value: 2 },
+                      { label: 'Qua', value: 3 },
+                      { label: 'Qui', value: 4 },
+                      { label: 'Sex', value: 5 },
+                      { label: 'Sáb', value: 6 },
+                    ] as const).map(({ label, value }) => {
+                      const selecionado = form.diasPermitidos.includes(value);
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => {
+                            setForm(f => ({
+                              ...f,
+                              diasPermitidos: selecionado
+                                ? f.diasPermitidos.filter(d => d !== value)
+                                : [...f.diasPermitidos, value].sort((a, b) => a - b),
+                            }));
+                          }}
+                          className={`w-11 h-9 rounded-lg text-sm font-medium transition-colors border ${
+                            selecionado
+                              ? 'bg-blue-700 text-white border-blue-700'
+                              : 'bg-white text-gray-500 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    {form.diasPermitidos.length === 0
+                      ? 'Sem restrição de dia'
+                      : `Acesso permitido: ${form.diasPermitidos.map(d => ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d]).join(', ')}`}
                   </p>
                 </div>
 

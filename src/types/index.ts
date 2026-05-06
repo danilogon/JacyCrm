@@ -58,6 +58,8 @@ export interface Usuario {
   horarioLoginInicio?: string;
   /** Horário máximo permitido para login, ex: "17:00". Null = sem restrição. */
   horarioLoginFim?: string;
+  /** Dias da semana permitidos para login: 0=Dom, 1=Seg … 6=Sáb. Vazio/undefined = todos os dias. */
+  diasPermitidos?: number[];
   /** Requer código 2FA enviado por e-mail a cada login */
   exigir2FA?: boolean;
 }
