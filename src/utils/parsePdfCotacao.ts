@@ -59,9 +59,13 @@ async function extractItems(file: File): Promise<RawItem[]> {
   for (const raw of content.items as (TextItem | TextMarkedContent)[]) {
     if (!isTextItem(raw)) continue;
     const s = raw.str.trim();
-    if (s) {
-      items.push({ str: s, x: raw.transform[4], y: raw.transform[5] });
-    }
+    if (!s) continue;
+    const x = raw.transform[4];
+    const y = raw.transform[5];
+    // Remove duplicatas: alguns PDFs renderizam cada glifo duas vezes
+    // com posições quasi-idênticas (Δx < 2, Δy < 2)
+    const isDup = items.some(p => p.str === s && Math.abs(p.x - x) < 2 && Math.abs(p.y - y) < 2);
+    if (!isDup) items.push({ str: s, x, y });
   }
   return items;
 }
@@ -119,9 +123,15 @@ export async function parsePdfCotacao(file: File): Promise<DadosCotacao> {
   // ────────────────────────────────────────────────────────────────────────
 
   const seguradoItem = allItems.find(i => /^SEGURADO(\/CONDUTOR)?:?$/.test(i.str.trim()));
-  // +100 garante que ficamos à esquerda do início de qualquer segunda coluna
-  // (coluna de veículo/endereço começa sempre a partir de x≈181)
-  const xMax = seguradoItem ? seguradoItem.x + 100 : 180;
+  // Detecta a coluna CONDUTOR para limitar o xMax dinamicamente.
+  // Em PDFs com SEGURADO + CONDUTOR lado a lado (layout Auto do Agger),
+  // usar ponto médio entre as duas colunas evita misturar os dados.
+  const condutorItem = allItems.find(i => /^CONDUTOR$/.test(i.str.trim()));
+  const xMax = seguradoItem
+    ? (condutorItem
+        ? (seguradoItem.x + condutorItem.x) / 2   // ponto médio entre as colunas
+        : seguradoItem.x + 100)                     // sem CONDUTOR: offset fixo
+    : 180;
 
   // Coluna esquerda: dados do segurado
   const leftItems = allItems.filter(i => i.x <= xMax);
