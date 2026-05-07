@@ -266,6 +266,30 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
     return [...map.entries()].map(([ramo, d]) => ({ ramo, ...d })).sort((a, b) => b.premio - a.premio);
   }, [snFechados, renRenovadas, snDeProspFechados]);
 
+  // ── Ranking Média de Comissão por Ramo ───────────────────────────────────────
+  const rankingMediaComissaoRamo = useMemo(() => {
+    const map = new Map<string, { totalComissao: number; totalPremio: number; qtd: number }>();
+    const add = (ramo: string, premio: number, comissao: number) => {
+      if (!ramo || premio <= 0) return;
+      const e = map.get(ramo) ?? { totalComissao: 0, totalPremio: 0, qtd: 0 };
+      e.totalComissao += comissao;
+      e.totalPremio += premio;
+      e.qtd++;
+      map.set(ramo, e);
+    };
+    snFechados.forEach(s => add(s.ramo, s.premioLiquido || 0, s.comissao || 0));
+    renRenovadas.forEach(r => add(r.ramo, r.premioNovo || 0, r.comissaoNova || 0));
+    snDeProspFechados.forEach(s => add(s.ramo, s.premioLiquido || 0, s.comissao || 0));
+    return [...map.entries()]
+      .map(([ramo, d]) => ({
+        ramo,
+        qtd: d.qtd,
+        mediaComissao: d.totalPremio > 0 ? (d.totalComissao / d.totalPremio) * 100 : 0,
+      }))
+      .filter(r => r.mediaComissao > 0)
+      .sort((a, b) => b.mediaComissao - a.mediaComissao);
+  }, [snFechados, renRenovadas, snDeProspFechados]);
+
   // ── Migração ─────────────────────────────────────────────────────────────────
   const renParaMig = useMemo(() => {
     if (filtroTipo === 'seguros_novos' || filtroTipo === 'prospeccoes') return [];
@@ -616,7 +640,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
         {filtroTipo === 'prospeccoes' && (
           <h2 className="text-base font-semibold text-gray-800 mb-3">Rankings de Prospecções</h2>
         )}
-        <div className={`grid gap-4 ${showRamo ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-4 ${showRamo ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'}`}>
           {/* Ranking por Seguradora */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-center gap-2 mb-4">
@@ -662,6 +686,47 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
                       premio={r.premio} comissao={r.comissao}
                       maxPremio={rankingRamo[0].premio} color="bg-indigo-500" />
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Ranking Média de Comissão por Ramo */}
+          {showRamo && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp size={16} className="text-emerald-500" />
+                <h2 className="font-semibold text-gray-900">Média de Comissão por Ramo</h2>
+              </div>
+              {rankingMediaComissaoRamo.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">Nenhum negócio fechado no período</p>
+              ) : (
+                <div className="space-y-3">
+                  {rankingMediaComissaoRamo.map((r, i) => {
+                    const pct = rankingMediaComissaoRamo[0].mediaComissao > 0
+                      ? (r.mediaComissao / rankingMediaComissaoRamo[0].mediaComissao) * 100
+                      : 0;
+                    return (
+                      <div key={r.ramo} className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 w-5 shrink-0 text-right">{i + 1}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-gray-800 truncate">{r.ramo}</span>
+                            <div className="flex items-center gap-2 shrink-0 ml-2">
+                              <span className="text-xs text-gray-400">{r.qtd} neg.</span>
+                              <span className="text-sm font-semibold text-emerald-700">
+                                {r.mediaComissao.toFixed(1)}%
+                              </span>
+                            </div>
+                          </div>
+                          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full transition-all"
+                              style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
