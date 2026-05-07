@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, X, Save, Check, CheckSquare, Square } from 'lucide-react';
+import { Plus, Edit2, X, Save, Check, CheckSquare, Square, Copy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario, ConfigRamoUsuario, Ramo } from '../types';
@@ -84,6 +84,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
   const [editando, setEditando] = useState<Usuario | null>(null);
   const [criando, setCriando] = useState(false);
   const [form, setForm] = useState<FormUsuario>(formVazio);
+  const [copiarDeId, setCopiarDeId] = useState('');
   const [confirmToggle, setConfirmToggle] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -93,8 +94,44 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
     const firstRen = metas.planosRenovacao[0]?.id ?? '';
     const firstSn = metas.planosSeguroNovo[0]?.id ?? '';
     setForm({ ...formVazio, planoMetaRenovacaoId: firstRen, planoMetaSeguroNovoId: firstSn });
+    setCopiarDeId('');
     setEditando(null);
     setCriando(true);
+  }
+
+  function aplicarCopiaDeUsuario(id: string) {
+    setCopiarDeId(id);
+    if (!id) return;
+    const u = usuarios.find(x => x.id === id);
+    if (!u) return;
+    setForm(f => ({
+      ...f,
+      role: u.role,
+      acessoRenovacoes: u.acessoRenovacoes,
+      acessoSegurosNovos: u.acessoSegurosNovos,
+      acessoProspeccao: u.acessoProspeccao ?? true,
+      podeDescartarProspeccao: u.podeDescartarProspeccao ?? false,
+      acessoConsultaRenovacoes: u.acessoConsultaRenovacoes ?? false,
+      visualizarDashboard: u.visualizarDashboard ?? true,
+      visualizarProducao: u.visualizarProducao ?? false,
+      visualizarMetas: u.visualizarMetas ?? true,
+      visualizarComissoes: u.visualizarComissoes ?? false,
+      camposRestritos: u.camposRestritos ?? { renovacoes: [], segurosNovos: [], prospeccoes: [] },
+      recebeRemuneracaoRenovacoes: u.recebeRemuneracaoRenovacoes,
+      planoMetaRenovacaoId: u.planoMetaRenovacaoId ?? metas.planosRenovacao[0]?.id ?? '',
+      recebeRemuneracaoTaxaRenovacoes: u.recebeRemuneracaoTaxaRenovacoes ?? true,
+      recebeRemuneracaoAumentoComissao: u.recebeRemuneracaoAumentoComissao ?? true,
+      recebeRemuneracaoSegurosNovos: u.recebeRemuneracaoSegurosNovos,
+      planoMetaSeguroNovoId: u.planoMetaSeguroNovoId ?? metas.planosSeguroNovo[0]?.id ?? '',
+      recebeRemuneracaoSnComissao: u.recebeRemuneracaoSnComissao ?? true,
+      recebeRemuneracaoSnTaxa: u.recebeRemuneracaoSnTaxa ?? true,
+      tipoUsuarioId: u.tipoUsuarioId ?? '',
+      horarioLoginInicio: u.horarioLoginInicio ?? '',
+      horarioLoginFim: u.horarioLoginFim ?? '',
+      diasPermitidos: u.diasPermitidos ?? [],
+      exigir2FA: u.exigir2FA ?? false,
+      configRamos: u.configRamos ?? [],
+    }));
   }
 
   function abrirEdicao(u: Usuario) {
@@ -299,6 +336,30 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
               <button onClick={() => { setEditando(null); setCriando(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
             </div>
             <div className="p-5 space-y-4">
+              {/* Copiar configurações de outro usuário — apenas na criação */}
+              {criando && usuarios.filter(u => u.ativo).length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide flex items-center gap-1.5">
+                    <Copy size={12} /> Copiar configurações de
+                  </p>
+                  <select
+                    value={copiarDeId}
+                    onChange={e => aplicarCopiaDeUsuario(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-amber-300 bg-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="">— Não copiar —</option>
+                    {[...usuarios].filter(u => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)).map(u => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                  {copiarDeId && (
+                    <p className="text-xs text-amber-600">
+                      Permissões, acessos e configurações de remuneração copiados. Nome, e-mail e senha precisam ser preenchidos.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {/* Seletor de tipo — apenas na criação ou como atalho na edição */}
               {tiposUsuario.filter(t => t.ativo).length > 0 && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
