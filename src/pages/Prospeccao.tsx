@@ -12,6 +12,7 @@ import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatDate, generateId, formatCpfCnpj, parseImportDate } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateInput } from '../components/DateInput';
 
 interface Props {
   prospeccoes: Prospeccao[];
@@ -897,7 +898,7 @@ export function ProspeccaoPage({
                           if (campo.tipo === 'data') return (
                             <div key={campo.id}>
                               <label className="block text-xs font-medium text-gray-600 mb-1">{campo.nome}{campo.obrigatorio && <span className="text-red-500 ml-0.5">*</span>}</label>
-                              <input type="date" value={valorAtual as string} onChange={e => setCampoCustom(prosp.id, campo.id, e.target.value)}
+                              <DateInput value={valorAtual as string} onChange={e => setCampoCustom(prosp.id, campo.id, e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                             </div>
                           );
@@ -1014,8 +1015,7 @@ export function ProspeccaoPage({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento <span className="text-red-500">*</span></label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={formNova.dataNascimentoCliente}
                     onChange={e => setFormNova(f => ({ ...f, dataNascimentoCliente: e.target.value }))}
                     disabled={!!clienteSelecionado}
@@ -1076,7 +1076,7 @@ export function ProspeccaoPage({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data de Contato</label>
-                  <input type="date" value={formNova.dataContato} onChange={e => setFormNova(f => ({ ...f, dataContato: e.target.value }))}
+                  <DateInput value={formNova.dataContato} onChange={e => setFormNova(f => ({ ...f, dataContato: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>

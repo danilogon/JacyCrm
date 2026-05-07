@@ -9,6 +9,7 @@ import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModa
 import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateInput } from '../components/DateInput';
 
 interface Props {
   clientes: Cliente[];
@@ -551,7 +552,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                 {tipoCpfCnpj === 'PF' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
-                    <input type="date" value={form.dataNascimento} onChange={e => setForm(f => ({...f, dataNascimento: e.target.value}))}
+                    <DateInput value={form.dataNascimento} onChange={e => setForm(f => ({...f, dataNascimento: e.target.value}))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                 )}
@@ -654,7 +655,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           )}
                           {campo.tipo === 'data' && (
-                            <input type="date" value={valorAtual as string}
+                            <DateInput value={valorAtual as string}
                               onChange={e => setValor(e.target.value)}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                           )}

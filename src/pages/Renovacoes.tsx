@@ -10,6 +10,7 @@ import { ObservacoesPanel } from '../components/ObservacoesPanel';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate, parsePercent } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateInput } from '../components/DateInput';
 
 interface Props {
   renovacoes: Renovacao[];
@@ -1199,7 +1200,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
                                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                             )}
                             {campo.tipo === 'data' && (
-                              <input type="date" value={valorAtual as string}
+                              <DateInput value={valorAtual as string}
                                 onChange={e => setValor(e.target.value)} disabled={bloqueado}
                                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                             )}
@@ -1351,7 +1352,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
               {/* Nascimento */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Data de Nascimento</label>
-                <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                <DateInput className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   value={formCliEdit.dataNascimento ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, dataNascimento: e.target.value }))} />
               </div>
               {/* CEP */}

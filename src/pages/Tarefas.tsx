@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Tarefa, TipoTarefa, Usuario, Cliente } from '../types';
 import { TIPO_LABELS, TipoIcon } from '../components/TarefasPanel';
 import { generateId } from '../utils/formatters';
+import { DateInput } from '../components/DateInput';
 
 interface Props {
   tarefas: Tarefa[];
@@ -417,8 +418,7 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Data <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="date"
+                  <DateInput
                     value={form.dataAgendada}
                     onChange={e => setForm(f => ({ ...f, dataAgendada: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

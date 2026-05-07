@@ -11,6 +11,7 @@ import { TarefasPanel } from '../components/TarefasPanel';
 import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, parseImportDate, parsePercent } from '../utils/formatters';
 import { calcularComissaoAReceber } from '../utils/calculations';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { DateInput } from '../components/DateInput';
 const ImportarPdfModal = lazy(() =>
   import('../components/ImportarPdfModal').then(m => ({ default: m.ImportarPdfModal }))
 );
@@ -1107,8 +1108,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento <span className="text-red-500">*</span></label>
-                      <input
-                        type="date"
+                      <DateInput
                         value={form.dataNascimentoCliente}
                         onChange={e => setForm(f => ({...f, dataNascimentoCliente: e.target.value}))}
                         disabled={bloqueado || !!clienteSelecionado}
@@ -1158,7 +1158,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Início de Vigência <span className="text-red-500">*</span>
                       </label>
-                      <input type="date" value={form.inicioVigencia}
+                      <DateInput value={form.inicioVigencia}
                         onChange={e => setForm(f => ({...f, inicioVigencia: e.target.value}))}
                         className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           !isFinalizado && !form.inicioVigencia
@@ -1325,7 +1325,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                             )}
                             {campo.tipo === 'data' && (
-                              <input type="date" value={valorAtual as string}
+                              <DateInput value={valorAtual as string}
                                 onChange={e => setValor(e.target.value)} disabled={bloqueado}
                                 className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${bloqueado ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`} />
                             )}
@@ -1475,7 +1475,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
               {/* Nascimento */}
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Data de Nascimento</label>
-                <input type="date" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                <DateInput className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                   value={formCliEdit.dataNascimento ?? ''} onChange={e => setFormCliEdit(f => ({ ...f, dataNascimento: e.target.value }))} />
               </div>
               {/* CEP */}

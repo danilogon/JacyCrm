@@ -3,6 +3,7 @@ import { Phone, Mail, Users, MapPin, CheckSquare, Plus, CheckCircle2, Circle, Ca
 import type { Tarefa, TipoTarefa } from '../types';
 import { generateId } from '../utils/formatters';
 import { useAuth } from '../context/AuthContext';
+import { DateInput } from './DateInput';
 
 interface Props {
   origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao';
@@ -260,8 +261,7 @@ export function TarefasPanel({ origemTipo, origemId, nomeCliente, responsavelId,
                 <option key={k} value={k}>{TIPO_LABELS[k]}</option>
               ))}
             </select>
-            <input
-              type="date"
+            <DateInput
               value={form.dataAgendada}
               onChange={e => setForm(f => ({ ...f, dataAgendada: e.target.value }))}
               className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
