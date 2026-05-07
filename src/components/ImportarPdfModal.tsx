@@ -39,7 +39,8 @@ export function ImportarPdfModal({ ramos, onImportar, onClose }: Props) {
       setEstado('ok');
     } catch (e) {
       console.error(e);
-      setErroMsg('Não foi possível ler o PDF. Verifique se o arquivo é uma cotação válida do Agger.');
+      const detalhe = e instanceof Error ? e.message : String(e);
+      setErroMsg(`Erro: ${detalhe}`);
       setEstado('erro');
     }
   }

@@ -1,13 +1,14 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import type { TextItem, TextMarkedContent } from 'pdfjs-dist/types/src/display/api';
+import pdfjsWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
   return 'str' in item && 'transform' in item;
 }
 
-// Worker via CDN para evitar configuração extra no Vite
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+// Worker local (bundled pelo Vite) — evita dependência de CDN externo e
+// problemas de CSP em produção no Vercel
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorkerUrl;
 
 export interface DadosCotacao {
   nome: string;
