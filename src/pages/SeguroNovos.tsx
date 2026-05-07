@@ -320,10 +320,11 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     setClienteSelecionado(cliExistente);
     setForm({
       ...formVazio(usuario?.id ?? ''),
-      nomeCliente:   cliExistente?.nome    ?? dados.nome,
-      emailCliente:  cliExistente?.email   ?? dados.email,
-      telefoneCliente: cliExistente?.telefone ?? dados.telefone,
-      cpfCnpjCliente:  cliExistente?.cpfCnpj  ?? dados.cpfCnpj,
+      nomeCliente:          cliExistente?.nome          ?? dados.nome,
+      emailCliente:         cliExistente?.email         ?? dados.email,
+      telefoneCliente:      cliExistente?.telefone      ?? dados.telefone,
+      cpfCnpjCliente:       cliExistente?.cpfCnpj       ?? dados.cpfCnpj,
+      dataNascimentoCliente: cliExistente?.dataNascimento ?? dados.dataNascimento,
       ramo: ramoSistema,
     });
     setEditando(null);
