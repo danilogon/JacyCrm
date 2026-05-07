@@ -148,6 +148,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   const [ano, setAno] = useState(now.getFullYear());
   const [mes, setMes] = useState(now.getMonth() + 1);
   const [expandido, setExpandido] = useState<string | null>(null);
+  const [apenasComComissao, setApenasComComissao] = useState(false);
 
   const anos = useMemo(() => {
     const s = new Set<number>();
@@ -176,6 +177,15 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
     individual: dados.reduce((s, d) => s + d.remIndividual, 0),
   }), [dados]);
 
+  // Tabela exibe apenas usuários com metas configuradas.
+  // O toggle "apenasComComissao" filtra adicionalmente quem tem total > 0 no período.
+  const dadosFiltrados = useMemo(() => {
+    const comMetas = dados.filter(d =>
+      d.usuario.recebeRemuneracaoRenovacoes || d.usuario.recebeRemuneracaoSegurosNovos || d.remIndividual > 0
+    );
+    return apenasComComissao ? comMetas.filter(d => d.total > 0) : comMetas;
+  }, [dados, apenasComComissao]);
+
   const ROLE_LABEL: Record<string, string> = { admin: 'Admin', gestor: 'Gestor', usuario: 'Corretor' };
 
   return (
@@ -186,7 +196,16 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
           <DollarSign size={20} className="text-blue-700" />
           <h1 className="text-xl font-bold text-gray-900">Comissões a Pagar</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg bg-white cursor-pointer select-none text-sm text-gray-600 hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={apenasComComissao}
+              onChange={e => setApenasComComissao(e.target.checked)}
+              className="accent-blue-600"
+            />
+            Apenas com comissão a receber
+          </label>
           <select value={mes} onChange={e => setMes(+e.target.value)}
             className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
             {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
@@ -236,7 +255,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {dados.map(d => {
+            {dadosFiltrados.map(d => {
               const exp = expandido === d.usuario.id;
               const temRemuneracao = d.usuario.recebeRemuneracaoRenovacoes || d.usuario.recebeRemuneracaoSegurosNovos;
               return (
@@ -320,7 +339,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
 
             {/* Linha de total */}
             <tr className="bg-gray-50 border-t-2 border-gray-200">
-              <td className="px-3 py-3 font-semibold text-gray-800">Total geral — {usuariosAtivos.length} usuários</td>
+              <td className="px-3 py-3 font-semibold text-gray-800">Total geral — {dadosFiltrados.length} usuário{dadosFiltrados.length !== 1 ? 's' : ''}</td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.taxaRen > 0 ? formatCurrency(totalPorComp.taxaRen) : <span className="text-gray-300">—</span>}</td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.aumento > 0 ? formatCurrency(totalPorComp.aumento) : <span className="text-gray-300">—</span>}</td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.snComissao > 0 ? formatCurrency(totalPorComp.snComissao) : <span className="text-gray-300">—</span>}</td>
@@ -333,7 +352,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         </table>
         </div>
 
-        {dados.every(d => d.total === 0) && (
+        {dadosFiltrados.length === 0 && (
           <div className="px-4 py-10 text-center text-gray-400 text-sm">
             <Star size={28} className="mx-auto mb-2 text-gray-300" />
             Nenhuma remuneração a pagar em {MESES[mes - 1]} {ano}.
