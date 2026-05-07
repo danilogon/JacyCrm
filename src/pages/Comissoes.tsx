@@ -177,14 +177,11 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
     individual: dados.reduce((s, d) => s + d.remIndividual, 0),
   }), [dados]);
 
-  // Tabela exibe apenas usuários com metas configuradas.
-  // O toggle "apenasComComissao" filtra adicionalmente quem tem total > 0 no período.
-  const dadosFiltrados = useMemo(() => {
-    const comMetas = dados.filter(d =>
-      d.usuario.recebeRemuneracaoRenovacoes || d.usuario.recebeRemuneracaoSegurosNovos || d.remIndividual > 0
-    );
-    return apenasComComissao ? comMetas.filter(d => d.total > 0) : comMetas;
-  }, [dados, apenasComComissao]);
+  // O toggle "apenasComComissao" filtra para mostrar apenas quem tem total > 0 no período.
+  // Por padrão todos os usuários ativos aparecem.
+  const dadosFiltrados = useMemo(() =>
+    apenasComComissao ? dados.filter(d => d.total > 0) : dados,
+    [dados, apenasComComissao]);
 
   const ROLE_LABEL: Record<string, string> = { admin: 'Admin', gestor: 'Gestor', usuario: 'Corretor' };
 
