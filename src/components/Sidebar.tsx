@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa } from '../types';
+import { APP_VERSION } from '../version';
 
 const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao'];
 const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao', '/consulta-renovacoes'];
@@ -270,7 +271,7 @@ export function Sidebar({ tarefas, onNavigate }: Props) {
       {/* Versão */}
       {!collapsed && (
         <div className="border-t border-blue-900 px-4 py-3">
-          <span className="text-xs text-blue-500">v1.0.0 · SmartCor</span>
+          <span className="text-xs text-blue-500">{APP_VERSION} · SmartCor</span>
         </div>
       )}
     </aside>
