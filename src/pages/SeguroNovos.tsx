@@ -765,7 +765,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           premioLiquido,
           percentComissao,
           comissao,
-          comissaoAReceber: comissao,
+          comissaoAReceber: calcularComissaoAReceber((ramo?.trim() ?? '').toUpperCase(), comissao, ramos),
           status: statusImportado,
           origem: origemVinc?.id,
           observacoes: [], camposCustomizados: [],
