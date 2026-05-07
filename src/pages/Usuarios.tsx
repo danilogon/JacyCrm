@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, X, Save, Check, CheckSquare, Square, Copy } from 'lucide-react';
+import { Plus, Edit2, X, Save, Check, CheckSquare, Square, Copy, UserX, UserCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import type { Usuario, Role, ConfiguracoesMetas, TipoUsuario, ConfigRamoUsuario, Ramo } from '../types';
@@ -311,14 +311,25 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
                   {!u.recebeRemuneracaoRenovacoes && !u.recebeRemuneracaoSegurosNovos && <span className="text-gray-300">—</span>}
                 </td>
                 <td className="px-4 py-2.5">
-                  <button onClick={() => toggleAtivo(u.id)} className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${u.ativo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'}`}>
                     {u.ativo ? 'Ativo' : 'Inativo'}
-                  </button>
+                  </span>
                 </td>
                 <td className="px-4 py-2.5">
-                  <button onClick={() => abrirEdicao(u)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
-                    <Edit2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => abrirEdicao(u)} title="Editar" className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
+                      <Edit2 size={14} />
+                    </button>
+                    {u.id !== me?.id && (
+                      <button
+                        onClick={() => toggleAtivo(u.id)}
+                        title={u.ativo ? 'Inativar usuário' : 'Reativar usuário'}
+                        className={`p-1 rounded ${u.ativo ? 'text-gray-400 hover:text-red-600 hover:bg-red-50' : 'text-gray-400 hover:text-green-600 hover:bg-green-50'}`}
+                      >
+                        {u.ativo ? <UserX size={14} /> : <UserCheck size={14} />}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -671,12 +682,16 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
 
       <ConfirmDialog
         open={!!confirmToggle}
-        title="Alterar status do usuário"
-        message={`Deseja ${usuarios.find(u => u.id === confirmToggle)?.ativo ? 'desativar' : 'ativar'} este usuário?`}
+        title={usuarios.find(u => u.id === confirmToggle)?.ativo ? 'Inativar usuário' : 'Reativar usuário'}
+        message={
+          usuarios.find(u => u.id === confirmToggle)?.ativo
+            ? `Deseja inativar "${usuarios.find(u => u.id === confirmToggle)?.nome}"? O usuário não conseguirá fazer login enquanto estiver inativo.`
+            : `Deseja reativar "${usuarios.find(u => u.id === confirmToggle)?.nome}"? O usuário voltará a ter acesso ao sistema.`
+        }
         onConfirm={confirmarToggle}
         onCancel={() => setConfirmToggle(null)}
-        confirmLabel="Confirmar"
-        danger={false}
+        confirmLabel={usuarios.find(u => u.id === confirmToggle)?.ativo ? 'Inativar' : 'Reativar'}
+        danger={!!usuarios.find(u => u.id === confirmToggle)?.ativo}
       />
     </div>
   );
