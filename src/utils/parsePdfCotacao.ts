@@ -204,13 +204,23 @@ export async function parsePdfCotacao(file: File): Promise<DadosCotacao> {
   let email = '';
   for (let i = 0; i < leftLines.length; i++) {
     if (/^E-MAIL$/.test(leftLines[i].trim())) {
-      const candidate = leftLines[i + 1]?.trim() ?? '';
+      let candidate = leftLines[i + 1]?.trim() ?? '';
+      // E-mails longos podem quebrar em duas linhas no PDF:
+      // ex.: "lucas@lssegurancaindustrial.com." + "br" na linha seguinte.
+      // Se o candidato termina com '.' e a próxima linha é um TLD (2-4 letras),
+      // une as duas partes para reconstruir o e-mail completo.
+      if (candidate.includes('@') && candidate.endsWith('.')) {
+        const nextPart = leftLines[i + 2]?.trim() ?? '';
+        if (/^[a-zA-Z]{2,4}$/.test(nextPart)) candidate += nextPart;
+      }
       if (candidate.includes('@')) { email = candidate; break; }
     }
   }
   // Fallback: qualquer e-mail no documento que não seja da corretora
   if (!email) {
-    const allEmails = fullText.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) ?? [];
+    // Concatena linhas adjacentes para capturar e-mails quebrados entre linhas
+    const fullTextJoined = fullLines.join(' ');
+    const allEmails = fullTextJoined.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g) ?? [];
     email = allEmails.find(e =>
       !e.toLowerCase().includes('jacyara') &&
       !e.toLowerCase().includes('segura')
