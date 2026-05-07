@@ -632,7 +632,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       'Percentual Comissao',
       'CPF/CNPJ Cliente',
       'Status',
+      'Origem',
     ];
+    const origemExemplo = origensNegocio.find(o => o.ativo && o.aplicavelA !== 'prospeccoes')?.nome ?? '';
     const exemplo = [
       'João Silva',
       'Maria da Silva',
@@ -645,6 +647,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
       '10',
       '12345678901',
       'A Trabalhar',
+      origemExemplo,
     ];
     const ws = XLSX.utils.aoa_to_sheet([headers, exemplo]);
     const wb = XLSX.utils.book_new();
@@ -683,7 +686,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2;
-        const [respNome, nomeCliente, emailCliente, telefoneCliente, inicioVigencia, ramo, seguradora, premioStr, percentStr, cpfCnpj, statusCsv] = cols.map(c => String(c ?? ''));
+        const [respNome, nomeCliente, emailCliente, telefoneCliente, inicioVigencia, ramo, seguradora, premioStr, percentStr, cpfCnpj, statusCsv, origemCsv] = cols.map(c => String(c ?? ''));
 
         const nome = nomeCliente?.trim() ?? '';
         const cpfDigits = cpfCnpj?.replace(/\D/g, '') ?? '';
@@ -744,6 +747,10 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           }
         }
 
+        const origemVinc = origemCsv?.trim()
+          ? origensNegocio.find(o => o.nome.trim().toLowerCase() === origemCsv.trim().toLowerCase())
+          : undefined;
+
         novas.push({
           id: generateId(),
           responsavelId: resp?.id ?? '',
@@ -760,6 +767,7 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
           comissao,
           comissaoAReceber: comissao,
           status: statusImportado,
+          origem: origemVinc?.id,
           observacoes: [], camposCustomizados: [],
           criadoEm: new Date().toISOString(), atualizadoEm: new Date().toISOString(),
         });
