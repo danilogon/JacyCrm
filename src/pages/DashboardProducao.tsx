@@ -81,6 +81,7 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroTipo, setFiltroTipo] = useState<TipoNegocio>('todos');
   const [filtroMigOrigem, setFiltroMigOrigem] = useState('');
+  const [filtroMigDestino, setFiltroMigDestino] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('');
   const [filtroUsuario, setFiltroUsuario] = useState('');
 
@@ -327,14 +328,21 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
     return map;
   }, [renParaMig]);
 
-  // Origens disponíveis para o filtro local de migração
+  // Origens disponíveis para o filtro local de migração (saída)
   const migOrigensDisp = useMemo(() => {
     const set = new Set<string>();
     migradas.forEach(r => { if (r.seguradoraAnterior) set.add(r.seguradoraAnterior); });
     return [...set].sort();
   }, [migradas]);
 
-  // Destinos quando uma origem está selecionada
+  // Destinos disponíveis para o filtro local de migração (entrada)
+  const migDestinosDisp = useMemo(() => {
+    const set = new Set<string>();
+    migradas.forEach(r => { if (r.seguradoraNova) set.add(r.seguradoraNova); });
+    return [...set].sort();
+  }, [migradas]);
+
+  // Destinos quando uma origem (saída) está selecionada
   const migDestinosAgrup = useMemo(() => {
     if (!filtroMigOrigem) return [];
     const map = new Map<string, number>();
@@ -343,6 +351,25 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       .forEach(r => { if (r.seguradoraNova) map.set(r.seguradoraNova, (map.get(r.seguradoraNova) ?? 0) + 1); });
     return [...map.entries()].map(([seg, qtd]) => ({ seg, qtd })).sort((a, b) => b.qtd - a.qtd);
   }, [migradas, filtroMigOrigem]);
+
+  // Origens quando um destino (entrada) está selecionado
+  const migOrigensAgrupPorDestino = useMemo(() => {
+    if (!filtroMigDestino) return [];
+    const map = new Map<string, number>();
+    migradas
+      .filter(r => r.seguradoraNova === filtroMigDestino)
+      .forEach(r => { if (r.seguradoraAnterior) map.set(r.seguradoraAnterior, (map.get(r.seguradoraAnterior) ?? 0) + 1); });
+    return [...map.entries()].map(([seg, qtd]) => ({ seg, qtd })).sort((a, b) => b.qtd - a.qtd);
+  }, [migradas, filtroMigDestino]);
+
+  // Total de renovações por seguradora nova no período (para contexto do filtro de entrada)
+  const totalRenPorSegNova = useMemo(() => {
+    const map = new Map<string, number>();
+    renParaMig.forEach(r => {
+      if (r.seguradoraNova) map.set(r.seguradoraNova, (map.get(r.seguradoraNova) ?? 0) + 1);
+    });
+    return map;
+  }, [renParaMig]);
 
   const showMig  = filtroTipo === 'todos' || filtroTipo === 'renovacoes';
   const showRamo = !filtroRamo;
@@ -650,19 +677,34 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
               <Shuffle size={16} className="text-violet-500" />
               <h2 className="font-semibold text-gray-900">Análise de Migração — Renovações</h2>
             </div>
-            {migOrigensDisp.length > 0 && (
-              <div className="flex items-center gap-2">
-                <label className="text-xs text-gray-500 whitespace-nowrap">Seguradora de saída:</label>
-                <select
-                  value={filtroMigOrigem}
-                  onChange={e => setFiltroMigOrigem(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
-                >
-                  <option value="">Todas</option>
-                  {migOrigensDisp.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-3">
+              {migOrigensDisp.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Seguradora de saída:</label>
+                  <select
+                    value={filtroMigOrigem}
+                    onChange={e => { setFiltroMigOrigem(e.target.value); setFiltroMigDestino(''); }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Todas</option>
+                    {migOrigensDisp.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+              {migDestinosDisp.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-gray-500 whitespace-nowrap">Seguradora de entrada:</label>
+                  <select
+                    value={filtroMigDestino}
+                    onChange={e => { setFiltroMigDestino(e.target.value); setFiltroMigOrigem(''); }}
+                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  >
+                    <option value="">Todas</option>
+                    {migDestinosDisp.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Resumo */}
@@ -712,6 +754,38 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
                           </div>
                           <span className="text-xs text-gray-500 w-7 text-right">{pct}%</span>
                           <span className="text-sm font-semibold text-violet-700 w-14 text-right">{row.qtd} ren.</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ) : filtroMigDestino ? (
+            <div>
+              <h3 className="text-sm font-semibold text-green-700 mb-3 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                Renovações que entraram para <span className="italic">{filtroMigDestino}</span> vieram de:
+                <span className="text-gray-400 font-normal">({migOrigensAgrupPorDestino.reduce((s, r) => s + r.qtd, 0)} renovações de {totalRenPorSegNova.get(filtroMigDestino) ?? 0} renovações)</span>
+              </h3>
+              {migOrigensAgrupPorDestino.length === 0 ? (
+                <p className="text-sm text-gray-400 py-3">Nenhuma entrada para esta seguradora no período</p>
+              ) : (
+                <div className="space-y-2">
+                  {migOrigensAgrupPorDestino.map((row, i) => {
+                    const total = migOrigensAgrupPorDestino.reduce((s, r) => s + r.qtd, 0);
+                    const pct = total > 0 ? Math.round(row.qtd / total * 100) : 0;
+                    return (
+                      <div key={row.seg} className="flex items-center gap-3 py-2.5 px-3 bg-green-50 rounded-lg">
+                        <span className="text-xs font-bold text-green-300 w-4 shrink-0">{i + 1}</span>
+                        <span className="text-xs text-gray-400 shrink-0">de</span>
+                        <span className="flex-1 text-sm font-medium text-gray-800">{row.seg}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="w-20 h-1.5 bg-green-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                          <span className="text-xs text-gray-500 w-7 text-right">{pct}%</span>
+                          <span className="text-sm font-semibold text-green-700 w-14 text-right">{row.qtd} ren.</span>
                         </div>
                       </div>
                     );
