@@ -290,6 +290,32 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
       .sort((a, b) => b.mediaComissao - a.mediaComissao);
   }, [snFechados, renRenovadas, snDeProspFechados]);
 
+  // ── Ranking Motivos de Perda ─────────────────────────────────────────────────
+  const rankingMotivosPerda = useMemo(() => {
+    const map = new Map<string, number>();
+    const add = (motivoPerdaId: string | undefined) => {
+      if (!motivoPerdaId) return;
+      const motivo = motivos.find(m => m.id === motivoPerdaId);
+      const nome = motivo?.nome ?? 'Sem motivo';
+      map.set(nome, (map.get(nome) ?? 0) + 1);
+    };
+    // Seguros novos perdidos (filtra por considerarTaxaConversaoSegurosNovos)
+    if (filtroTipo !== 'renovacoes' && filtroTipo !== 'prospeccoes') {
+      snFiltrados
+        .filter(s => s.status === 'perdido' && !ramoExcluido(s.ramo))
+        .forEach(s => add(s.motivoPerdaId));
+    }
+    // Renovações não renovadas
+    if (filtroTipo !== 'seguros_novos' && filtroTipo !== 'prospeccoes') {
+      renFiltradas
+        .filter(r => r.status === 'nao_renovada' && !ramoExcluido(r.ramo))
+        .forEach(r => add(r.motivoPerdaId));
+    }
+    return [...map.entries()]
+      .map(([motivo, qtd]) => ({ motivo, qtd }))
+      .sort((a, b) => b.qtd - a.qtd);
+  }, [snFiltrados, renFiltradas, motivos, filtroTipo, ramos]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Migração ─────────────────────────────────────────────────────────────────
   const renParaMig = useMemo(() => {
     if (filtroTipo === 'seguros_novos' || filtroTipo === 'prospeccoes') return [];
@@ -733,6 +759,45 @@ export function DashboardProducao({ segurosNovos, renovacoes, prospeccoes, ramos
           )}
         </div>
       </div>
+
+      {/* Ranking Motivos de Perda */}
+      {filtroTipo !== 'prospeccoes' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <XCircle size={16} className="text-red-400" />
+            <h2 className="font-semibold text-gray-900">
+              {filtroTipo === 'renovacoes' ? 'Motivos de Perda — Renovações'
+               : filtroTipo === 'seguros_novos' ? 'Motivos de Perda — Seguros Novos'
+               : 'Motivos de Perda (Seguros Novos + Renovações)'}
+            </h2>
+          </div>
+          {rankingMotivosPerda.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-6">Nenhuma perda registrada no período</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-3">
+              {rankingMotivosPerda.map((r, i) => {
+                const pct = rankingMotivosPerda[0].qtd > 0
+                  ? (r.qtd / rankingMotivosPerda[0].qtd) * 100 : 0;
+                return (
+                  <div key={r.motivo} className="flex items-center gap-3">
+                    <span className="text-xs font-bold text-gray-400 w-5 shrink-0 text-right">{i + 1}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-gray-800 truncate">{r.motivo}</span>
+                        <span className="text-sm font-semibold text-red-600 shrink-0 ml-2">{r.qtd}</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-400 rounded-full transition-all"
+                          style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Análise de Migração */}
       {showMig && (
