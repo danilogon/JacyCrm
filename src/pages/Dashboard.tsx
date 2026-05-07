@@ -85,7 +85,7 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   // Resolve antecipadamente se SN deve entrar na taxa de renovações (depende do plano do usuário)
   const _uParaMeta = responsavelId ? usuarios.find(u => u.id === responsavelId) : (usuario?.role === 'usuario' ? usuario : null);
   const _planoRen  = _uParaMeta?.recebeRemuneracaoRenovacoes
-    ? (metas.planosRenovacao.find(p => p.id === _uParaMeta.planoMetaRenovacaoId) ?? metas.planosRenovacao[0] ?? null)
+    ? (metas.planosRenovacao.find(p => p.id === _uParaMeta.planoMetaRenovacaoId) ?? null)
     : null;
   const considerarSnNaTaxa = _planoRen?.considerarSnNaTaxa ?? true;
 
@@ -174,10 +174,10 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
   // Resolver planos e flags: usuário selecionado no filtro, ou o próprio usuário logado (role=usuario)
   const uParaMeta = usuarioAtual ?? (usuario?.role === 'usuario' ? usuario : null);
   const planoRen = uParaMeta?.recebeRemuneracaoRenovacoes
-    ? (metas.planosRenovacao.find(p => p.id === uParaMeta.planoMetaRenovacaoId) ?? metas.planosRenovacao[0] ?? null)
+    ? (metas.planosRenovacao.find(p => p.id === uParaMeta.planoMetaRenovacaoId) ?? null)
     : null;
   const planoSn = uParaMeta?.recebeRemuneracaoSegurosNovos
-    ? (metas.planosSeguroNovo.find(p => p.id === uParaMeta.planoMetaSeguroNovoId) ?? metas.planosSeguroNovo[0] ?? null)
+    ? (metas.planosSeguroNovo.find(p => p.id === uParaMeta.planoMetaSeguroNovoId) ?? null)
     : null;
 
   const ativaTaxaRen    = uParaMeta?.recebeRemuneracaoTaxaRenovacoes ?? true;

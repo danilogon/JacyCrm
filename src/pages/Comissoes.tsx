@@ -80,7 +80,7 @@ function calcularParaUsuario(
   const ramoByNome = (nome: string) => ramos.find(r => r.nome === nome);
 
   const planoRenAntecipado = u.recebeRemuneracaoRenovacoes
-    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? metas.planosRenovacao[0] ?? null)
+    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? null)
     : null;
 
   const taxaRen        = calcularTaxaConversaoRenovacoes(rv, sn, ramos, motivosRen, planoRenAntecipado?.considerarSnNaTaxa ?? true);
@@ -99,10 +99,10 @@ function calcularParaUsuario(
 
   // Planos — mesma lógica do Dashboard
   const planoRen = u.recebeRemuneracaoRenovacoes
-    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? metas.planosRenovacao[0] ?? null)
+    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? null)
     : null;
   const planoSn = u.recebeRemuneracaoSegurosNovos
-    ? (metas.planosSeguroNovo.find(p => p.id === u.planoMetaSeguroNovoId) ?? metas.planosSeguroNovo[0] ?? null)
+    ? (metas.planosSeguroNovo.find(p => p.id === u.planoMetaSeguroNovoId) ?? null)
     : null;
 
   const ativaTaxaRen    = !!(u.recebeRemuneracaoTaxaRenovacoes    && planoRen);
