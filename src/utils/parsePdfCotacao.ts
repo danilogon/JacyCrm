@@ -1,5 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
-import type { TextItem } from 'pdfjs-dist/types/src/display/api';
+import type { TextItem, TextMarkedContent } from 'pdfjs-dist/types/src/display/api';
+
+function isTextItem(item: TextItem | TextMarkedContent): item is TextItem {
+  return 'str' in item && 'transform' in item;
+}
 
 // Worker via CDN para evitar configuração extra no Vite
 pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -52,7 +56,8 @@ async function extractItems(file: File): Promise<RawItem[]> {
   // A página 2 é a tabela de resultados/preços e contamina a extração.
   const page = await pdf.getPage(1);
   const content = await page.getTextContent();
-  for (const raw of content.items as TextItem[]) {
+  for (const raw of content.items as (TextItem | TextMarkedContent)[]) {
+    if (!isTextItem(raw)) continue;
     const s = raw.str.trim();
     if (s) {
       items.push({ str: s, x: raw.transform[4], y: raw.transform[5] });
@@ -147,9 +152,12 @@ export async function parsePdfCotacao(file: File): Promise<DadosCotacao> {
     }
   }
 
-  // ── CPF / CNPJ ────────────────────────────────────────────────────────
-  const cnpjMatch = fullText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
-  const cpfMatch  = fullText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
+  // ── CPF / CNPJ ─────────────────────────────────────────────────────────
+  // Prefere a coluna esquerda (dados do segurado) para evitar pegar o CPF
+  // do condutor ou de outros blocos quando o PDF tem layout multi-coluna.
+  const leftText  = leftLines.join('\n');
+  const cnpjMatch = leftText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/) ?? fullText.match(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/);
+  const cpfMatch  = leftText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/)        ?? fullText.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
   const cpfCnpj   = cnpjMatch?.[0] ?? cpfMatch?.[0] ?? '';
 
   // ── Data de Nascimento ────────────────────────────────────────────────
