@@ -12,6 +12,7 @@ import { formatCurrency, formatPercent, formatDate, generateId, formatCpfCnpj, p
 import { calcularComissaoAReceber } from '../utils/calculations';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateInput } from '../components/DateInput';
+import { Tooltip } from '../components/Tooltip';
 const ImportarPdfModal = lazy(() =>
   import('../components/ImportarPdfModal').then(m => ({ default: m.ImportarPdfModal }))
 );
@@ -911,13 +912,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                       const obs = clientes.find(c => c.id === s.clienteId)?.observacaoImportante;
                       if (!obs) return null;
                       return (
-                        <span className="relative group inline-flex shrink-0 z-50">
+                        <Tooltip content={obs} width={224}>
                           <Bell size={11} className="text-amber-500 cursor-help" />
-                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
-                            {obs}
-                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
-                          </span>
-                        </span>
+                        </Tooltip>
                       );
                     })()}
                     {(() => {
@@ -929,13 +926,9 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                         .filter(Boolean)
                         .join(', ');
                       return (
-                        <span className="relative group inline-flex shrink-0 z-50">
+                        <Tooltip content={labels} width={224}>
                           <Link2 size={11} className="text-indigo-400 cursor-help" />
-                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
-                            {labels}
-                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
-                          </span>
-                        </span>
+                        </Tooltip>
                       );
                     })()}
                   </div>

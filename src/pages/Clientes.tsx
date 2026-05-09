@@ -10,6 +10,7 @@ import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateInput } from '../components/DateInput';
+import { Tooltip } from '../components/Tooltip';
 
 interface Props {
   clientes: Cliente[];
@@ -468,13 +469,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                     <div className="flex items-center gap-1.5">
                       {c.nome}
                       {c.observacaoImportante && (
-                        <span className="relative group inline-flex shrink-0">
-                          <Bell size={13} className="text-amber-500 cursor-help" />
-                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-60 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
-                            {c.observacaoImportante}
-                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
-                          </span>
-                        </span>
+                        <Tooltip content={c.observacaoImportante} width={240}>
+                          <Bell size={13} className="text-amber-500 cursor-help shrink-0" />
+                        </Tooltip>
                       )}
                     </div>
                   </td>

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Search, Bell } from 'lucide-react';
 import type { Renovacao, Usuario, Cliente } from '../types';
 import { formatDate } from '../utils/formatters';
+import { Tooltip } from '../components/Tooltip';
 
 interface Props {
   renovacoes: Renovacao[];
@@ -112,13 +113,9 @@ export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Prop
                       const obs = clientes.find(c => c.id === r.clienteId)?.observacaoImportante;
                       if (!obs) return null;
                       return (
-                        <span className="relative group inline-flex shrink-0 z-50">
+                        <Tooltip content={obs} width={224}>
                           <Bell size={11} className="text-amber-500 cursor-help" />
-                          <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
-                            {obs}
-                            <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
-                          </span>
-                        </span>
+                        </Tooltip>
                       );
                     })()}
                   </div>

@@ -6,6 +6,7 @@ import type { Tarefa, TipoTarefa, Usuario, Cliente } from '../types';
 import { TIPO_LABELS, TipoIcon } from '../components/TarefasPanel';
 import { generateId } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
+import { Tooltip } from '../components/Tooltip';
 
 interface Props {
   tarefas: Tarefa[];
@@ -341,13 +342,9 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
                                 const obs = clientes.find(c => c.id === t.clienteId)?.observacaoImportante;
                                 if (!obs) return null;
                                 return (
-                                  <span className="relative group inline-flex shrink-0 z-50">
+                                  <Tooltip content={obs} width={224}>
                                     <Bell size={11} className="text-amber-500 cursor-help" />
-                                    <span className="pointer-events-none absolute top-full left-0 mt-2 z-50 hidden group-hover:block w-56 bg-gray-900 text-white text-xs rounded-lg px-3 py-2 shadow-xl leading-relaxed whitespace-normal">
-                                      {obs}
-                                      <span className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
-                                    </span>
-                                  </span>
+                                  </Tooltip>
                                 );
                               })()}
                             </span>
