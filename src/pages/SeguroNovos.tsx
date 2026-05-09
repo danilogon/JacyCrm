@@ -519,7 +519,12 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             ramo: novo.ramo,
             seguradora: novo.seguradora,
             premioReferencia: novo.premioLiquido,
-            dataContato: novo.inicioVigencia || new Date().toISOString().split('T')[0],
+            dataContato: (() => {
+              const base = novo.inicioVigencia || new Date().toISOString().split('T')[0];
+              const d = new Date(base + 'T00:00:00');
+              d.setFullYear(d.getFullYear() + 1);
+              return d.toISOString().split('T')[0];
+            })(),
             status: 'a_contatar',
             observacoes: [],
             camposCustomizados: [],
@@ -592,7 +597,12 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
               ramo: updated.ramo,
               seguradora: updated.seguradora,
               premioReferencia: updated.premioLiquido,
-              dataContato: updated.inicioVigencia || new Date().toISOString().split('T')[0],
+              dataContato: (() => {
+                const base = updated.inicioVigencia || new Date().toISOString().split('T')[0];
+                const d = new Date(base + 'T00:00:00');
+                d.setFullYear(d.getFullYear() + 1);
+                return d.toISOString().split('T')[0];
+              })(),
               status: 'a_contatar',
               observacoes: [],
               camposCustomizados: [],
