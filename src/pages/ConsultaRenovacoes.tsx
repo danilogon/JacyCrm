@@ -45,6 +45,7 @@ export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Prop
     return usuarios.find(u => u.id === id)?.nome ?? '—';
   }
 
+
   return (
     <div className="space-y-4">
       {/* Cabeçalho */}
@@ -91,13 +92,14 @@ export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Prop
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Segurado</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Seguradora Atual</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ramo</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Responsável</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtradas.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={6} className="px-4 py-12 text-center text-gray-400 text-sm">
                   Nenhuma renovação encontrada para os filtros selecionados
                 </td>
               </tr>
@@ -126,6 +128,9 @@ export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Prop
                 <td className="px-4 py-3 text-gray-700">{r.seguradoraAnterior || '—'}</td>
                 <td className="px-4 py-3 text-gray-700">{r.ramo || '—'}</td>
                 <td className="px-4 py-3">
+                  <StatusBadge status={r.status} />
+                </td>
+                <td className="px-4 py-3">
                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                     {nomeUsuario(r.responsavelId)}
                   </span>
@@ -137,5 +142,25 @@ export function ConsultaRenovacoes({ renovacoes, usuarios, clientes = [] }: Prop
         </div>
       </div>
     </div>
+  );
+}
+
+const STATUS_CONFIG: Record<string, { label: string; cls: string }> = {
+  renovado:       { label: 'Renovado',       cls: 'bg-green-100 text-green-700' },
+  nao_renovada:   { label: 'Não Renovada',   cls: 'bg-red-100 text-red-600' },
+  em_negociacao:  { label: 'Em Negociação',  cls: 'bg-yellow-100 text-yellow-700' },
+  em_orcamento:   { label: 'Em Orçamento',   cls: 'bg-blue-100 text-blue-700' },
+  a_trabalhar:    { label: 'A Trabalhar',    cls: 'bg-gray-100 text-gray-600' },
+  a_transmitir:   { label: 'A Transmitir',   cls: 'bg-indigo-100 text-indigo-700' },
+  pendente:       { label: 'Pendente',       cls: 'bg-orange-100 text-orange-700' },
+  vencidas:       { label: 'Vencida',        cls: 'bg-rose-100 text-rose-700' },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = STATUS_CONFIG[status] ?? { label: status, cls: 'bg-gray-100 text-gray-500' };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cls}`}>
+      {cfg.label}
+    </span>
   );
 }

@@ -61,18 +61,22 @@ function calcularParaUsuario(
   ano: number,
   mes: number,
 ): ComissaoUsuario {
-  // Filtrar pelo usuário e mês/ano — mesma lógica do Dashboard
+  // Filtrar pelo usuário e mês/ano — mes=0 significa ano inteiro
   const rv = renovacoes.filter(r => {
     if (!r.fimVigencia) return false;
     const d = new Date(r.fimVigencia + 'T00:00:00');
-    return d.getFullYear() === ano && d.getMonth() + 1 === mes && r.responsavelId === u.id;
+    if (d.getFullYear() !== ano) return false;
+    if (mes !== 0 && d.getMonth() + 1 !== mes) return false;
+    return r.responsavelId === u.id;
   });
   const sn = segurosNovos.filter(s => {
     // Usa criadoEm como fallback para SNs sem inicioVigencia (ex: criados via "Assumir Prospecção")
     const dateRef = s.inicioVigencia || s.criadoEm?.slice(0, 10) || '';
     if (!dateRef) return false;
     const d = new Date(dateRef + 'T00:00:00');
-    return d.getFullYear() === ano && d.getMonth() + 1 === mes && s.responsavelId === u.id;
+    if (d.getFullYear() !== ano) return false;
+    if (mes !== 0 && d.getMonth() + 1 !== mes) return false;
+    return s.responsavelId === u.id;
   });
 
   const motivosRen = motivos.filter(m => m.tipo === 'negocio' && m.aplicaRenovacoes);
@@ -205,6 +209,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
           </label>
           <select value={mes} onChange={e => setMes(+e.target.value)}
             className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value={0}>Ano inteiro</option>
             {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
           <select value={ano} onChange={e => setAno(+e.target.value)}
@@ -294,7 +299,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
 
                           {/* Produção */}
                           <div className="bg-white rounded-lg border border-gray-200 p-3 space-y-1">
-                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Produção no mês</div>
+                            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Produção no {mes === 0 ? 'ano' : 'mês'}</div>
                             <Row label="Renovações na carteira" value={String(d.renovacoesCount)} />
                             <Row label="Seguros novos" value={String(d.segurosNovosCount)} />
                             <Row label="Comissão gerada (Ren.)" value={formatCurrency(d.comissaoGeradaRen)} />
@@ -336,7 +341,9 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
 
             {/* Linha de total */}
             <tr className="bg-gray-50 border-t-2 border-gray-200">
-              <td className="px-3 py-3 font-semibold text-gray-800">Total geral — {dadosFiltrados.length} usuário{dadosFiltrados.length !== 1 ? 's' : ''}</td>
+              <td className="px-3 py-3 font-semibold text-gray-800">
+                Total {mes === 0 ? ano : `${MESES[mes - 1]} ${ano}`} — {dadosFiltrados.length} usuário{dadosFiltrados.length !== 1 ? 's' : ''}
+              </td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.taxaRen > 0 ? formatCurrency(totalPorComp.taxaRen) : <span className="text-gray-300">—</span>}</td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.aumento > 0 ? formatCurrency(totalPorComp.aumento) : <span className="text-gray-300">—</span>}</td>
               <td className="px-3 py-3 text-right font-semibold text-gray-700">{totalPorComp.snComissao > 0 ? formatCurrency(totalPorComp.snComissao) : <span className="text-gray-300">—</span>}</td>
@@ -352,7 +359,7 @@ export function Comissoes({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         {dadosFiltrados.length === 0 && (
           <div className="px-4 py-10 text-center text-gray-400 text-sm">
             <Star size={28} className="mx-auto mb-2 text-gray-300" />
-            Nenhuma remuneração a pagar em {MESES[mes - 1]} {ano}.
+            Nenhuma remuneração a pagar em {mes === 0 ? `${ano}` : `${MESES[mes - 1]} ${ano}`}.
           </div>
         )}
       </div>
