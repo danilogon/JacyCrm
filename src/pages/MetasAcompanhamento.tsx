@@ -298,7 +298,12 @@ export function MetasAcompanhamento({ renovacoes, segurosNovos, usuarios, ramos,
     [usuariosVisiveis, filtroUsuario]);
 
   const dados = useMemo(() =>
-    usuariosParaExibir.map(u => calcularDadosUsuario(u, renovacoes, segurosNovos, ramos, motivos, metas, ano, mes)),
+    usuariosParaExibir
+      .map(u => calcularDadosUsuario(u, renovacoes, segurosNovos, ramos, motivos, metas, ano, mes))
+      .filter(d =>
+        d.faixasTaxaRen.length > 0 || d.faixasAumento.length > 0 ||
+        d.faixasSnComissao.length > 0 || d.faixasSnTaxa.length > 0
+      ),
     [usuariosParaExibir, renovacoes, segurosNovos, ramos, motivos, metas, ano, mes]);
 
   return (
