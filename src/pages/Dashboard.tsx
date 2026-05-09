@@ -25,14 +25,14 @@ const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ag
 
 function MetricCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color: string }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-4">
-      <div className={`p-2.5 rounded-lg ${color}`}>
-        <Icon size={20} className="text-white" />
+    <div className="bg-white rounded-xl border border-gray-200 p-5 flex items-start gap-3 min-w-0">
+      <div className={`p-2.5 rounded-lg shrink-0 ${color}`}>
+        <Icon size={18} className="text-white" />
       </div>
-      <div>
-        <div className="text-2xl font-bold text-gray-900">{value}</div>
-        <div className="text-sm text-gray-500 mt-0.5">{label}</div>
-        {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
+      <div className="min-w-0">
+        <div className="text-xl font-bold text-gray-900 break-words leading-tight">{value}</div>
+        <div className="text-xs text-gray-500 mt-1 leading-snug">{label}</div>
+        {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
       </div>
     </div>
   );
