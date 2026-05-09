@@ -50,6 +50,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const [importando, setImportando] = useState(false);
 
   const [busca, setBusca] = useState('');
+  const [filtroFaltando, setFiltroFaltando] = useState<'' | 'telefone' | 'email' | 'nascimento'>('');
   const [modalForm, setModalForm] = useState(false);
   const [editando, setEditando] = useState<Cliente | null>(null);
   const [visualizando, setVisualizando] = useState<Cliente | null>(null);
@@ -64,19 +65,26 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   const tipoCpfCnpj = validateCpfCnpj(form.cpfCnpj).tipo ?? 'PF';
 
+  const contFaltando = useMemo(() => ({
+    telefone:   clientes.filter(c => !c.telefone?.trim()).length,
+    email:      clientes.filter(c => !c.email?.trim()).length,
+    nascimento: clientes.filter(c => c.tipo === 'PF' && !c.dataNascimento?.trim()).length,
+  }), [clientes]);
+
   const filtered = useMemo(() => {
     const q = busca.toLowerCase();
     return clientes
-      .filter(c =>
-        !q ||
-        c.nome.toLowerCase().includes(q) ||
-        c.cpfCnpj.includes(q) ||
-        c.email.toLowerCase().includes(q) ||
-        c.telefone.includes(q) ||
-        c.cidade.toLowerCase().includes(q)
-      )
+      .filter(c => {
+        if (q && !c.nome.toLowerCase().includes(q) && !c.cpfCnpj.includes(q) &&
+            !c.email.toLowerCase().includes(q) && !c.telefone.includes(q) &&
+            !c.cidade.toLowerCase().includes(q)) return false;
+        if (filtroFaltando === 'telefone'   && c.telefone?.trim())                           return false;
+        if (filtroFaltando === 'email'      && c.email?.trim())                              return false;
+        if (filtroFaltando === 'nascimento' && (c.tipo !== 'PF' || c.dataNascimento?.trim())) return false;
+        return true;
+      })
       .sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [clientes, busca]);
+  }, [clientes, busca, filtroFaltando]);
 
   async function buscarCep(cep: string) {
     const digits = cep.replace(/\D/g, '');
@@ -430,8 +438,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="relative max-w-sm">
+      <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-center">
+        <div className="relative min-w-[220px] flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
           <input
             type="text"
@@ -441,7 +449,35 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
             className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <div className="mt-2 text-sm text-gray-500">{filtered.length} cliente(s)</div>
+
+        {/* Filtros de dados faltando */}
+        <div className="flex flex-wrap gap-2">
+          {([
+            { key: '', label: 'Todos', count: undefined as number | undefined },
+            { key: 'telefone',   label: 'Sem telefone',        count: contFaltando.telefone },
+            { key: 'email',      label: 'Sem e-mail',          count: contFaltando.email },
+            { key: 'nascimento', label: 'Sem data nascimento', count: contFaltando.nascimento },
+          ] as const).map(({ key, label, count }) => (
+            <button
+              key={key}
+              onClick={() => setFiltroFaltando(key)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                filtroFaltando === key
+                  ? 'bg-blue-700 text-white border-blue-700'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+              }`}
+            >
+              {label}
+              {count !== undefined && count > 0 && (
+                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  filtroFaltando === key ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700'
+                }`}>{count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <span className="ml-auto text-sm text-gray-400 whitespace-nowrap">{filtered.length} cliente(s)</span>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
