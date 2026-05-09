@@ -172,14 +172,18 @@ function calcularDadosUsuario(
   const rv = renovacoes.filter(r => {
     if (!r.fimVigencia) return false;
     const d = new Date(r.fimVigencia + 'T00:00:00');
-    return d.getFullYear() === ano && d.getMonth() + 1 === mes && r.responsavelId === u.id;
+    if (d.getFullYear() !== ano) return false;
+    if (mes !== 0 && d.getMonth() + 1 !== mes) return false;
+    return r.responsavelId === u.id;
   });
   const sn = segurosNovos.filter(s => {
     // Usa criadoEm como fallback para SNs sem inicioVigencia (ex: criados via "Assumir Prospecção")
     const dateRef = s.inicioVigencia || s.criadoEm?.slice(0, 10) || '';
     if (!dateRef) return false;
     const d = new Date(dateRef + 'T00:00:00');
-    return d.getFullYear() === ano && d.getMonth() + 1 === mes && s.responsavelId === u.id;
+    if (d.getFullYear() !== ano) return false;
+    if (mes !== 0 && d.getMonth() + 1 !== mes) return false;
+    return s.responsavelId === u.id;
   });
 
   const motivosRen = motivos.filter(m => m.tipo === 'negocio' && m.aplicaRenovacoes);
@@ -192,9 +196,9 @@ function calcularDadosUsuario(
     .reduce((acc, x) => acc + x.comissao, 0);
 
   const planoRen = u.recebeRemuneracaoRenovacoes
-    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? metas.planosRenovacao[0] ?? null) : null;
+    ? (metas.planosRenovacao.find(p => p.id === u.planoMetaRenovacaoId) ?? null) : null;
   const planoSn  = u.recebeRemuneracaoSegurosNovos
-    ? (metas.planosSeguroNovo.find(p => p.id === u.planoMetaSeguroNovoId) ?? metas.planosSeguroNovo[0] ?? null) : null;
+    ? (metas.planosSeguroNovo.find(p => p.id === u.planoMetaSeguroNovoId) ?? null) : null;
 
   const taxaRen = calcularTaxaConversaoRenovacoes(rv, sn, ramos, motivosRen, planoRen?.considerarSnNaTaxa ?? true);
 
@@ -308,6 +312,7 @@ export function MetasAcompanhamento({ renovacoes, segurosNovos, usuarios, ramos,
         <div className="flex flex-wrap gap-2">
           <select value={mes} onChange={e => setMes(+e.target.value)}
             className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value={0}>Ano inteiro</option>
             {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
           <select value={ano} onChange={e => setAno(+e.target.value)}

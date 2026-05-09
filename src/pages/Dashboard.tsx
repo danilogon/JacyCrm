@@ -70,7 +70,8 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
       const d = raw || (item as SeguroNovo).criadoEm?.slice(0, 10) || '';
       if (!d) return false;
       const dt = new Date(d + 'T00:00:00');
-      if (dt.getFullYear() !== ano || dt.getMonth() + 1 !== mes) return false;
+      if (dt.getFullYear() !== ano) return false;
+      if (mes !== 0 && dt.getMonth() + 1 !== mes) return false;
       if (responsavelId && item.responsavelId !== responsavelId) return false;
       return true;
     });
@@ -239,6 +240,7 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
         <div className="flex flex-wrap gap-2">
           <select value={mes} onChange={e => setMes(+e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value={0}>Ano inteiro</option>
             {MESES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
           </select>
           <select value={ano} onChange={e => setAno(+e.target.value)} className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
@@ -258,8 +260,8 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-amber-500" />
           <span>
-            Nenhum registro encontrado para <strong>{MESES[mes - 1]} {ano}</strong>.
-            Verifique se o mês/ano selecionado coincide com as datas de vigência das renovações e seguros novos cadastrados.
+            Nenhum registro encontrado para <strong>{mes === 0 ? `${ano}` : `${MESES[mes - 1]} ${ano}`}</strong>.
+            Verifique se o período selecionado coincide com as datas de vigência das renovações e seguros novos cadastrados.
           </span>
         </div>
       )}
@@ -278,7 +280,7 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-4">
             <RefreshCw size={16} className="text-blue-700" />
-            <h2 className="font-semibold text-gray-800">Renovações — {MESES[mes - 1]} {ano}</h2>
+            <h2 className="font-semibold text-gray-800">Renovações — {mes === 0 ? ano : `${MESES[mes - 1]} ${ano}`}</h2>
           </div>
           <div className="space-y-2">
             {[
@@ -299,7 +301,7 @@ export function Dashboard({ renovacoes, segurosNovos, usuarios, ramos, motivos, 
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <div className="flex items-center gap-2 mb-4">
             <PlusCircle size={16} className="text-blue-700" />
-            <h2 className="font-semibold text-gray-800">Seguros Novos — {MESES[mes - 1]} {ano}</h2>
+            <h2 className="font-semibold text-gray-800">Seguros Novos — {mes === 0 ? ano : `${MESES[mes - 1]} ${ano}`}</h2>
           </div>
           <div className="space-y-2">
             {[
