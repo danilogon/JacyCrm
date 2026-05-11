@@ -130,7 +130,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         // Converte DD/MM/YYYY → YYYY-MM-DD
         const dataNasc = (() => {
           if (!d.NASC) return '';
-          const parts = d.NASC.split('/');
+          const parts = (d.NASC as string).split('/');
           if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
           return '';
         })();
@@ -143,8 +143,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         }));
         setCpfAutoPreenchido(true);
       }
+      // Se success=false ou sem dados, campos ficam em branco para preenchimento manual
     } catch {
-      // Falha silenciosa — campos ficam para preenchimento manual
+      // Falha de rede — silenciosa
     } finally {
       setBuscandoCpf(false);
     }
