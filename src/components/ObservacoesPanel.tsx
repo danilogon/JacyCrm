@@ -1,7 +1,7 @@
 import { useRef } from 'react';
-import { Paperclip, X, Download, FileText, Image } from 'lucide-react';
+import { Paperclip, X, ExternalLink, FileText, Image } from 'lucide-react';
 import type { Observacao, ArquivoAnexo } from '../types';
-import { generateId } from '../utils/formatters';
+import { generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 
 interface Props {
   observacoes: Observacao[];
@@ -23,12 +23,7 @@ function isImage(tipo: string) {
   return tipo.startsWith('image/');
 }
 
-function downloadArquivo(a: ArquivoAnexo) {
-  const link = document.createElement('a');
-  link.href = `data:${a.tipo};base64,${a.dataBase64}`;
-  link.download = a.nome;
-  link.click();
-}
+const abrirArquivo = (a: ArquivoAnexo) => abrirArquivoNoNavegador(a.dataBase64, a.tipo);
 
 export function ObservacoesPanel({
   observacoes,
@@ -79,12 +74,12 @@ export function ObservacoesPanel({
               {obs.arquivos.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {obs.arquivos.map(a => (
-                    <button key={a.id} type="button" onClick={() => downloadArquivo(a)}
-                      title={`${a.nome} · ${formatBytes(a.tamanho)}`}
+                    <button key={a.id} type="button" onClick={() => abrirArquivo(a)}
+                      title={`${a.nome} · ${formatBytes(a.tamanho)} — clique para abrir`}
                       className="flex items-center gap-1.5 px-2 py-1 bg-white border border-gray-200 rounded text-xs text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors">
                       {isImage(a.tipo) ? <Image size={11} /> : <FileText size={11} />}
                       <span className="max-w-[130px] truncate">{a.nome}</span>
-                      <Download size={10} className="shrink-0 text-gray-400" />
+                      <ExternalLink size={10} className="shrink-0 text-gray-400" />
                     </button>
                   ))}
                 </div>

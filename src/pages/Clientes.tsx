@@ -8,7 +8,7 @@ import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { NormalizarCidadesModal, toTitleCase } from '../components/NormalizarCidadesModal';
 import { MUNICIPIOS_BR } from '../data/municipiosBrasil';
-import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
+import { formatCpfCnpj, formatDate, generateId, parseImportDate, abrirArquivoNoNavegador } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateInput } from '../components/DateInput';
@@ -987,8 +987,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                                       <div key={i} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg text-xs border border-gray-100">
                                         <span className="text-gray-700 truncate">{arq.nome}</span>
                                         <div className="flex gap-1 shrink-0 ml-2">
-                                          <button type="button" title="Baixar" onClick={() => { const a = document.createElement('a'); a.href = arq.dataBase64; a.download = arq.nome; a.click(); }}
-                                            className="p-1 text-blue-500 hover:text-blue-700">↓</button>
+                                          <button type="button" title="Abrir" onClick={() => abrirArquivoNoNavegador(arq.dataBase64)}
+                                            className="p-1 text-blue-500 hover:text-blue-700">↗</button>
                                           <button type="button" title="Remover" onClick={() => {
                                             if (Array.isArray(valorAtual)) setValor((valorAtual as string[]).filter((_, idx) => idx !== i));
                                             else setValor('');

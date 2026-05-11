@@ -1,3 +1,31 @@
+/**
+ * Abre um arquivo (data URL ou base64 puro + mime) em nova aba do navegador.
+ * PDFs e imagens são renderizados; outros formatos o browser baixa normalmente.
+ * @param data  Data URL completa ("data:mime;base64,xxx") OU base64 puro
+ * @param mime  Mime type — obrigatório quando `data` é base64 puro
+ */
+export function abrirArquivoNoNavegador(data: string, mime?: string): void {
+  let base64: string;
+  let type: string;
+
+  if (data.startsWith('data:')) {
+    // Data URL completa: "data:application/pdf;base64,JVBERi..."
+    const comma = data.indexOf(',');
+    base64 = data.slice(comma + 1);
+    type = data.slice(5, data.indexOf(';')) || mime || 'application/octet-stream';
+  } else {
+    // Base64 puro
+    base64 = data;
+    type = mime || 'application/octet-stream';
+  }
+
+  const bytes = atob(base64);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  const blob = new Blob([arr], { type });
+  window.open(URL.createObjectURL(blob), '_blank');
+}
+
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }

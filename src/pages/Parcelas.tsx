@@ -6,7 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
 import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela } from '../types';
-import { formatDate, generateId } from '../utils/formatters';
+import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
 
 interface Props {
@@ -735,7 +735,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                             {obs.arquivos.map(a => (
                               <div key={a.id} className="flex items-center gap-2">
                                 <FileText size={11} className="text-blue-500 shrink-0" />
-                                <button onClick={() => { const link = document.createElement('a'); link.href = a.dataBase64; link.download = a.nome; link.click(); }}
+                                <button onClick={() => abrirArquivoNoNavegador(a.dataBase64, a.tipo)}
                                   className="text-xs text-blue-600 hover:underline truncate">{a.nome}</button>
                               </div>
                             ))}
