@@ -338,7 +338,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   function exportarXLSX() {
     const headers = ['CPF_CNPJ','Nome','Email','Telefone','Sexo','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
-    const rows = clientes.map(c => [
+    // Exporta apenas os clientes visíveis no filtro atual (não a lista completa)
+    const rows = filtered.map(c => [
       c.cpfCnpj, c.nome, c.email, c.telefone,
       c.tipo === 'PF' ? (c.sexo ?? '') : '',
       c.dataNascimento ?? '', c.cep, c.logradouro, c.numero,
@@ -348,7 +349,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-    XLSX.writeFile(wb, `clientes_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const sufixo = (busca || filtroFaltando) ? '_filtrado' : '';
+    XLSX.writeFile(wb, `clientes${sufixo}_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   function baixarModeloXLSX() {
