@@ -123,7 +123,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     setCpfAutoPreenchido(false);
     try {
       // Chama via proxy Vercel (evita bloqueio de CORS do navegador)
-      const resp = await fetch(`/api/cpf/${cpf}`);
+      const resp = await fetch(`/api/cpf-lookup?cpf=${cpf}`);
       const data = await resp.json();
       if (data?.success && data?.data?.NOME) {
         const d = data.data;
