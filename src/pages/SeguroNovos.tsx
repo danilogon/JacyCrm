@@ -619,7 +619,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
 
   function exportarCSV() {
     const headers = ['ID','Responsável','Cliente','Email','Telefone','CPF/CNPJ','Início Vigência','Ramo','Seguradora','Prêmio Líquido','%Comissão','Comissão','Com.Receber','Status','Motivo'];
-    const rows = segurosNovos.map(s => [
+    // Exporta apenas os registros visíveis no filtro atual
+    const rows = filtered.map(s => [
       s.id, usuarios.find(u => u.id === s.responsavelId)?.nome ?? s.responsavelId,
       s.nomeCliente, s.emailCliente, s.telefoneCliente, s.cpfCnpjCliente,
       s.inicioVigencia, s.ramo, s.seguradora, s.premioLiquido, s.percentComissao,
@@ -629,7 +630,8 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-    XLSX.writeFile(wb, `seguros_novos_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const sufixo = filtered.length < segurosNovos.length ? '_filtrado' : '';
+    XLSX.writeFile(wb, `seguros_novos${sufixo}_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   function baixarModeloCSV() {

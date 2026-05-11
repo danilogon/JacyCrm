@@ -442,7 +442,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
   // ── XLSX: exportar dados ─────────────────────────────────────────────────
   function exportarCSV() {
     const headers = ['ID','Responsável','Cliente','Email','Telefone','CPF/CNPJ','Fim Vigência','Ramo','Seg Anterior','Prêmio Ant','%Com Ant','Com Ant','Seg Nova','Prêmio Novo','%Com Nova','Com Nova','Resultado','Status','Motivo Perda'];
-    const rows = renovacoes.map(r => [
+    // Exporta apenas os registros visíveis no filtro atual
+    const rows = filtered.map(r => [
       r.id,
       usuarios.find(u => u.id === r.responsavelId)?.nome ?? r.responsavelId,
       r.nomeCliente, r.emailCliente, r.telefoneCliente, r.cpfCnpjCliente,
@@ -455,7 +456,8 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Dados');
-    XLSX.writeFile(wb, `renovacoes_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const sufixo = filtered.length < renovacoes.length ? '_filtrado' : '';
+    XLSX.writeFile(wb, `renovacoes${sufixo}_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 
   // ── XLSX: modelo para importação ─────────────────────────────────────────
