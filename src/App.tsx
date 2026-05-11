@@ -477,6 +477,8 @@ function AppRoutes() {
               usuarios={usuarios}
               regrasParcelas={regrasParcelas}
               setRegrasParcelas={setRegrasParcelas}
+              importacoesParcelas={importacoesParcelas}
+              setImportacoesParcelas={setImportacoesParcelas}
             />
           } />
         )}

@@ -179,6 +179,12 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const parcelasMap = new Map(parcelas.map(p => [p.chaveUnica, p]));
       const updated: Parcela[] = [];
 
+      // Índice de vínculos já conhecidos: "apolice|seguradora" → clienteId
+      const vinculoIndex = new Map<string, string>();
+      parcelas.forEach(p => {
+        if (p.clienteId) vinculoIndex.set(`${p.apolice}|${p.seguradora}`, p.clienteId);
+      });
+
       dataRows.forEach((cols, idx) => {
         const lineNum = idx + 2;
         const [clienteRaw, apoliceRaw, parcelaRaw, dataRaw, totalRaw, seguradoraRaw, formaPgtoRaw] =
@@ -218,13 +224,15 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           });
           totalAtualizadas++;
         } else {
-          // Nova parcela
+          // Nova parcela — herda vínculo de cliente se já existe para esta apólice+seguradora
+          const clienteAutoId = vinculoIndex.get(`${apolice}|${seguradora}`);
           const nova: Parcela = {
             id: generateId(),
             chaveUnica: chave,
             primeiraAtualizacao: dataImport,
             ultimaAtualizacao: dataImport,
             nomeCliente,
+            clienteId: clienteAutoId,
             apolice,
             numeroParcela,
             vencimento,
@@ -238,6 +246,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           };
           updated.push(nova);
           parcelasMap.set(chave, nova);
+          // Propaga o vínculo para próximas parcelas da mesma apólice neste import
+          if (clienteAutoId) vinculoIndex.set(`${apolice}|${seguradora}`, clienteAutoId);
           totalNovas++;
         }
       });

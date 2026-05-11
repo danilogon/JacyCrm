@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio } from '../types';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas } from '../types';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -34,6 +34,8 @@ interface Props {
   usuarios: Usuario[];
   regrasParcelas: RegraParcelaNegocio[];
   setRegrasParcelas: (r: RegraParcelaNegocio[]) => void;
+  importacoesParcelas: ImportacaoParcelas[];
+  setImportacoesParcelas: (i: ImportacaoParcelas[]) => void;
 }
 
 type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
@@ -164,7 +166,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -1844,6 +1846,125 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     </div>
                   </div>
                 </div>
+              );
+            })()}
+
+            {/* Importações de Parcelas */}
+            {(() => {
+              const sortedP = [...importacoesParcelas].sort(
+                (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
+              );
+              const [confirmDelP, setConfirmDelP] = useState<ImportacaoParcelas | null>(null);
+              const [auditoriaP, setAuditoriaP] = useState<ImportacaoParcelas | null>(null);
+              return (
+                <>
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                      <h2 className="font-semibold text-gray-800 text-sm">Importações de Parcelas</h2>
+                      <span className="text-xs text-gray-400">{sortedP.length} importação(ões)</span>
+                    </div>
+                    {sortedP.length === 0 ? (
+                      <div className="px-4 pb-6 text-center text-gray-400 text-sm">Nenhuma importação de parcelas registrada.</div>
+                    ) : (
+                      <>
+                        <p className="text-xs text-gray-400 px-4 pb-1">Duplo clique para ver detalhes da importação.</p>
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              {['Data/Hora', 'Arquivo', 'Novas', 'Atualizadas', 'Baixadas Sistema', 'Ignoradas', 'Ações'].map(h => (
+                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {sortedP.map(lote => {
+                              const dataHora = new Date(lote.criadoEm).toLocaleString('pt-BR', {
+                                day: '2-digit', month: '2-digit', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              });
+                              return (
+                                <tr key={lote.id} className="hover:bg-gray-50 cursor-pointer select-none" onDoubleClick={() => setAuditoriaP(lote)}>
+                                  <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{dataHora}</td>
+                                  <td className="px-4 py-3 text-gray-700 max-w-[180px] truncate" title={lote.nomeArquivo}>{lote.nomeArquivo}</td>
+                                  <td className="px-4 py-3 text-right font-medium text-blue-700">{lote.totalNovas}</td>
+                                  <td className="px-4 py-3 text-right font-medium text-gray-700">{lote.totalAtualizadas}</td>
+                                  <td className="px-4 py-3 text-right font-medium text-green-700">{lote.totalBaixadas}</td>
+                                  <td className="px-4 py-3 text-right font-medium text-red-600">{lote.totalIgnoradas}</td>
+                                  <td className="px-4 py-3">
+                                    <button onClick={() => setConfirmDelP(lote)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir registro">
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Auditoria de import de parcelas */}
+                  {auditoriaP && (
+                    <div className="bg-white rounded-xl border border-gray-200 p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{auditoriaP.nomeArquivo}</h3>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Data import: {auditoriaP.dataImport} · Seguradoras: {auditoriaP.seguradorasConsideradas.join(', ') || '—'}
+                          </p>
+                        </div>
+                        <button onClick={() => setAuditoriaP(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+                      </div>
+                      <div className="grid grid-cols-4 gap-3 mb-4">
+                        {[
+                          { label: 'Novas', value: auditoriaP.totalNovas, cls: 'bg-blue-50 text-blue-700' },
+                          { label: 'Atualizadas', value: auditoriaP.totalAtualizadas, cls: 'bg-gray-50 text-gray-700' },
+                          { label: 'Baixadas Sistema', value: auditoriaP.totalBaixadas, cls: 'bg-green-50 text-green-700' },
+                          { label: 'Ignoradas', value: auditoriaP.totalIgnoradas, cls: 'bg-red-50 text-red-700' },
+                        ].map(({ label, value, cls }) => (
+                          <div key={label} className={`rounded-lg px-3 py-2 text-center ${cls}`}>
+                            <div className="text-lg font-bold">{value}</div>
+                            <div className="text-xs">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                      {auditoriaP.linhasIgnoradas.length > 0 && (
+                        <div>
+                          <h4 className="text-xs font-semibold text-red-700 mb-2">Linhas ignoradas ({auditoriaP.linhasIgnoradas.length})</h4>
+                          <div className="overflow-x-auto rounded-lg border border-red-100 max-h-48 overflow-y-auto">
+                            <table className="w-full text-xs">
+                              <thead className="bg-red-50 sticky top-0">
+                                <tr>
+                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Linha</th>
+                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Motivo</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-red-50">
+                                {auditoriaP.linhasIgnoradas.map((l, i) => (
+                                  <tr key={i} className="hover:bg-red-50/50">
+                                    <td className="px-3 py-2 text-gray-500">{l.linha}</td>
+                                    <td className="px-3 py-2 text-red-700">{l.motivo}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <ConfirmDialog
+                    open={!!confirmDelP}
+                    title="Excluir registro de importação"
+                    message={confirmDelP ? `Excluir o registro da importação "${confirmDelP.nomeArquivo}"? Isso não desfaz as parcelas já importadas.` : ''}
+                    confirmLabel="Excluir"
+                    danger
+                    onConfirm={() => { if (confirmDelP) setImportacoesParcelas(importacoesParcelas.filter(i => i.id !== confirmDelP.id)); setConfirmDelP(null); }}
+                    onCancel={() => setConfirmDelP(null)}
+                  />
+                </>
               );
             })()}
 
