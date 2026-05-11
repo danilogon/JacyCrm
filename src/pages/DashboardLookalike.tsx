@@ -24,6 +24,7 @@ import { useMemo, useState } from 'react';
 import {
   Users, TrendingUp, DollarSign, Star, Briefcase,
   BarChart2, Map, Building2, UserCheck, Package,
+  RefreshCw, CheckCircle2, XCircle,
 } from 'lucide-react';
 import type { Cliente, Renovacao, SeguroNovo, Ramo } from '../types';
 
@@ -130,14 +131,46 @@ function SectionCard({ title, icon: Icon, children }: {
 
 export function DashboardLookalike({ clientes, renovacoes, segurosNovos, ramos }: Props) {
   // filtroRamo usa o NOME do ramo (padrão adotado em DashboardProducao)
-  const [filtroRamo, setFiltroRamo] = useState<string>('');
+  const [filtroRamo,      setFiltroRamo]      = useState<string>('');
+  // '' = ambos | 'renovacao' | 'seguro_novo'
+  const [filtroTipo,      setFiltroTipo]      = useState<string>('');
+  // '' = todos | 'fechado' | 'perdido'
+  const [filtroResultado, setFiltroResultado] = useState<string>('');
 
-  // ── Negócios filtrados por ramo ──────────────────────────────────────────
+  // ── Negócios filtrados por ramo + tipo + resultado ───────────────────────
   const negociosFiltrados = useMemo(() => {
-    const ren = filtroRamo ? renovacoes.filter(r => r.ramo === filtroRamo) : renovacoes;
-    const sn  = filtroRamo ? segurosNovos.filter(s => s.ramo === filtroRamo) : segurosNovos;
+    // 1. tipo (renovação ou seguro novo)
+    const incluiRen = filtroTipo !== 'seguro_novo';
+    const incluiSn  = filtroTipo !== 'renovacao';
+
+    // 2. status por resultado
+    const statusRenOk = filtroResultado === 'fechado'
+      ? ['renovado']
+      : filtroResultado === 'perdido'
+        ? ['nao_renovada']
+        : null; // null = todos os status
+
+    const statusSnOk = filtroResultado === 'fechado'
+      ? ['fechado']
+      : filtroResultado === 'perdido'
+        ? ['perdido']
+        : null;
+
+    let ren = incluiRen ? renovacoes : [];
+    let sn  = incluiSn  ? segurosNovos : [];
+
+    // 3. ramo
+    if (filtroRamo) {
+      ren = ren.filter(r => r.ramo === filtroRamo);
+      sn  = sn.filter(s => s.ramo === filtroRamo);
+    }
+
+    // 4. status
+    if (statusRenOk) ren = ren.filter(r => statusRenOk.includes(r.status));
+    if (statusSnOk)  sn  = sn.filter(s => statusSnOk.includes(s.status));
+
     return { ren, sn };
-  }, [renovacoes, segurosNovos, filtroRamo]);
+  }, [renovacoes, segurosNovos, filtroRamo, filtroTipo, filtroResultado]);
 
   // ── IDs de clientes com algum negócio no filtro ─────────────────────────
   const clienteIdsComNegocio = useMemo(() => {
@@ -147,11 +180,12 @@ export function DashboardLookalike({ clientes, renovacoes, segurosNovos, ramos }
     return ids;
   }, [negociosFiltrados]);
 
-  // Se tem filtro de ramo, mostra só clientes com negócios nesse ramo; caso contrário, todos
+  // Se há qualquer filtro ativo, restringe a clientes com negócios resultantes
+  const temFiltroAtivo = filtroRamo || filtroTipo || filtroResultado;
   const clientesFiltrados = useMemo(() => {
-    if (!filtroRamo) return clientes;
+    if (!temFiltroAtivo) return clientes;
     return clientes.filter(c => clienteIdsComNegocio.has(c.id));
-  }, [clientes, filtroRamo, clienteIdsComNegocio]);
+  }, [clientes, temFiltroAtivo, clienteIdsComNegocio]);
 
   // ── Apólices (ren + sn) para ticket médio e distribuições ───────────────
   // Renovacao: premioNovo / seguradoraNova
@@ -311,30 +345,75 @@ export function DashboardLookalike({ clientes, renovacoes, segurosNovos, ramos }
     <div className="p-6 max-w-7xl mx-auto space-y-6">
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <BarChart2 size={24} className="text-blue-600" />
-            Dashboard Lookalike
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            Perfil de marketing da carteira · {totalNegociosFiltrados.toLocaleString('pt-BR')} negócios · {totalClientesFiltrados.toLocaleString('pt-BR')} clientes
-          </p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <BarChart2 size={24} className="text-blue-600" />
+              Dashboard Lookalike
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Perfil de marketing da carteira · {totalNegociosFiltrados.toLocaleString('pt-BR')} negócios · {totalClientesFiltrados.toLocaleString('pt-BR')} clientes
+            </p>
+          </div>
         </div>
 
-        {/* Filtro de ramo */}
-        <div className="flex items-center gap-2">
-          <Briefcase size={16} className="text-gray-400 shrink-0" />
-          <select
-            value={filtroRamo}
-            onChange={e => setFiltroRamo(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[180px]"
-          >
-            <option value="">Todos os ramos</option>
-            {[...ramos].filter(r => r.ativo).sort((a, b) => a.nome.localeCompare(b.nome)).map(r => (
-              <option key={r.id} value={r.nome}>{r.nome}</option>
-            ))}
-          </select>
+        {/* Filtros */}
+        <div className="flex flex-wrap items-center gap-3">
+
+          {/* Tipo */}
+          <div className="flex items-center gap-1.5">
+            <RefreshCw size={15} className="text-gray-400 shrink-0" />
+            <select
+              value={filtroTipo}
+              onChange={e => setFiltroTipo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Renovação + Seguro Novo</option>
+              <option value="renovacao">Apenas Renovação</option>
+              <option value="seguro_novo">Apenas Seguro Novo</option>
+            </select>
+          </div>
+
+          {/* Resultado */}
+          <div className="flex items-center gap-1.5">
+            <CheckCircle2 size={15} className="text-gray-400 shrink-0" />
+            <select
+              value={filtroResultado}
+              onChange={e => setFiltroResultado(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              <option value="">Todos os resultados</option>
+              <option value="fechado">Fechado / Renovado</option>
+              <option value="perdido">Perdido / Não renovado</option>
+            </select>
+          </div>
+
+          {/* Ramo */}
+          <div className="flex items-center gap-1.5">
+            <Briefcase size={15} className="text-gray-400 shrink-0" />
+            <select
+              value={filtroRamo}
+              onChange={e => setFiltroRamo(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white min-w-[180px]"
+            >
+              <option value="">Todos os ramos</option>
+              {[...ramos].filter(r => r.ativo).sort((a, b) => a.nome.localeCompare(b.nome)).map(r => (
+                <option key={r.id} value={r.nome}>{r.nome}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Chips de filtros ativos */}
+          {(filtroTipo || filtroResultado || filtroRamo) && (
+            <button
+              onClick={() => { setFiltroTipo(''); setFiltroResultado(''); setFiltroRamo(''); }}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-red-600 border border-gray-300 hover:border-red-300 rounded-lg px-2.5 py-2 transition-colors"
+            >
+              <XCircle size={13} />
+              Limpar filtros
+            </button>
+          )}
         </div>
       </div>
 
