@@ -28,6 +28,7 @@ type FormUsuario = {
   visualizarProducao: boolean;
   visualizarMetas: boolean;
   visualizarComissoes: boolean;
+  visualizarLookalike: boolean;
   camposRestritos: { renovacoes: string[]; segurosNovos: string[]; prospeccoes: string[] };
   recebeRemuneracaoRenovacoes: boolean;
   planoMetaRenovacaoId: string;
@@ -58,7 +59,7 @@ const formVazio: FormUsuario = {
   acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true,
   podeDescartarProspeccao: false,
   acessoConsultaRenovacoes: false,
-  visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
+  visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false, visualizarLookalike: false,
   camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
   recebeRemuneracaoRenovacoes: false, planoMetaRenovacaoId: '',
   recebeRemuneracaoTaxaRenovacoes: true, recebeRemuneracaoAumentoComissao: true,
@@ -116,6 +117,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       visualizarProducao: u.visualizarProducao ?? false,
       visualizarMetas: u.visualizarMetas ?? true,
       visualizarComissoes: u.visualizarComissoes ?? false,
+      visualizarLookalike: u.visualizarLookalike ?? false,
       camposRestritos: u.camposRestritos ?? { renovacoes: [], segurosNovos: [], prospeccoes: [] },
       recebeRemuneracaoRenovacoes: u.recebeRemuneracaoRenovacoes,
       planoMetaRenovacaoId: u.planoMetaRenovacaoId ?? metas.planosRenovacao[0]?.id ?? '',
@@ -144,6 +146,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       visualizarProducao: u.visualizarProducao ?? false,
       visualizarMetas: u.visualizarMetas ?? true,
       visualizarComissoes: u.visualizarComissoes ?? false,
+      visualizarLookalike: u.visualizarLookalike ?? false,
       camposRestritos: u.camposRestritos ?? { renovacoes: [], segurosNovos: [], prospeccoes: [] },
       recebeRemuneracaoRenovacoes: u.recebeRemuneracaoRenovacoes,
       planoMetaRenovacaoId: u.planoMetaRenovacaoId ?? metas.planosRenovacao[0]?.id ?? '',
@@ -206,6 +209,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
         visualizarProducao: form.visualizarProducao,
         visualizarMetas: form.visualizarMetas,
         visualizarComissoes: form.visualizarComissoes,
+        visualizarLookalike: form.visualizarLookalike,
         camposRestritos: form.camposRestritos,
         recebeRemuneracaoRenovacoes: form.recebeRemuneracaoRenovacoes,
         planoMetaRenovacaoId: form.recebeRemuneracaoRenovacoes ? form.planoMetaRenovacaoId || undefined : undefined,
@@ -398,6 +402,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
                           visualizarProducao: tipo.visualizarProducao ?? false,
                           visualizarMetas: tipo.visualizarMetas,
                           visualizarComissoes: tipo.visualizarComissoes,
+                          visualizarLookalike: (tipo as unknown as { visualizarLookalike?: boolean }).visualizarLookalike ?? false,
                           camposRestritos: tipo.camposRestritos,
                         }));
                       }}
@@ -453,6 +458,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
                 <Ck v={form.visualizarProducao}   label="Produção (Administrativo)" onChange={v => setForm(f => ({...f, visualizarProducao: v}))} />
                 <Ck v={form.visualizarMetas}      label="Metas"                     onChange={v => setForm(f => ({...f, visualizarMetas: v}))} />
                 <Ck v={form.visualizarComissoes}  label="Comissões a Pagar"         onChange={v => setForm(f => ({...f, visualizarComissoes: v}))} />
+                <Ck v={form.visualizarLookalike}  label="Lookalike (Marketing)"     onChange={v => setForm(f => ({...f, visualizarLookalike: v}))} />
               </div>
 
               <div className="border-t border-gray-100 pt-4 space-y-4">

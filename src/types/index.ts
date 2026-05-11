@@ -14,6 +14,7 @@ export interface TipoUsuario {
   visualizarProducao: boolean;
   visualizarMetas: boolean;
   visualizarComissoes: boolean;
+  visualizarLookalike: boolean;
   camposRestritos: {
     renovacoes: string[];
     segurosNovos: string[];
@@ -44,6 +45,7 @@ export interface Usuario {
   visualizarProducao?: boolean;
   visualizarMetas?: boolean;
   visualizarComissoes?: boolean;
+  visualizarLookalike?: boolean;
   camposRestritos?: {
     renovacoes: string[];
     segurosNovos: string[];

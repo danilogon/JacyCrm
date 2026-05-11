@@ -2,13 +2,13 @@ import { useState, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCw, PlusCircle, Target, Users, Settings,
-  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, CalendarCheck, BookOpen, Mail, CreditCard,
+  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, CalendarCheck, BookOpen, Mail, CreditCard, ScanSearch,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa } from '../types';
 import { APP_VERSION } from '../version';
 
-const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao'];
+const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao', '/lookalike'];
 const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao', '/consulta-renovacoes'];
 
 interface Props {
@@ -69,6 +69,7 @@ export function Sidebar({ tarefas, onNavigate }: Props) {
     { to: '/producao',  icon: Factory,         label: 'Produção',                show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarProducao ?? false) },
     { to: '/metas',     icon: TrendingUp,      label: 'Metas',                   show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarMetas ?? true) },
     { to: '/comissoes', icon: DollarSign,      label: 'Comissões a Pagar',       show: usuario.role === 'admin' || (usuario.visualizarComissoes ?? false) },
+    { to: '/lookalike', icon: ScanSearch,      label: 'Lookalike',               show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarLookalike ?? false) },
   ];
 
   const negociosSublinks = [

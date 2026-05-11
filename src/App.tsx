@@ -19,6 +19,7 @@ import { Tarefas } from './pages/Tarefas';
 import { ConsultaRenovacoes } from './pages/ConsultaRenovacoes';
 import { Emails } from './pages/Emails';
 import { Parcelas } from './pages/Parcelas';
+import { DashboardLookalike } from './pages/DashboardLookalike';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
@@ -255,6 +256,7 @@ function AppRoutes() {
   const podeVerProducao          = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarProducao ?? false);
   const podeVerMetas             = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarMetas ?? true);
   const podeVerComissoes         = usuario.role === 'admin' || (usuario.visualizarComissoes ?? false);
+  const podeVerLookalike         = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarLookalike ?? false);
 
   return (
     <Routes>
@@ -282,6 +284,17 @@ function AppRoutes() {
               ramos={ramos}
               motivos={motivos}
               metas={metas}
+            />
+          } />
+        )}
+
+        {podeVerLookalike && (
+          <Route path="/lookalike" element={
+            <DashboardLookalike
+              clientes={clientes}
+              renovacoes={renovacoes}
+              segurosNovos={segurosNovos}
+              ramos={ramos}
             />
           } />
         )}

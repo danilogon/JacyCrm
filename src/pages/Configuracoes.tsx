@@ -210,7 +210,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const tipoVazio: Omit<TipoUsuario, 'id'> = {
     nome: '', descricao: '', role: 'usuario', ativo: true,
     acessoRenovacoes: true, acessoSegurosNovos: true, acessoProspeccao: true, podeDescartarProspeccao: false, acessoConsultaRenovacoes: false,
-    visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false,
+    visualizarDashboard: true, visualizarProducao: false, visualizarMetas: true, visualizarComissoes: false, visualizarLookalike: false,
     camposRestritos: { renovacoes: [], segurosNovos: [], prospeccoes: [] },
   };
   const [editTipo, setEditTipo] = useState<TipoUsuario | null>(null);
@@ -406,6 +406,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       visualizarProducao: t.visualizarProducao ?? false,
       visualizarMetas: t.visualizarMetas ?? true,
       visualizarComissoes: t.visualizarComissoes ?? false,
+      visualizarLookalike: t.visualizarLookalike ?? false,
       camposRestritos: t.camposRestritos ?? { renovacoes: [], segurosNovos: [], prospeccoes: [] },
     });
     setEditTipo(t); setCriandoTipo(false);
