@@ -15,7 +15,7 @@ import type {
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
-  Parcela, ImportacaoParcelas,
+  Parcela, ImportacaoParcelas, RegraParcelaNegocio,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -80,6 +80,7 @@ export async function fetchAll() {
     r_config_gatilhos,
     r_parcelas,
     r_imp_parcelas,
+    r_regras_parcelas,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -101,6 +102,7 @@ export async function fetchAll() {
     supabase.from('config_gatilhos').select('*').order('criado_em', { ascending: true }),
     supabase.from('parcelas').select('*').order('vencimento'),
     supabase.from('importacoes_parcelas').select('*').order('criado_em', { ascending: false }),
+    supabase.from('regras_parcelas').select('*').order('criado_em', { ascending: true }),
   ]);
 
   // Detecta erros críticos
@@ -133,6 +135,7 @@ export async function fetchAll() {
     configGatilhos: (r_config_gatilhos.data || []).map(r => rowToCamel<ConfigGatilho>(r as Record<string, unknown>)),
     parcelas: (r_parcelas.data || []).map(r => rowToCamel<Parcela>(r as Record<string, unknown>)),
     importacoesParcelas: (r_imp_parcelas.data || []).map(r => rowToCamel<ImportacaoParcelas>(r as Record<string, unknown>)),
+    regrasParcelas: (r_regras_parcelas.data || []).map(r => rowToCamel<RegraParcelaNegocio>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -237,6 +240,10 @@ export const db = {
   deleteParcelas:           (ids: string[])                => deleteRows('parcelas', ids),
   upsertImportacoesParcelas:(items: ImportacaoParcelas[])  => upsertRows('importacoes_parcelas', items as unknown as Record<string, unknown>[]),
   deleteImportacoesParcelas:(ids: string[])                => deleteRows('importacoes_parcelas', ids),
+
+  // Regras de Negócio para Parcelas
+  upsertRegrasParcelas: (items: RegraParcelaNegocio[]) => upsertRows('regras_parcelas', items as unknown as Record<string, unknown>[]),
+  deleteRegrasParcelas: (ids: string[])                => deleteRows('regras_parcelas', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

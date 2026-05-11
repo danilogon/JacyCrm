@@ -478,3 +478,24 @@ export interface ImportacaoParcelas {
   linhasIgnoradas: { linha: number; motivo: string }[];
   criadoEm: string;
 }
+
+// ─── Regras de Negócio para Parcelas ─────────────────────────────────────────
+
+export interface RegraParcelaNegocio {
+  id: string;
+  nome: string;
+  /**
+   * true  → regra padrão, aplica quando nenhuma regra específica corresponde.
+   * false → regra específica, identificada pela combinação seguradora/ramo/formaPagamento.
+   */
+  isDefault: boolean;
+  /** Vazio ("") = qualquer seguradora. Ignorado quando isDefault = true. */
+  seguradora: string;
+  /** Vazio ("") = qualquer ramo. Ignorado quando isDefault = true. */
+  ramo: string;
+  /** Vazio ("") = qualquer forma de pagamento. Ignorado quando isDefault = true. */
+  formaPagamento: string;
+  ativo: boolean;
+  criadoEm: string;
+  atualizadoEm: string;
+}

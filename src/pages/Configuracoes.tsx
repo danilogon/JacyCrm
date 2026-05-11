@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario } from '../types';
+import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio } from '../types';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -32,9 +32,11 @@ interface Props {
   clientes: Cliente[];
   setClientes: (c: Cliente[]) => void;
   usuarios: Usuario[];
+  regrasParcelas: RegraParcelaNegocio[];
+  setRegrasParcelas: (r: RegraParcelaNegocio[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'importacoes';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -162,7 +164,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -252,6 +254,51 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [confirmUndo, setConfirmUndo] = useState<ImportacaoLote | null>(null);
   const [auditoriaLote, setAuditoriaLote] = useState<ImportacaoLote | null>(null);
 
+  // Regras de Parcelas state
+  const regraVazia: Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'> = {
+    nome: '', isDefault: false, seguradora: '', ramo: '', formaPagamento: '', ativo: true,
+  };
+  const [modalRegra, setModalRegra] = useState<RegraParcelaNegocio | 'nova' | null>(null);
+  const [formRegra, setFormRegra] = useState<Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'>>(regraVazia);
+  const [confirmDelRegra, setConfirmDelRegra] = useState<string | null>(null);
+
+  const regraDefault = regrasParcelas.find(r => r.isDefault) ?? null;
+  const regrasEspecificas = regrasParcelas.filter(r => !r.isDefault);
+
+  function abrirNovaRegra() {
+    setFormRegra({ ...regraVazia, isDefault: false });
+    setModalRegra('nova');
+  }
+
+  function abrirEditarRegra(r: RegraParcelaNegocio) {
+    setFormRegra({ nome: r.nome, isDefault: r.isDefault, seguradora: r.seguradora, ramo: r.ramo, formaPagamento: r.formaPagamento, ativo: r.ativo });
+    setModalRegra(r);
+  }
+
+  function abrirEditarRegraDefault() {
+    if (regraDefault) {
+      setFormRegra({ nome: regraDefault.nome, isDefault: true, seguradora: '', ramo: '', formaPagamento: '', ativo: regraDefault.ativo });
+      setModalRegra(regraDefault);
+    } else {
+      setFormRegra({ nome: 'Regra Padrão', isDefault: true, seguradora: '', ramo: '', formaPagamento: '', ativo: true });
+      setModalRegra('nova');
+    }
+  }
+
+  function salvarRegra() {
+    if (!formRegra.nome.trim()) { alert('Nome da regra é obrigatório.'); return; }
+    const now = new Date().toISOString();
+    if (typeof modalRegra === 'string') {
+      setRegrasParcelas([...regrasParcelas, { id: generateId(), ...formRegra, nome: formRegra.nome.trim(), criadoEm: now, atualizadoEm: now }]);
+    } else if (modalRegra) {
+      setRegrasParcelas(regrasParcelas.map(r => r.id === modalRegra.id
+        ? { ...r, ...formRegra, nome: formRegra.nome.trim(), atualizadoEm: now }
+        : r
+      ));
+    }
+    setModalRegra(null);
+  }
+
   const TABS: { key: Tab; label: string }[] = [
     { key: 'empresa', label: 'Empresa' },
     { key: 'tipos_usuario', label: 'Tipos de Usuário' },
@@ -261,6 +308,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'motivos', label: 'Motivos de Perda' },
     { key: 'campos', label: 'Campos Customizáveis' },
     { key: 'origens_prospeccao', label: 'Origem do Negócio' },
+    { key: 'regras_parcelas', label: 'Regras de Parcelas' },
     { key: 'importacoes', label: 'Importações' },
   ];
 
@@ -1422,6 +1470,203 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
               setConfirmDelOrigem(null);
             }}
             onCancel={() => setConfirmDelOrigem(null)}
+          />
+        </div>
+      )}
+
+      {/* Regras de Parcelas */}
+      {tab === 'regras_parcelas' && (
+        <div className="space-y-6">
+
+          {/* Regra Padrão */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h2 className="font-semibold text-gray-900">Regra Padrão</h2>
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Padrão</span>
+                </div>
+                <p className="text-sm text-gray-500">
+                  Aplicada a todas as parcelas que não se encaixam em nenhuma regra específica.
+                </p>
+              </div>
+              <button
+                onClick={abrirEditarRegraDefault}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 shrink-0"
+              >
+                <Edit2 size={14} /> {regraDefault ? 'Editar' : 'Configurar'}
+              </button>
+            </div>
+            {regraDefault ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-sm font-medium text-gray-800">{regraDefault.nome}</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${regraDefault.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  {regraDefault.ativo ? 'Ativa' : 'Inativa'}
+                </span>
+                <span className="text-xs text-gray-400 italic">As regras específicas serão configuradas em breve.</span>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 italic">Nenhuma regra padrão configurada ainda.</p>
+            )}
+          </div>
+
+          {/* Regras Específicas */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <h2 className="font-semibold text-gray-900">Regras Específicas</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Identificadas pela combinação de Seguradora + Ramo + Forma de Pagamento. Têm prioridade sobre a regra padrão.
+                </p>
+              </div>
+              <button
+                onClick={abrirNovaRegra}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 shrink-0"
+              >
+                <Plus size={14} /> Nova Regra
+              </button>
+            </div>
+
+            {regrasEspecificas.length === 0 ? (
+              <div className="mt-4 text-center py-10 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                Nenhuma regra específica cadastrada ainda.
+              </div>
+            ) : (
+              <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      {['Nome', 'Seguradora', 'Ramo', 'Forma de Pagamento', 'Status', 'Ações'].map(h => (
+                        <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {regrasEspecificas.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2.5 font-medium text-gray-800">{r.nome}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.seguradora || <span className="text-gray-300 italic">Qualquer</span>}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.ramo || <span className="text-gray-300 italic">Qualquer</span>}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.formaPagamento || <span className="text-gray-300 italic">Qualquer</span>}</td>
+                        <td className="px-4 py-2.5">
+                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {r.ativo ? 'Ativa' : 'Inativa'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => abrirEditarRegra(r)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => setConfirmDelRegra(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Excluir">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Modal criar/editar regra */}
+          {modalRegra !== null && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                  <h2 className="font-bold text-gray-900">
+                    {formRegra.isDefault ? 'Regra Padrão' : (modalRegra === 'nova' ? 'Nova Regra Específica' : 'Editar Regra')}
+                  </h2>
+                  <button onClick={() => setModalRegra(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Nome da Regra <span className="text-red-500">*</span></label>
+                    <input
+                      value={formRegra.nome}
+                      onChange={e => setFormRegra(f => ({ ...f, nome: e.target.value }))}
+                      placeholder="Ex.: Regra Porto Seguro Automóvel Débito"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {!formRegra.isDefault && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora</label>
+                        <select
+                          value={formRegra.seguradora}
+                          onChange={e => setFormRegra(f => ({ ...f, seguradora: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">— Qualquer —</option>
+                          {[...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(s => (
+                            <option key={s.id} value={s.nome}>{s.nome}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">Deixe em branco para aplicar a qualquer seguradora.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ramo</label>
+                        <select
+                          value={formRegra.ramo}
+                          onChange={e => setFormRegra(f => ({ ...f, ramo: e.target.value }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">— Qualquer —</option>
+                          {[...ramos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(r => (
+                            <option key={r.id} value={r.nome}>{r.nome}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">Deixe em branco para aplicar a qualquer ramo.</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                        <input
+                          value={formRegra.formaPagamento}
+                          onChange={e => setFormRegra(f => ({ ...f, formaPagamento: e.target.value }))}
+                          placeholder="Ex.: Débito em Conta, Boleto, Cartão..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Deixe em branco para aplicar a qualquer forma de pagamento.</p>
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <Ck v={formRegra.ativo} label="Regra ativa" onChange={v => setFormRegra(f => ({ ...f, ativo: v }))} />
+                  </div>
+
+                  {!formRegra.isDefault && (formRegra.seguradora || formRegra.ramo || formRegra.formaPagamento) && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                      Esta regra será aplicada a parcelas com:
+                      {formRegra.seguradora && <span className="font-medium"> Seguradora = "{formRegra.seguradora}"</span>}
+                      {formRegra.ramo && <span className="font-medium"> · Ramo = "{formRegra.ramo}"</span>}
+                      {formRegra.formaPagamento && <span className="font-medium"> · Forma = "{formRegra.formaPagamento}"</span>}
+                    </div>
+                  )}
+                </div>
+                <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+                  <button onClick={() => setModalRegra(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+                  <button onClick={salvarRegra} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                    <Save size={14} /> Salvar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <ConfirmDialog
+            open={!!confirmDelRegra}
+            title="Excluir regra"
+            message="Tem certeza que deseja excluir esta regra de parcelas?"
+            danger
+            onConfirm={() => { if (confirmDelRegra) setRegrasParcelas(regrasParcelas.filter(r => r.id !== confirmDelRegra)); setConfirmDelRegra(null); }}
+            onCancel={() => setConfirmDelRegra(null)}
           />
         </div>
       )}

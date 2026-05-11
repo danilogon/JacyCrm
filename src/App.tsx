@@ -24,7 +24,7 @@ import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
-  Parcela, ImportacaoParcelas,
+  Parcela, ImportacaoParcelas, RegraParcelaNegocio,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -119,6 +119,7 @@ function AppRoutes() {
   const [configGatilhos, setConfigGatilhosState] = useState<ConfigGatilho[]>([]);
   const [parcelas,           setParcelasState]           = useState<Parcela[]>([]);
   const [importacoesParcelas, setImportacoesParcelasState] = useState<ImportacaoParcelas[]>([]);
+  const [regrasParcelas,     setRegrasParcelasState]     = useState<RegraParcelaNegocio[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -146,6 +147,7 @@ function AppRoutes() {
         setConfigGatilhosState(data.configGatilhos);
         setParcelasState(data.parcelas);
         setImportacoesParcelasState(data.importacoesParcelas);
+        setRegrasParcelasState(data.regrasParcelas);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -208,6 +210,8 @@ function AppRoutes() {
     makeSyncer(setParcelasState, db.upsertParcelas, db.deleteParcelas), []);
   const setImportacoesParcelas = useCallback(
     makeSyncer(setImportacoesParcelasState, db.upsertImportacoesParcelas, db.deleteImportacoesParcelas), []);
+  const setRegrasParcelas = useCallback(
+    makeSyncer(setRegrasParcelasState, db.upsertRegrasParcelas, db.deleteRegrasParcelas), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -471,6 +475,8 @@ function AppRoutes() {
               clientes={clientes}
               setClientes={setClientes}
               usuarios={usuarios}
+              regrasParcelas={regrasParcelas}
+              setRegrasParcelas={setRegrasParcelas}
             />
           } />
         )}
