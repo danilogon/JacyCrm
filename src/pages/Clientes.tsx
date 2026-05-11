@@ -114,6 +114,46 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   const tipoCpfCnpj = validateCpfCnpj(form.cpfCnpj).tipo ?? 'PF';
 
+  const [buscandoCpf, setBuscandoCpf] = useState(false);
+  const [cpfAutoPreenchido, setCpfAutoPreenchido] = useState(false);
+
+  /** Consulta a API de CPF e preenche nome, nascimento e sexo automaticamente */
+  async function buscarDadosCpf(cpf: string) {
+    setBuscandoCpf(true);
+    setCpfAutoPreenchido(false);
+    try {
+      const resp = await fetch(`https://api.cpf-brasil.org/cpf/${cpf}`, {
+        headers: {
+          'X-API-Key': '9ccf048d4f396fae0620a27ea3be07b28b714dc3d5b7d94f163d8bdd8ef5cd92',
+          'Content-Type': 'application/json',
+        },
+      });
+      const data = await resp.json();
+      if (data?.success && data?.data?.NOME) {
+        const d = data.data;
+        // Converte DD/MM/YYYY → YYYY-MM-DD
+        const dataNasc = (() => {
+          if (!d.NASC) return '';
+          const parts = d.NASC.split('/');
+          if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+          return '';
+        })();
+        const sexo = d.SEXO === 'Feminino' ? 'F' : d.SEXO === 'Masculino' ? 'M' : '';
+        setForm(f => ({
+          ...f,
+          nome: d.NOME || f.nome,
+          dataNascimento: dataNasc || f.dataNascimento,
+          sexo: (sexo || f.sexo) as 'M' | 'F' | '',
+        }));
+        setCpfAutoPreenchido(true);
+      }
+    } catch {
+      // Falha silenciosa — campos ficam para preenchimento manual
+    } finally {
+      setBuscandoCpf(false);
+    }
+  }
+
   const contFaltando = useMemo(() => ({
     telefone:   clientes.filter(c => !c.telefone?.trim()).length,
     email:      clientes.filter(c => !c.email?.trim()).length,
@@ -183,6 +223,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   function abrirCriacao() {
     setForm(formVazio);
     setEditando(null);
+    setCpfAutoPreenchido(false);
     setModalForm(true);
   }
 
@@ -767,15 +808,34 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">CPF/CNPJ <span className="text-red-500">*</span></label>
-                  <input
-                    value={form.cpfCnpj}
-                    onChange={e => setForm(f => ({...f, cpfCnpj: e.target.value.replace(/\D/g, '')}))}
-                    placeholder="Somente números"
-                    maxLength={14}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <div className="text-xs text-gray-400 mt-1">
-                    {form.cpfCnpj.replace(/\D/g,'').length} dígitos — {tipoCpfCnpj === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
+                  <div className="relative">
+                    <input
+                      value={form.cpfCnpj}
+                      onChange={e => {
+                        const digits = e.target.value.replace(/\D/g, '');
+                        setForm(f => ({...f, cpfCnpj: digits}));
+                        // Consulta CPF automática apenas em criação de novo cliente
+                        if (!editando && digits.length === 11) buscarDadosCpf(digits);
+                        // Limpa indicador se o CPF foi alterado
+                        if (digits !== form.cpfCnpj) setCpfAutoPreenchido(false);
+                      }}
+                      placeholder="Somente números"
+                      maxLength={14}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-8"
+                    />
+                    {buscandoCpf && (
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                        <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-xs mt-1 flex items-center gap-1.5">
+                    <span className="text-gray-400">
+                      {form.cpfCnpj.replace(/\D/g,'').length} dígitos — {tipoCpfCnpj === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}
+                    </span>
+                    {cpfAutoPreenchido && (
+                      <span className="text-green-600 font-medium">· dados preenchidos automaticamente</span>
+                    )}
                   </div>
                 </div>
                 <div>
