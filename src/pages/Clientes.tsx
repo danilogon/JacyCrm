@@ -1,11 +1,12 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell, Link2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell, Link2, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
 import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo, ImportacaoLote, Parcela } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
+import { NormalizarCidadesModal, toTitleCase } from '../components/NormalizarCidadesModal';
 import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -58,6 +59,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const [visualizando, setVisualizando] = useState<Cliente | null>(null);
   const [form, setForm] = useState<FormCliente>(formVazio);
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
+  const [modalNormalizar, setModalNormalizar] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erroCep, setErroCep] = useState('');
   const [modalVinculo, setModalVinculo] = useState<Cliente | null>(null);
@@ -479,6 +481,19 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     analise_critica: 'bg-orange-100 text-orange-700',
   };
 
+  // ── Normalizar cidades ────────────────────────────────────────────────────
+  function confirmarNormalizacao(mapa: Map<string, string>) {
+    const novosClientes = clientes.map(c => {
+      const cidadeRaw = (c.cidade ?? '').trim();
+      const cidadeNova = mapa.has(cidadeRaw) ? mapa.get(cidadeRaw)! : toTitleCase(cidadeRaw);
+      const ufNova = (c.uf ?? '').trim().toUpperCase();
+      if (cidadeNova === c.cidade && ufNova === c.uf) return c;
+      return { ...c, cidade: cidadeNova, uf: ufNova };
+    });
+    setClientes(novosClientes);
+    setModalNormalizar(false);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -496,6 +511,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                 <Upload size={14} /> Importar XLSX
                 <input type="file" accept=".xlsx" className="hidden" onChange={importarXLSX} />
               </label>
+              <button onClick={() => setModalNormalizar(true)} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                <MapPin size={14} /> Normalizar Cidades
+              </button>
             </>
           )}
           <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
@@ -1142,6 +1160,14 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
           importando={importando}
           onConfirmar={confirmarImportCli}
           onCancelar={() => setPreviewImport(null)}
+        />
+      )}
+
+      {modalNormalizar && (
+        <NormalizarCidadesModal
+          clientes={clientes}
+          onConfirmar={confirmarNormalizacao}
+          onFechar={() => setModalNormalizar(false)}
         />
       )}
     </div>
