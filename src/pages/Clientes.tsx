@@ -27,7 +27,7 @@ interface Props {
 type FormCliente = Omit<Cliente, 'id' | 'criadoEm' | 'atualizadoEm' | 'tipo'>;
 
 const formVazio: FormCliente = {
-  cpfCnpj: '', nome: '', email: '', telefone: '', dataNascimento: '',
+  cpfCnpj: '', nome: '', email: '', telefone: '', dataNascimento: '', sexo: '',
   observacaoImportante: '',
   cep: '', logradouro: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
   camposCustomizados: [],
@@ -45,6 +45,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     linhasValidas: LinhaValida[];
     linhasInvalidas: LinhaInvalida[];
     novos: Cliente[];
+    atualizados: Cliente[];
     nomeArquivo: string;
   };
   const [previewImport, setPreviewImport] = useState<PreviewImportCli | null>(null);
@@ -120,6 +121,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     setForm({
       cpfCnpj: c.cpfCnpj, nome: c.nome, email: c.email, telefone: c.telefone,
       dataNascimento: c.dataNascimento ?? '',
+      sexo: c.sexo ?? '',
       observacaoImportante: c.observacaoImportante ?? '',
       cep: c.cep, logradouro: c.logradouro,
       numero: c.numero, complemento: c.complemento, bairro: c.bairro, cidade: c.cidade, uf: c.uf,
@@ -150,6 +152,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         email: form.email,
         telefone: form.telefone,
         dataNascimento: tipo === 'PF' ? form.dataNascimento : undefined,
+        sexo: tipo === 'PF' ? (form.sexo as 'M' | 'F' | '') : undefined,
         observacaoImportante: form.observacaoImportante?.trim() || undefined,
         cep: form.cep.replace(/\D/g, ''),
         logradouro: form.logradouro,
@@ -172,6 +175,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         email: form.email,
         telefone: form.telefone,
         dataNascimento: tipo === 'PF' ? form.dataNascimento : undefined,
+        sexo: tipo === 'PF' ? (form.sexo as 'M' | 'F' | '') : undefined,
         observacaoImportante: form.observacaoImportante?.trim() || undefined,
         cep: form.cep.replace(/\D/g, ''),
         logradouro: form.logradouro,
@@ -262,9 +266,10 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   // ── XLSX helpers ─────────────────────────────────────────────────────────────
 
   function exportarXLSX() {
-    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
+    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Sexo','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
     const rows = clientes.map(c => [
       c.cpfCnpj, c.nome, c.email, c.telefone,
+      c.tipo === 'PF' ? (c.sexo ?? '') : '',
       c.dataNascimento ?? '', c.cep, c.logradouro, c.numero,
       c.complemento, c.bairro, c.cidade, c.uf,
       c.observacaoImportante ?? '',
@@ -276,9 +281,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   }
 
   function baixarModeloXLSX() {
-    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
-    const ex1 = ['12345678901','João da Silva','joao@email.com','11999990000','1985-03-20','01310100','Av. Paulista','1000','Apto 42','Bela Vista','São Paulo','SP','Cliente prefere WhatsApp'];
-    const ex2 = ['12345678000195','Empresa ABC Ltda','contato@abc.com.br','1133330000','','04571010','Rua das Flores','200','','Itaim Bibi','São Paulo','SP',''];
+    const headers = ['CPF_CNPJ','Nome','Email','Telefone','Sexo','Data_Nascimento','CEP','Logradouro','Numero','Complemento','Bairro','Cidade','UF','Observacao_Importante'];
+    const ex1 = ['12345678901','João da Silva','joao@email.com','11999990000','M','1985-03-20','01310100','Av. Paulista','1000','Apto 42','Bela Vista','São Paulo','SP','Cliente prefere WhatsApp'];
+    const ex2 = ['12345678000195','Empresa ABC Ltda','contato@abc.com.br','1133330000','','','04571010','Rua das Flores','200','','Itaim Bibi','São Paulo','SP',''];
     const ws = XLSX.utils.aoa_to_sheet([headers, ex1, ex2]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Dados');
@@ -308,15 +313,16 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     const allRows = await lerXLSX(file);
     if (allRows.length < 2) { alert('Arquivo XLSX vazio ou sem dados.'); return; }
 
-    const cpfsExistentes = new Set(clientes.map(c => c.cpfCnpj));
+    const clientesPorCpf = new Map(clientes.map(c => [c.cpfCnpj, c]));
+    const cpfsEmProcessamento = new Set(clientes.map(c => c.cpfCnpj));
     const novos: Cliente[] = [];
+    const atualizados: Cliente[] = [];
     const linhasValidas: LinhaValida[] = [];
-    const duplicados: string[] = [];
     const rejeitados: { linha: number; motivo: string }[] = [];
 
     allRows.slice(1).forEach((cols, idx) => {
       const lineNum = idx + 2;
-      const [cpfCnpjRaw, nome, email, telefone, dataNascimento, cep, logradouro, numero, complemento, bairro, cidade, uf, observacaoImportante] = cols.map(c => String(c ?? ''));
+      const [cpfCnpjRaw, nome, emailRaw, telefoneRaw, sexoRaw, dataNascimentoRaw, cepRaw, logradouroRaw, numeroRaw, complementoRaw, bairroRaw, cidadeRaw, ufRaw, obsRaw] = cols.map(c => String(c ?? '').trim());
 
       const cpfDigits = (cpfCnpjRaw ?? '').replace(/\D/g, '');
       const nomeClean = (nome ?? '').trim();
@@ -327,25 +333,69 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       const { tipo } = validateCpfCnpj(cpfDigits);
       if (!tipo) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF/CNPJ inválido (${cpfDigits.length} dígitos)` }); return; }
 
-      if (cpfsExistentes.has(cpfDigits)) { duplicados.push(nomeClean); return; }
+      const existente = clientesPorCpf.get(cpfDigits);
 
-      cpfsExistentes.add(cpfDigits);
+      if (existente) {
+        // Verifica se há campos vazios no sistema que a planilha preenche
+        const sexoNorm = tipo === 'PF' && (sexoRaw.toUpperCase() === 'M' || sexoRaw.toUpperCase() === 'F')
+          ? sexoRaw.toUpperCase() as 'M' | 'F' : undefined;
+        const dataNasc = tipo === 'PF' && dataNascimentoRaw
+          ? (parseImportDate(dataNascimentoRaw) || dataNascimentoRaw) : undefined;
+
+        const camposNovos: Partial<Cliente> = {};
+        if (emailRaw       && !existente.email?.trim())             camposNovos.email = emailRaw;
+        if (telefoneRaw    && !existente.telefone?.trim())          camposNovos.telefone = telefoneRaw;
+        if (sexoNorm       && !existente.sexo)                      camposNovos.sexo = sexoNorm;
+        if (dataNasc       && !existente.dataNascimento?.trim())    camposNovos.dataNascimento = dataNasc;
+        if (obsRaw         && !existente.observacaoImportante?.trim()) camposNovos.observacaoImportante = obsRaw;
+        if (cepRaw.replace(/\D/g,'') && !existente.cep?.trim())    camposNovos.cep = cepRaw.replace(/\D/g,'');
+        if (logradouroRaw  && !existente.logradouro?.trim())        camposNovos.logradouro = logradouroRaw;
+        if (numeroRaw      && !existente.numero?.trim())            camposNovos.numero = numeroRaw;
+        if (complementoRaw && !existente.complemento?.trim())       camposNovos.complemento = complementoRaw;
+        if (bairroRaw      && !existente.bairro?.trim())            camposNovos.bairro = bairroRaw;
+        if (cidadeRaw      && !existente.cidade?.trim())            camposNovos.cidade = cidadeRaw;
+        if (ufRaw          && !existente.uf?.trim())                camposNovos.uf = ufRaw.toUpperCase().slice(0, 2);
+
+        if (Object.keys(camposNovos).length === 0) {
+          rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — já cadastrado (sem dados novos)` });
+          return;
+        }
+
+        const atualizado: Cliente = { ...existente, ...camposNovos, atualizadoEm: new Date().toISOString() };
+        atualizados.push(atualizado);
+        linhasValidas.push({
+          linha: lineNum,
+          nome: nomeClean,
+          detalhe: `${Object.keys(camposNovos).join(', ')} complementado(s)`,
+          atualizado: true,
+        });
+        return;
+      }
+
+      // Cliente novo
+      if (cpfsEmProcessamento.has(cpfDigits)) { rejeitados.push({ linha: lineNum, motivo: `${nomeClean} — CPF duplicado na planilha` }); return; }
+      cpfsEmProcessamento.add(cpfDigits);
+
+      const sexoNorm2 = tipo === 'PF' && (sexoRaw.toUpperCase() === 'M' || sexoRaw.toUpperCase() === 'F')
+        ? sexoRaw.toUpperCase() as 'M' | 'F' : undefined;
+
       const novoCliente: Cliente = {
         id: generateId(),
         cpfCnpj: cpfDigits,
         tipo,
         nome: nomeClean,
-        email: (email ?? '').trim(),
-        telefone: (telefone ?? '').trim(),
-        dataNascimento: tipo === 'PF' && dataNascimento?.trim() ? (parseImportDate(dataNascimento) || dataNascimento.trim()) : undefined,
-        observacaoImportante: (observacaoImportante ?? '').trim() || undefined,
-        cep: (cep ?? '').replace(/\D/g, ''),
-        logradouro: (logradouro ?? '').trim(),
-        numero: (numero ?? '').trim(),
-        complemento: (complemento ?? '').trim(),
-        bairro: (bairro ?? '').trim(),
-        cidade: (cidade ?? '').trim(),
-        uf: (uf ?? '').trim().toUpperCase().slice(0, 2),
+        email: emailRaw,
+        telefone: telefoneRaw,
+        sexo: sexoNorm2,
+        dataNascimento: tipo === 'PF' && dataNascimentoRaw ? (parseImportDate(dataNascimentoRaw) || dataNascimentoRaw) : undefined,
+        observacaoImportante: obsRaw || undefined,
+        cep: cepRaw.replace(/\D/g, ''),
+        logradouro: logradouroRaw,
+        numero: numeroRaw,
+        complemento: complementoRaw,
+        bairro: bairroRaw,
+        cidade: cidadeRaw,
+        uf: ufRaw.toUpperCase().slice(0, 2),
         criadoEm: new Date().toISOString(),
         atualizadoEm: new Date().toISOString(),
       };
@@ -354,28 +404,21 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         linha: lineNum,
         nome: nomeClean,
         detalhe: `CPF ${cpfDigits}`,
-        clienteNovo: false,
+        clienteNovo: true,
       });
     });
 
-    // Duplicates and rejections become invalid lines
-    const linhasInvalidas: LinhaInvalida[] = [
-      ...duplicados.map(nome => ({
-        linha: 0,
-        nome,
-        motivo: 'CPF/CNPJ já cadastrado',
-      })),
-      ...rejeitados.map(r => ({
-        linha: r.linha,
-        nome: '',
-        motivo: r.motivo,
-      })),
-    ];
+    const linhasInvalidas: LinhaInvalida[] = rejeitados.map(r => ({
+      linha: r.linha,
+      nome: '',
+      motivo: r.motivo,
+    }));
 
     setPreviewImport({
       linhasValidas,
       linhasInvalidas,
       novos,
+      atualizados,
       nomeArquivo: file.name,
     });
   }
@@ -384,8 +427,10 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     if (!previewImport) return;
     setImportando(true);
     try {
-      const novos = previewImport.novos;
-      if (novos.length > 0) setClientes([...clientes, ...novos]);
+      const { novos, atualizados } = previewImport;
+      const idsAtualizados = new Map(atualizados.map(c => [c.id, c]));
+      const listaAtualizada = clientes.map(c => idsAtualizados.get(c.id) ?? c);
+      if (novos.length > 0 || atualizados.length > 0) setClientes([...listaAtualizada, ...novos]);
 
       const lote: ImportacaoLote = {
         id: generateId(),
@@ -608,6 +653,17 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                     <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento</label>
                     <DateInput value={form.dataNascimento} onChange={e => setForm(f => ({...f, dataNascimento: e.target.value}))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                )}
+                {tipoCpfCnpj === 'PF' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Sexo</label>
+                    <select value={form.sexo ?? ''} onChange={e => setForm(f => ({...f, sexo: e.target.value as 'M' | 'F' | ''}))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">Não informado</option>
+                      <option value="M">Masculino</option>
+                      <option value="F">Feminino</option>
+                    </select>
                   </div>
                 )}
               </div>
@@ -886,8 +942,13 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><div className="text-xs text-gray-400">Email</div><div className="text-gray-700">{visualizando.email || '—'}</div></div>
                 <div><div className="text-xs text-gray-400">Telefone</div><div className="text-gray-700">{visualizando.telefone || '—'}</div></div>
-                {visualizando.dataNascimento && <div><div className="text-xs text-gray-400">Nascimento</div><div className="text-gray-700">{formatDate(visualizando.dataNascimento)}</div></div>}
-                <div><div className="text-xs text-gray-400">Endereço</div><div className="text-gray-700">{visualizando.logradouro}, {visualizando.numero} {visualizando.complemento} — {visualizando.bairro}, {visualizando.cidade}/{visualizando.uf}</div></div>
+                {visualizando.tipo === 'PF' && (
+                  <div><div className="text-xs text-gray-400">Nascimento</div><div className="text-gray-700">{visualizando.dataNascimento ? formatDate(visualizando.dataNascimento) : '—'}</div></div>
+                )}
+                {visualizando.tipo === 'PF' && (
+                  <div><div className="text-xs text-gray-400">Sexo</div><div className="text-gray-700">{visualizando.sexo === 'M' ? 'Masculino' : visualizando.sexo === 'F' ? 'Feminino' : '—'}</div></div>
+                )}
+                <div className="col-span-2"><div className="text-xs text-gray-400">Endereço</div><div className="text-gray-700">{visualizando.logradouro}, {visualizando.numero} {visualizando.complemento} — {visualizando.bairro}, {visualizando.cidade}/{visualizando.uf}</div></div>
               </div>
 
               {clienteRenovacoes.length > 0 && (

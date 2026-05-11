@@ -1,10 +1,11 @@
-import { X, CheckCircle2, XCircle, UserPlus, AlertTriangle } from 'lucide-react';
+import { X, CheckCircle2, XCircle, UserPlus, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export interface LinhaValida {
   linha: number;
   nome: string;
   detalhe?: string;
   clienteNovo?: boolean;
+  atualizado?: boolean;
 }
 
 export interface LinhaInvalida {
@@ -36,6 +37,7 @@ export function ImportPreviewModal({
   onCancelar,
 }: ImportPreviewModalProps) {
   const clientesNovos = linhasValidas.filter(l => l.clienteNovo).length;
+  const clientesAtualizados = linhasValidas.filter(l => l.atualizado).length;
   const preview = linhasValidas.slice(0, 5);
   const restante = linhasValidas.length - preview.length;
 
@@ -58,10 +60,10 @@ export function ImportPreviewModal({
 
         <div className="p-5 space-y-5">
           {/* Summary cards */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
               <div className="text-2xl font-bold text-green-700">{linhasValidas.length}</div>
-              <div className="text-xs text-green-600 mt-0.5">registros válidos</div>
+              <div className="text-xs text-green-600 mt-0.5">válidos</div>
             </div>
             <div className={`border rounded-lg p-3 text-center ${linhasInvalidas.length > 0 ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
               <div className={`text-2xl font-bold ${linhasInvalidas.length > 0 ? 'text-red-700' : 'text-gray-400'}`}>{linhasInvalidas.length}</div>
@@ -69,7 +71,11 @@ export function ImportPreviewModal({
             </div>
             <div className={`border rounded-lg p-3 text-center ${clientesNovos > 0 ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
               <div className={`text-2xl font-bold ${clientesNovos > 0 ? 'text-blue-700' : 'text-gray-400'}`}>{clientesNovos}</div>
-              <div className={`text-xs mt-0.5 ${clientesNovos > 0 ? 'text-blue-600' : 'text-gray-400'}`}>clientes novos</div>
+              <div className={`text-xs mt-0.5 ${clientesNovos > 0 ? 'text-blue-600' : 'text-gray-400'}`}>novos</div>
+            </div>
+            <div className={`border rounded-lg p-3 text-center ${clientesAtualizados > 0 ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+              <div className={`text-2xl font-bold ${clientesAtualizados > 0 ? 'text-amber-700' : 'text-gray-400'}`}>{clientesAtualizados}</div>
+              <div className={`text-xs mt-0.5 ${clientesAtualizados > 0 ? 'text-amber-600' : 'text-gray-400'}`}>atualizados</div>
             </div>
           </div>
 
@@ -120,6 +126,11 @@ export function ImportPreviewModal({
                     {l.clienteNovo && (
                       <span className="ml-auto flex items-center gap-1 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
                         <UserPlus size={11} /> novo
+                      </span>
+                    )}
+                    {l.atualizado && (
+                      <span className="ml-auto flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">
+                        <RefreshCw size={11} /> atualizado
                       </span>
                     )}
                   </div>

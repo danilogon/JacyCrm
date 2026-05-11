@@ -222,6 +222,7 @@ export interface Cliente {
   email: string;
   telefone: string;
   dataNascimento?: string;
+  sexo?: 'M' | 'F' | '';
   observacaoImportante?: string;
   cep: string;
   logradouro: string;

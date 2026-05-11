@@ -117,6 +117,7 @@ CREATE TABLE IF NOT EXISTS clientes (
   email TEXT DEFAULT '',
   telefone TEXT DEFAULT '',
   data_nascimento TEXT,
+  sexo TEXT DEFAULT '',
   observacao_importante TEXT,
   cep TEXT DEFAULT '',
   logradouro TEXT DEFAULT '',
