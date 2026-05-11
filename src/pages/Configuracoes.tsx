@@ -255,6 +255,8 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
 
   const [confirmUndo, setConfirmUndo] = useState<ImportacaoLote | null>(null);
   const [auditoriaLote, setAuditoriaLote] = useState<ImportacaoLote | null>(null);
+  const [confirmDelP, setConfirmDelP] = useState<ImportacaoParcelas | null>(null);
+  const [auditoriaP, setAuditoriaP] = useState<ImportacaoParcelas | null>(null);
 
   // Regras de Parcelas state
   const regraVazia: Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'> = {
@@ -1854,8 +1856,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
               const sortedP = [...importacoesParcelas].sort(
                 (a, b) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime()
               );
-              const [confirmDelP, setConfirmDelP] = useState<ImportacaoParcelas | null>(null);
-              const [auditoriaP, setAuditoriaP] = useState<ImportacaoParcelas | null>(null);
               return (
                 <>
                   <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
