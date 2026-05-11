@@ -13,6 +13,50 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DateInput } from '../components/DateInput';
 import { Tooltip } from '../components/Tooltip';
 
+// ─── Estados brasileiros ─────────────────────────────────────────────────────
+const ESTADOS_BR = [
+  { uf: 'AC', nome: 'Acre' },
+  { uf: 'AL', nome: 'Alagoas' },
+  { uf: 'AP', nome: 'Amapá' },
+  { uf: 'AM', nome: 'Amazonas' },
+  { uf: 'BA', nome: 'Bahia' },
+  { uf: 'CE', nome: 'Ceará' },
+  { uf: 'DF', nome: 'Distrito Federal' },
+  { uf: 'ES', nome: 'Espírito Santo' },
+  { uf: 'GO', nome: 'Goiás' },
+  { uf: 'MA', nome: 'Maranhão' },
+  { uf: 'MT', nome: 'Mato Grosso' },
+  { uf: 'MS', nome: 'Mato Grosso do Sul' },
+  { uf: 'MG', nome: 'Minas Gerais' },
+  { uf: 'PA', nome: 'Pará' },
+  { uf: 'PB', nome: 'Paraíba' },
+  { uf: 'PR', nome: 'Paraná' },
+  { uf: 'PE', nome: 'Pernambuco' },
+  { uf: 'PI', nome: 'Piauí' },
+  { uf: 'RJ', nome: 'Rio de Janeiro' },
+  { uf: 'RN', nome: 'Rio Grande do Norte' },
+  { uf: 'RS', nome: 'Rio Grande do Sul' },
+  { uf: 'RO', nome: 'Rondônia' },
+  { uf: 'RR', nome: 'Roraima' },
+  { uf: 'SC', nome: 'Santa Catarina' },
+  { uf: 'SP', nome: 'São Paulo' },
+  { uf: 'SE', nome: 'Sergipe' },
+  { uf: 'TO', nome: 'Tocantins' },
+];
+
+/** Cache em memória de municípios por UF (persiste enquanto a aba estiver aberta) */
+const CIDADES_CACHE: Record<string, string[]> = {};
+
+/** Normalização para comparação de nomes de cidades (sem acento, sem apóstrofes, lowercase) */
+function normCidade(s: string): string {
+  return s.trim().toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/['''`´]/g, '').replace(/[-–—]/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// ─── Props ───────────────────────────────────────────────────────────────────
+
 interface Props {
   clientes: Cliente[];
   setClientes: (c: Cliente[]) => void;
@@ -60,6 +104,10 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const [form, setForm] = useState<FormCliente>(formVazio);
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
   const [modalNormalizar, setModalNormalizar] = useState(false);
+
+  // Seletor de cidades por estado
+  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<string[]>([]);
+  const [carregandoCidades, setCarregandoCidades] = useState(false);
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erroCep, setErroCep] = useState('');
   const [modalVinculo, setModalVinculo] = useState<Cliente | null>(null);
@@ -90,6 +138,33 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [clientes, busca, filtroFaltando]);
 
+  /** Carrega municípios do IBGE para a UF dada e auto-corrige o nome da cidade atual */
+  async function carregarCidades(uf: string, cidadeAtual?: string) {
+    if (!uf) { setCidadesDisponiveis([]); return; }
+    if (!CIDADES_CACHE[uf]) {
+      setCarregandoCidades(true);
+      try {
+        const resp = await fetch(
+          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`
+        );
+        const data = await resp.json();
+        CIDADES_CACHE[uf] = (data as { nome: string }[]).map(c => c.nome);
+      } catch {
+        CIDADES_CACHE[uf] = [];
+      } finally {
+        setCarregandoCidades(false);
+      }
+    }
+    const lista = CIDADES_CACHE[uf] ?? [];
+    setCidadesDisponiveis(lista);
+    // Auto-corrige nome da cidade se houver correspondência normalizada mas não exata
+    if (cidadeAtual && lista.length > 0 && !lista.includes(cidadeAtual)) {
+      const normAtual = normCidade(cidadeAtual);
+      const match = lista.find(c => normCidade(c) === normAtual);
+      if (match) setForm(f => ({ ...f, cidade: match }));
+    }
+  }
+
   async function buscarCep(cep: string) {
     const digits = cep.replace(/\D/g, '');
     if (digits.length !== 8) return;
@@ -99,13 +174,17 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       const resp = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
       const data = await resp.json();
       if (data.erro) { setErroCep('CEP não encontrado.'); return; }
+      const uf: string = data.uf ?? '';
+      const cidade: string = data.localidade ?? '';
       setForm(f => ({
         ...f,
         logradouro: data.logradouro ?? f.logradouro,
         bairro: data.bairro ?? f.bairro,
-        cidade: data.localidade ?? f.cidade,
-        uf: data.uf ?? f.uf,
+        cidade,
+        uf,
       }));
+      // Carrega cidades do estado e auto-corrige o nome retornado pelo ViaCEP
+      if (uf) carregarCidades(uf, cidade);
     } catch {
       setErroCep('Erro ao buscar CEP.');
     } finally {
@@ -115,6 +194,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   function abrirCriacao() {
     setForm(formVazio);
+    setCidadesDisponiveis([]);
     setEditando(null);
     setModalForm(true);
   }
@@ -131,6 +211,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     });
     setEditando(c);
     setModalForm(true);
+    // Pré-carrega lista de cidades para o estado do cliente
+    if (c.uf) carregarCidades(c.uf, c.cidade);
   }
 
   function salvar() {
@@ -746,15 +828,51 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
-                    <input value={form.cidade} onChange={e => setForm(f => ({...f, cidade: e.target.value}))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Estado (UF)</label>
+                    <select
+                      value={form.uf}
+                      onChange={e => {
+                        const uf = e.target.value;
+                        setForm(f => ({ ...f, uf, cidade: '' }));
+                        carregarCidades(uf);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                    >
+                      <option value="">Selecione o estado</option>
+                      {ESTADOS_BR.map(e => (
+                        <option key={e.uf} value={e.uf}>{e.uf} — {e.nome}</option>
+                      ))}
+                    </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">UF</label>
-                    <input value={form.uf} onChange={e => setForm(f => ({...f, uf: e.target.value.toUpperCase().slice(0,2)}))}
-                      maxLength={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <div className="col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cidade
+                      {carregandoCidades && <span className="ml-2 text-xs text-blue-500 font-normal">Carregando cidades...</span>}
+                    </label>
+                    {cidadesDisponiveis.length > 0 ? (
+                      <select
+                        value={form.cidade}
+                        onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      >
+                        <option value="">Selecione a cidade</option>
+                        {/* Mantém o valor atual como opção se não estiver na lista (ex: importado antes da padronização) */}
+                        {form.cidade && !cidadesDisponiveis.includes(form.cidade) && (
+                          <option value={form.cidade}>{form.cidade}</option>
+                        )}
+                        {cidadesDisponiveis.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={form.cidade}
+                        onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))}
+                        placeholder={form.uf ? (carregandoCidades ? 'Carregando...' : 'Selecione o estado primeiro') : 'Selecione o estado primeiro'}
+                        disabled={!!form.uf && carregandoCidades}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                      />
+                    )}
                   </div>
                 </div>
               </div>
