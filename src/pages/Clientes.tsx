@@ -345,7 +345,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         const camposNovos: Partial<Cliente> = {};
         if (emailRaw       && !existente.email?.trim())             camposNovos.email = emailRaw;
         if (telefoneRaw    && !existente.telefone?.trim())          camposNovos.telefone = telefoneRaw;
-        if (sexoNorm       && !existente.sexo)                      camposNovos.sexo = sexoNorm;
+        if (sexoNorm       && existente.sexo !== 'M' && existente.sexo !== 'F') camposNovos.sexo = sexoNorm;
         if (dataNasc       && !existente.dataNascimento?.trim())    camposNovos.dataNascimento = dataNasc;
         if (obsRaw         && !existente.observacaoImportante?.trim()) camposNovos.observacaoImportante = obsRaw;
         if (cepRaw.replace(/\D/g,'') && !existente.cep?.trim())    camposNovos.cep = cepRaw.replace(/\D/g,'');
