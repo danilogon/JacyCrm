@@ -4,27 +4,30 @@
  * Fase 1 — Normalizações automáticas (sem divergência semântica):
  *   Agrupa nomes que, após remoção de acentos / apóstrofes / variação de caixa,
  *   ficam idênticos. Ex: "AMERICANA" = "Americana" = "americana".
+ *   Sugere o nome canônico do IBGE quando há correspondência exata normalizada.
  *
  * Fase 2 — Possíveis duplicatas (requer revisão):
- *   Detecta pares de nomes normalizados com Levenshtein ≤ 3 (ou ≤ 20% do maior),
- *   que provavelmente representam o mesmo município.
+ *   Detecta pares de nomes normalizados com Levenshtein ≤ 3 (ou ≤ 20% do maior).
  *   Ex: "santa barbara do oeste" ≈ "santa barbara doeste".
+ *   Sugere o nome IBGE para cada opção quando encontrado.
  *
- * Normalização do nome canônico:
- *   Title Case com conectores minúsculos: de do da das dos e em a o.
- *   UF: uppercase, trim.
+ * Lógica de sugestão do nome canônico:
+ *   1. Busca no IBGE pelo normKey exato (match sem acento/case/pontuação).
+ *   2. Se o cliente tiver UF preenchida, prefere a cidade daquele estado.
+ *   3. Se não houver match IBGE exato, usa Title Case do nome mais frequente.
  */
 
 import { useState, useMemo } from 'react';
 import { X, MapPin, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { Cliente } from '../types';
+import { MUNICIPIOS_BR } from '../data/municipiosBrasil';
 
 // ─── Utilitários ─────────────────────────────────────────────────────────────
 
 const CONECTORES = new Set(['de', 'do', 'da', 'das', 'dos', 'e', 'em', 'a', 'o', 'na', 'no', 'nas', 'nos']);
 
 /** Converte para Title Case preservando conectores em minúsculas */
-function toTitleCase(str: string): string {
+export function toTitleCase(str: string): string {
   return str
     .trim()
     .toLowerCase()
@@ -39,16 +42,16 @@ function toTitleCase(str: string): string {
 }
 
 /** Chave de normalização: sem acentos, apóstrofes, hifens; lowercase; espaços colapsados */
-function normKey(str: string): string {
+export function normKey(str: string): string {
   return str
     .trim()
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')  // remove diacríticos
-    .replace(/['''`´""]/g, '')         // apóstrofes
-    .replace(/[-–—]/g, ' ')            // hifens → espaço
-    .replace(/\./g, '')                // pontos
-    .replace(/\s+/g, ' ')             // colapsa espaços
+    .replace(/[̀-ͯ]/g, '')         // remove diacríticos
+    .replace(/['''`´""]/g, '')      // apóstrofes e aspas
+    .replace(/[-–—]/g, ' ')         // hifens → espaço
+    .replace(/\./g, '')             // pontos
+    .replace(/\s+/g, ' ')           // colapsa espaços
     .trim();
 }
 
@@ -71,21 +74,51 @@ function levenshtein(a: string, b: string): number {
   return curr[b.length];
 }
 
+// ─── Índice IBGE ─────────────────────────────────────────────────────────────
+// Construído uma vez no nível do módulo → lookup O(1) por normKey.
+
+const IBGE_BY_NORM = new Map<string, { nome: string; uf: string }[]>();
+for (const [uf, cidades] of Object.entries(MUNICIPIOS_BR)) {
+  for (const nome of cidades) {
+    const k = normKey(nome);
+    if (!IBGE_BY_NORM.has(k)) IBGE_BY_NORM.set(k, []);
+    IBGE_BY_NORM.get(k)!.push({ nome, uf });
+  }
+}
+
+/**
+ * Retorna o nome canônico do IBGE para um dado nome de cidade.
+ * Prefere o município do estado informado quando há homônimos.
+ * Retorna null se não houver correspondência exata normalizada.
+ */
+function ibgeCanonical(name: string, preferredUf?: string): string | null {
+  if (!name.trim()) return null;
+  const k = normKey(name);
+  const matches = IBGE_BY_NORM.get(k);
+  if (!matches?.length) return null;
+  if (preferredUf) {
+    const inUf = matches.find(m => m.uf === preferredUf);
+    if (inUf) return inUf.nome;
+  }
+  return matches[0].nome; // primeiro estado alfabético como fallback
+}
+
 // ─── Tipos ───────────────────────────────────────────────────────────────────
 
 interface GrupoExato {
   key: string;
   variantes: string[];   // nomes originais distintos
-  canonico: string;      // nome proposto
-  total: number;         // total de clientes afetados
+  canonico: string;      // nome proposto (editável)
+  ibgeSugestao: string | null; // nome exato do IBGE (se encontrado)
+  total: number;
 }
 
 interface GrupoProximo {
   id: string;
   nomes: string[];       // nomes canônicos dos subgrupos (após fase 1)
-  canonico: string;      // nome proposto
+  canonico: string;      // nome proposto (editável)
+  ibgeSugestao: string | null;
   total: number;
-  expandido?: boolean;
   ignorado?: boolean;
 }
 
@@ -98,6 +131,27 @@ interface Props {
 // ─── Componente ──────────────────────────────────────────────────────────────
 
 export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Props) {
+
+  // ── Pré-computa UF mais comum por normKey ────────────────────────────────
+  const ufPorKey = useMemo(() => {
+    const map = new Map<string, Map<string, number>>();
+    for (const c of clientes) {
+      const raw = (c.cidade ?? '').trim();
+      const uf  = (c.uf ?? '').trim().toUpperCase();
+      if (!raw || !uf) continue;
+      const k = normKey(raw);
+      if (!map.has(k)) map.set(k, new Map());
+      map.get(k)!.set(uf, (map.get(k)!.get(uf) ?? 0) + 1);
+    }
+    // Retorna só a UF mais frequente por key
+    const result = new Map<string, string>();
+    map.forEach((ufMap, k) => {
+      const top = [...ufMap.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (top) result.set(k, top[0]);
+    });
+    return result;
+  }, [clientes]);
+
   // ── Fase 1: grupos exatos ────────────────────────────────────────────────
   const gruposExatos = useMemo<GrupoExato[]>(() => {
     const map = new Map<string, Map<string, number>>(); // key → (nome original → count)
@@ -111,45 +165,47 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     const grupos: GrupoExato[] = [];
     map.forEach((variantes, key) => {
       if (variantes.size < 2) return; // só mostra se tem variação
-      // Escolhe como canônico o Title Case do nome mais frequente
       const maisFrequente = [...variantes.entries()].sort((a, b) => b[1] - a[1])[0][0];
+      const prefUf = ufPorKey.get(key);
+      const ibge   = ibgeCanonical(maisFrequente, prefUf);
       grupos.push({
         key,
         variantes: [...variantes.keys()],
-        canonico: toTitleCase(maisFrequente),
+        canonico: ibge ?? toTitleCase(maisFrequente),
+        ibgeSugestao: ibge,
         total: [...variantes.values()].reduce((a, b) => a + b, 0),
       });
     });
     return grupos.sort((a, b) => b.total - a.total);
-  }, [clientes]);
+  }, [clientes, ufPorKey]);
 
-  // ── Mapa fase 1: nome original → canônico após fase 1 ───────────────────
+  // ── Mapa fase 1: nome original → canônico ───────────────────────────────
   const mapaFase1 = useMemo(() => {
-    const m = new Map<string, string>();
-    // Para todos os clientes, mesmo sem variação, propõe Title Case
-    const map2 = new Map<string, string>(); // key → canonical
+    const map2 = new Map<string, string>(); // normKey → canonical
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
       const k = normKey(raw);
-      if (!map2.has(k)) map2.set(k, toTitleCase(raw));
+      if (!map2.has(k)) {
+        const prefUf = ufPorKey.get(k);
+        map2.set(k, ibgeCanonical(raw, prefUf) ?? toTitleCase(raw));
+      }
     }
-    // Sobrescreve com o escolhido nos grupos exatos (pode ser editado pelo usuário)
+    // Sobrescreve com escolhas dos grupos exatos (editáveis pelo usuário)
     for (const g of gruposExatos) map2.set(g.key, g.canonico);
 
+    const m = new Map<string, string>();
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
-      const k = normKey(raw);
-      m.set(raw, map2.get(k) ?? toTitleCase(raw));
+      m.set(raw, map2.get(normKey(raw)) ?? toTitleCase(raw));
     }
     return m;
-  }, [clientes, gruposExatos]);
+  }, [clientes, gruposExatos, ufPorKey]);
 
   // ── Fase 2: pares próximos ──────────────────────────────────────────────
   const gruposProximos = useMemo<GrupoProximo[]>(() => {
-    // Junta todos os nomes canônicos únicos após fase 1
-    const canonicos = new Map<string, number>(); // canônico → count de clientes
+    const canonicos = new Map<string, number>(); // canônico → count
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
@@ -177,29 +233,41 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
       if (grupo.length > 1) {
         grupo.forEach(n => visitados.add(n));
-        // Canônico: o de maior contagem de clientes
-        const maisFrequente = grupo.sort(
+        // Tenta encontrar nome IBGE para cada variante do grupo
+        const ibgeMatches = grupo
+          .map(nome => {
+            const k = normKey(nome);
+            const prefUf = ufPorKey.get(k);
+            return ibgeCanonical(nome, prefUf);
+          })
+          .filter((v): v is string => v !== null);
+
+        // Canônico: match IBGE (se único e consensual) ou mais frequente
+        const ibgeUnico = ibgeMatches.length > 0 && new Set(ibgeMatches).size === 1
+          ? ibgeMatches[0]
+          : null;
+
+        const maisFrequente = [...grupo].sort(
           (x, y) => (canonicos.get(y) ?? 0) - (canonicos.get(x) ?? 0)
         )[0];
         const total = grupo.reduce((s, n) => s + (canonicos.get(n) ?? 0), 0);
+
         grupos.push({
           id: grupo.join('|'),
           nomes: grupo,
-          canonico: maisFrequente,
+          canonico: ibgeUnico ?? maisFrequente,
+          ibgeSugestao: ibgeUnico,
           total,
         });
       }
     }
     return grupos.sort((a, b) => b.total - a.total);
-  }, [clientes, mapaFase1]);
+  }, [clientes, mapaFase1, ufPorKey]);
 
   // ── Estado editável ──────────────────────────────────────────────────────
-  const [exatos, setExatos] = useState<GrupoExato[]>(() => gruposExatos);
+  const [exatos, setExatos]     = useState<GrupoExato[]>(() => gruposExatos);
   const [proximos, setProximos] = useState<GrupoProximo[]>(() => gruposProximos);
   const [salvando, setSalvando] = useState(false);
-
-  // recalcula quando as props de gruposExatos mudam (uma vez)
-  // (useMemo roda na montagem; estados inicializados corretamente acima)
 
   const totalAfetadosExatos   = exatos.reduce((s, g) => s + g.total, 0);
   const totalAfetadosProximos = proximos.filter(g => !g.ignorado).reduce((s, g) => s + g.total, 0);
@@ -209,8 +277,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     setSalvando(true);
     const mapa = new Map<string, string>();
 
-    // Fase 1: substitui todos os nomes (mesmo os sem variação → Title Case)
-    // Usamos o mapaFase1, mas sobrescrevemos com o que o usuário editou
+    // Fase 1 editada → canônico por variante
     const mapaEditado = new Map<string, string>();
     for (const g of exatos) {
       for (const v of g.variantes) mapaEditado.set(v, g.canonico);
@@ -219,19 +286,19 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
-      // Fase 1 editada
+      const k = normKey(raw);
+      const prefUf = ufPorKey.get(k);
       const pos1 = mapaEditado.has(raw)
         ? mapaEditado.get(raw)!
-        : toTitleCase(raw);
+        : (ibgeCanonical(raw, prefUf) ?? toTitleCase(raw));
       mapa.set(raw, pos1);
     }
 
-    // Fase 2: substitui para grupos próximos não ignorados
+    // Fase 2 → substitui nomes canônicos pelos do grupo escolhido
     for (const g of proximos) {
       if (g.ignorado) continue;
       for (const nome of g.nomes) {
         if (nome !== g.canonico) {
-          // Todos os raws que apontavam para esse nome canônico agora apontam para o novo
           for (const [raw, can] of mapa.entries()) {
             if (can === nome) mapa.set(raw, g.canonico);
           }
@@ -242,6 +309,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     onConfirmar(mapa);
   }
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
@@ -289,36 +357,42 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
               </h3>
             </div>
 
-            {exatos.length === 0 && (
+            {exatos.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
                 Nenhuma variação de caixa ou acento encontrada.
               </p>
-            )}
-
-            <div className="space-y-2">
-              {exatos.map((g, idx) => (
-                <div key={g.key} className="border border-amber-200 bg-amber-50 rounded-lg p-3">
-                  <div className="flex items-start gap-2 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-gray-500 mb-1">
-                        Variantes: {g.variantes.map(v => (
-                          <span key={v} className="inline-block bg-white border border-gray-200 rounded px-1 py-0.5 text-xs font-mono mr-1">{v}</span>
-                        ))}
-                        <span className="text-gray-400">({g.total} cliente{g.total !== 1 ? 's' : ''})</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500 shrink-0">→ unificar em:</span>
-                        <input
-                          value={g.canonico}
-                          onChange={e => setExatos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value } : x))}
-                          className="flex-1 px-2 py-1 border border-amber-300 rounded text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
+            ) : (
+              <div className="space-y-2">
+                {exatos.map((g, idx) => (
+                  <div key={g.key} className="border border-amber-200 bg-amber-50 rounded-lg p-3">
+                    <div className="text-xs text-gray-500 mb-1.5">
+                      Variantes:{' '}
+                      {g.variantes.map(v => (
+                        <span key={v} className="inline-block bg-white border border-gray-200 rounded px-1 py-0.5 text-xs font-mono mr-1">{v}</span>
+                      ))}
+                      <span className="text-gray-400">({g.total} cliente{g.total !== 1 ? 's' : ''})</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs text-gray-500 shrink-0">→ unificar em:</span>
+                      <input
+                        value={g.canonico}
+                        onChange={e => setExatos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value } : x))}
+                        className="flex-1 min-w-[160px] px-2 py-1 border border-amber-300 rounded text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      {g.ibgeSugestao && g.ibgeSugestao !== g.canonico && (
+                        <button
+                          onClick={() => setExatos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: g.ibgeSugestao! } : x))}
+                          className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100"
+                          title="Usar nome exato do IBGE"
+                        >
+                          IBGE: <strong>{g.ibgeSugestao}</strong>
+                        </button>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── Fase 2: Possíveis duplicatas ── */}
@@ -333,66 +407,85 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
               </h3>
             </div>
 
-            {proximos.length === 0 && (
+            {proximos.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
                 Nenhuma duplicata detectada.
               </p>
-            )}
+            ) : (
+              <div className="space-y-2">
+                {proximos.map((g, idx) => (
+                  <div
+                    key={g.id}
+                    className={`border rounded-lg p-3 ${g.ignorado ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-orange-200 bg-orange-50'}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+                          {g.nomes.map(n => (
+                            <span key={n} className={`inline-block border rounded px-1.5 py-0.5 text-xs font-mono ${n === g.canonico ? 'bg-white border-blue-400 text-blue-700 font-bold' : 'bg-white border-gray-200 text-gray-600'}`}>
+                              {n}
+                            </span>
+                          ))}
+                          <span className="text-xs text-gray-400">({g.total} cliente{g.total !== 1 ? 's' : ''})</span>
+                          {g.ibgeSugestao && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded">
+                              IBGE: <strong>{g.ibgeSugestao}</strong>
+                            </span>
+                          )}
+                        </div>
 
-            <div className="space-y-2">
-              {proximos.map((g, idx) => (
-                <div
-                  key={g.id}
-                  className={`border rounded-lg p-3 ${g.ignorado ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-orange-200 bg-orange-50'}`}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-2">
-                        {g.nomes.map(n => (
-                          <span key={n} className={`inline-block border rounded px-1.5 py-0.5 text-xs font-mono ${n === g.canonico ? 'bg-white border-blue-400 text-blue-700 font-bold' : 'bg-white border-gray-200 text-gray-600'}`}>
-                            {n}
-                          </span>
-                        ))}
-                        <span className="text-xs text-gray-400">({g.total} cliente{g.total !== 1 ? 's' : ''})</span>
+                        {!g.ignorado && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-500 shrink-0">→ unificar em:</span>
+                            <select
+                              value={g.canonico}
+                              onChange={e => setProximos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value } : x))}
+                              className="flex-1 min-w-[140px] px-2 py-1 border border-orange-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              {/* IBGE como primeira opção destacada se existir */}
+                              {g.ibgeSugestao && !g.nomes.includes(g.ibgeSugestao) && (
+                                <option value={g.ibgeSugestao}>★ {g.ibgeSugestao} (IBGE)</option>
+                              )}
+                              {g.nomes.map(n => (
+                                <option key={n} value={n}>
+                                  {n}{g.ibgeSugestao === n ? ' ★ IBGE' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              placeholder="ou digitar..."
+                              className="w-36 px-2 py-1 border border-orange-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              onBlur={e => {
+                                if (e.target.value.trim()) {
+                                  setProximos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value.trim() } : x));
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
                       </div>
 
-                      {!g.ignorado && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500 shrink-0">→ unificar em:</span>
-                          <select
-                            value={g.canonico}
-                            onChange={e => setProximos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value } : x))}
-                            className="flex-1 px-2 py-1 border border-orange-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            {g.nomes.map(n => <option key={n} value={n}>{n}</option>)}
-                          </select>
-                          <input
-                            placeholder="ou digitar..."
-                            className="w-36 px-2 py-1 border border-orange-200 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            onBlur={e => { if (e.target.value.trim()) setProximos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value.trim() } : x)); e.target.value = ''; }}
-                          />
-                        </div>
-                      )}
+                      <button
+                        onClick={() => setProximos(prev => prev.map((x, i) => i === idx ? { ...x, ignorado: !x.ignorado } : x))}
+                        className={`shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${g.ignorado ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                      >
+                        {g.ignorado ? 'Restaurar' : 'Ignorar'}
+                      </button>
                     </div>
-
-                    <button
-                      onClick={() => setProximos(prev => prev.map((x, i) => i === idx ? { ...x, ignorado: !x.ignorado } : x))}
-                      className={`shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${g.ignorado ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
-                    >
-                      {g.ignorado ? 'Restaurar' : 'Ignorar'}
-                    </button>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Info sobre normalização de caixas sem variação */}
+          {/* Info */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
             <p className="font-medium">Normalização de caixa</p>
             <p className="text-xs mt-0.5 text-blue-600">
-              Além dos grupos acima, <strong>todos</strong> os nomes de cidades e UFs serão convertidos para
-              Title Case (ex: "AMERICANA" → "Americana") e UF para maiúsculas (ex: "sp" → "SP").
+              Além dos grupos acima, <strong>todos</strong> os nomes de cidades serão corrigidos para
+              o padrão IBGE quando houver correspondência (ex: "AMERICANA" → "Americana") e as UFs
+              serão convertidas para maiúsculas (ex: "sp" → "SP").
             </p>
           </div>
         </div>
@@ -401,7 +494,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 shrink-0 bg-white rounded-b-xl">
           <p className="text-xs text-gray-500">
             {exatos.length + proximos.filter(g => !g.ignorado).length === 0
-              ? 'Apenas normalização de caixa será aplicada.'
+              ? 'Apenas normalização de caixa/IBGE será aplicada.'
               : `${exatos.length} grupos exatos + ${proximos.filter(g => !g.ignorado).length} duplicatas serão unificados.`}
           </p>
           <div className="flex items-center gap-2">
@@ -423,6 +516,3 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     </div>
   );
 }
-
-/** Utilitários exportados para uso externo */
-export { toTitleCase, normKey };
