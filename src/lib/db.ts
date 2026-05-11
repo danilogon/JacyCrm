@@ -56,9 +56,39 @@ const EMPRESA_DEFAULT: ConfiguracaoEmpresa = {
   corSecundaria: '#1d4ed8',
 };
 
+// ─── Paginação automática ─────────────────────────────────────
+//
+// O Supabase/PostgREST limita por padrão a 1.000 linhas por request.
+// Para tabelas que crescem sem limite (clientes, renovacoes, etc.) usamos
+// paginação automática: buscamos páginas de 1.000 até não haver mais dados.
+
+const PAGE_SIZE = 1000;
+
+type RawQueryFn = (
+  rangeFrom: number,
+  rangeTo: number,
+) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>;
+
+async function fetchPaginated<T>(queryFn: RawQueryFn): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await queryFn(from, from + PAGE_SIZE - 1);
+    if (error) throw new Error(error.message);
+    if (!data?.length) break;
+    all.push(...(data as Record<string, unknown>[]).map(r => rowToCamel<T>(r)));
+    if (data.length < PAGE_SIZE) break; // última página — encerra
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
 // ─── Busca inicial (todos os dados de uma vez) ───────────────
 
 export async function fetchAll() {
+  // Tabelas pequenas (poucos registros) — uma única request cada.
+  // Tabelas grandes (sem limite de crescimento) — paginação automática.
+  // Ambos os grupos rodam em paralelo via Promise.all.
   const [
     r_usuarios,
     r_seguradoras,
@@ -67,21 +97,23 @@ export async function fetchAll() {
     r_campos,
     r_metas,
     r_empresa,
-    r_clientes,
-    r_renovacoes,
-    r_sn,
-    r_prosp,
-    r_tarefas,
     r_tipos,
     r_origens,
     r_importacoes,
     r_modelos_email,
     r_emails_disparo,
     r_config_gatilhos,
-    r_parcelas,
     r_imp_parcelas,
     r_regras_parcelas,
+    // ── Tabelas grandes (paginadas) ──
+    clientes,
+    renovacoes,
+    segurosNovos,
+    prospeccoes,
+    tarefas,
+    parcelas,
   ] = await Promise.all([
+    // ── Tabelas pequenas ──
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
     supabase.from('ramos').select('*'),
@@ -89,26 +121,33 @@ export async function fetchAll() {
     supabase.from('campos_customizaveis').select('*'),
     supabase.from('configuracoes_metas').select('*').eq('id', 1).maybeSingle(),
     supabase.from('configuracao_empresa').select('*').eq('id', 1).maybeSingle(),
-    supabase.from('clientes').select('*'),
-    supabase.from('renovacoes').select('*'),
-    supabase.from('seguros_novos').select('*'),
-    supabase.from('prospeccoes').select('*'),
-    supabase.from('tarefas').select('*'),
     supabase.from('tipos_usuario').select('*'),
     supabase.from('origens_prospeccao').select('*').order('nome'),
     supabase.from('importacoes_lote').select('*'),
     supabase.from('modelos_email').select('*').order('criado_em', { ascending: false }),
     supabase.from('emails_disparo').select('*').order('criado_em', { ascending: false }),
     supabase.from('config_gatilhos').select('*').order('criado_em', { ascending: true }),
-    supabase.from('parcelas').select('*').order('vencimento'),
     supabase.from('importacoes_parcelas').select('*').order('criado_em', { ascending: false }),
     supabase.from('regras_parcelas').select('*').order('criado_em', { ascending: true }),
-  ]);
+    // ── Tabelas grandes (cada uma percorre todas as páginas internamente) ──
+    fetchPaginated<Cliente>(
+      (f, t) => supabase.from('clientes').select('*').range(f, t)),
+    fetchPaginated<Renovacao>(
+      (f, t) => supabase.from('renovacoes').select('*').range(f, t)),
+    fetchPaginated<SeguroNovo>(
+      (f, t) => supabase.from('seguros_novos').select('*').range(f, t)),
+    fetchPaginated<Prospeccao>(
+      (f, t) => supabase.from('prospeccoes').select('*').range(f, t)),
+    fetchPaginated<Tarefa>(
+      (f, t) => supabase.from('tarefas').select('*').range(f, t)),
+    fetchPaginated<Parcela>(
+      (f, t) => supabase.from('parcelas').select('*').order('vencimento').range(f, t)),
+  ] as const);
 
-  // Detecta erros críticos
+  // Detecta erros nas tabelas pequenas (críticas)
   const erros = [
     r_usuarios, r_seguradoras, r_ramos, r_motivos, r_campos,
-    r_clientes, r_renovacoes, r_sn, r_prosp, r_tarefas, r_tipos, r_origens,
+    r_tipos, r_origens,
   ].filter(r => r.error).map(r => r.error!.message);
   // Non-critical (tables may not exist yet): r_modelos_email, r_emails_disparo, r_config_gatilhos
 
@@ -117,25 +156,27 @@ export async function fetchAll() {
   }
 
   return {
+    // Tabelas pequenas convertidas aqui
     usuarios:     (r_usuarios.data    || []).map(r => rowToCamel<Usuario>(r as Record<string, unknown>)),
     seguradoras:  (r_seguradoras.data || []).map(r => rowToCamel<Seguradora>(r as Record<string, unknown>)),
     ramos:        (r_ramos.data       || []).map(r => rowToCamel<Ramo>(r as Record<string, unknown>)),
     motivos:      (r_motivos.data     || []).map(r => rowToCamel<MotivoPerda>(r as Record<string, unknown>)),
     campos:       (r_campos.data      || []).map(r => rowToCamel<CampoCustomizavel>(r as Record<string, unknown>)),
-    clientes:     (r_clientes.data    || []).map(r => rowToCamel<Cliente>(r as Record<string, unknown>)),
-    renovacoes:   (r_renovacoes.data  || []).map(r => rowToCamel<Renovacao>(r as Record<string, unknown>)),
-    segurosNovos: (r_sn.data          || []).map(r => rowToCamel<SeguroNovo>(r as Record<string, unknown>)),
-    prospeccoes:  (r_prosp.data       || []).map(r => rowToCamel<Prospeccao>(r as Record<string, unknown>)),
-    tarefas:      (r_tarefas.data     || []).map(r => rowToCamel<Tarefa>(r as Record<string, unknown>)),
     tiposUsuario: (r_tipos.data       || []).map(r => rowToCamel<TipoUsuario>(r as Record<string, unknown>)),
     origensProspeccao: (r_origens.data || []).map(r => rowToCamel<OrigemProspeccao>(r as Record<string, unknown>)),
-    importacoes: (r_importacoes.data || []).map(r => rowToCamel<ImportacaoLote>(r as Record<string, unknown>)),
+    importacoes:  (r_importacoes.data || []).map(r => rowToCamel<ImportacaoLote>(r as Record<string, unknown>)),
     modelosEmail: (r_modelos_email.data || []).map(r => rowToCamel<ModeloEmail>(r as Record<string, unknown>)),
     emailsDisparo: (r_emails_disparo.data || []).map(r => rowToCamel<EmailDisparo>(r as Record<string, unknown>)),
     configGatilhos: (r_config_gatilhos.data || []).map(r => rowToCamel<ConfigGatilho>(r as Record<string, unknown>)),
-    parcelas: (r_parcelas.data || []).map(r => rowToCamel<Parcela>(r as Record<string, unknown>)),
     importacoesParcelas: (r_imp_parcelas.data || []).map(r => rowToCamel<ImportacaoParcelas>(r as Record<string, unknown>)),
     regrasParcelas: (r_regras_parcelas.data || []).map(r => rowToCamel<RegraParcelaNegocio>(r as Record<string, unknown>)),
+    // Tabelas grandes já convertidas pelo fetchPaginated
+    clientes,
+    renovacoes,
+    segurosNovos,
+    prospeccoes,
+    tarefas,
+    parcelas,
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
