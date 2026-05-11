@@ -116,15 +116,17 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   const [buscandoCpf, setBuscandoCpf] = useState(false);
   const [cpfAutoPreenchido, setCpfAutoPreenchido] = useState(false);
+  const [cpfMsgErro, setCpfMsgErro] = useState('');
 
   /** Consulta a API de CPF e preenche nome, nascimento e sexo automaticamente */
   async function buscarDadosCpf(cpf: string) {
     setBuscandoCpf(true);
     setCpfAutoPreenchido(false);
+    setCpfMsgErro('');
     try {
-      // Chama via proxy Vercel (evita bloqueio de CORS do navegador)
       const resp = await fetch(`/api/cpf-lookup?cpf=${cpf}`);
       const data = await resp.json();
+
       if (data?.success && data?.data?.NOME) {
         const d = data.data;
         // Converte DD/MM/YYYY → YYYY-MM-DD
@@ -142,10 +144,13 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
           sexo: (sexo || f.sexo) as 'M' | 'F' | '',
         }));
         setCpfAutoPreenchido(true);
+      } else {
+        // Mostra o motivo para diagnóstico (ex: quota esgotada, CPF não encontrado)
+        const motivo = data?.message || data?.error || data?.msg || JSON.stringify(data).slice(0, 120);
+        setCpfMsgErro(motivo || 'CPF não encontrado na base');
       }
-      // Se success=false ou sem dados, campos ficam em branco para preenchimento manual
-    } catch {
-      // Falha de rede — silenciosa
+    } catch (e) {
+      setCpfMsgErro('Erro de rede ao consultar CPF');
     } finally {
       setBuscandoCpf(false);
     }
@@ -221,6 +226,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     setForm(formVazio);
     setEditando(null);
     setCpfAutoPreenchido(false);
+    setCpfMsgErro('');
     setModalForm(true);
   }
 
@@ -814,7 +820,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                         // Consulta CPF automática apenas em criação de novo cliente
                         if (!editando && digits.length === 11) buscarDadosCpf(digits);
                         // Limpa indicador se o CPF foi alterado
-                        if (digits !== form.cpfCnpj) setCpfAutoPreenchido(false);
+                        if (digits !== form.cpfCnpj) { setCpfAutoPreenchido(false); setCpfMsgErro(''); }
                       }}
                       placeholder="Somente números"
                       maxLength={14}
@@ -834,6 +840,9 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                       <span className="text-green-600 font-medium">· dados preenchidos automaticamente</span>
                     )}
                   </div>
+                  {cpfMsgErro && (
+                    <div className="text-xs text-amber-600 mt-0.5 break-all">{cpfMsgErro}</div>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
