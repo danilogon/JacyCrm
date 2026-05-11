@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import {
-  Upload, Search, X, Save,
+  Upload, Search, X, Save, Edit2,
   Link2, Paperclip, FileText, History, CheckCircle,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -79,6 +79,47 @@ function dateFromFilename(name: string): string {
   return `${m[3]}-${m[2]}-${m[1]}`;
 }
 
+// ─── Prazo ───────────────────────────────────────────────────────────────────
+
+/** Retorna dias restantes até dataLimite (negativo = vencido). null = sem dataLimite. */
+function calcPrazo(dataLimite?: string): number | null {
+  if (!dataLimite) return null;
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  const limite = new Date(dataLimite + 'T00:00:00');
+  return Math.round((limite.getTime() - hoje.getTime()) / 86_400_000);
+}
+
+const PRAZO_FAIXAS: { key: string; label: string }[] = [
+  { key: 'vencido',  label: 'Vencido' },
+  { key: 'hoje',     label: 'Hoje' },
+  { key: '1_5',      label: '1–5 dias' },
+  { key: '6_10',     label: '6–10 dias' },
+  { key: '11_30',    label: '11–30 dias' },
+  { key: 'mais_30',  label: '+30 dias' },
+  { key: 'sem_prazo',label: 'Sem prazo' },
+];
+
+function prazoParaFaixa(prazo: number | null): string {
+  if (prazo === null) return 'sem_prazo';
+  if (prazo < 0)  return 'vencido';
+  if (prazo === 0) return 'hoje';
+  if (prazo <= 5)  return '1_5';
+  if (prazo <= 10) return '6_10';
+  if (prazo <= 30) return '11_30';
+  return 'mais_30';
+}
+
+function PrazoBadge({ prazo }: { prazo: number | null }) {
+  if (prazo === null) return <span className="text-gray-300 text-xs">—</span>;
+  if (prazo < 0)  return <span className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-0.5 rounded-full">Vencido</span>;
+  if (prazo === 0) return <span className="text-xs font-semibold text-orange-600 bg-orange-50 px-2 py-0.5 rounded-full">Hoje</span>;
+  if (prazo <= 5)  return <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full">{prazo}d</span>;
+  if (prazo <= 10) return <span className="text-xs font-medium text-yellow-700 bg-yellow-50 px-2 py-0.5 rounded-full">{prazo}d</span>;
+  if (prazo <= 30) return <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">{prazo}d</span>;
+  return <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded-full">{prazo}d</span>;
+}
+
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: StatusParcela }) {
@@ -103,6 +144,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroVencDe, setFiltroVencDe] = useState('');
   const [filtroVencAte, setFiltroVencAte] = useState('');
+  const [filtroPrazo, setFiltroPrazo] = useState<string[]>([]);
 
   // ── Modal de edição ───────────────────────────────────────────────────────
   const [editando, setEditando] = useState<Parcela | null>(null);
@@ -129,7 +171,6 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const filtered = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return parcelas.filter(p => {
-      // Filtro status
       if (filtroStatus === 'pendentes') {
         if (p.status === 'baixada' || p.status === 'baixada_sistema' || p.status === 'cancelado') return false;
       } else if (filtroStatus !== 'todas') {
@@ -138,13 +179,17 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroVencDe && p.vencimento < filtroVencDe) return false;
       if (filtroVencAte && p.vencimento > filtroVencAte) return false;
+      if (filtroPrazo.length > 0) {
+        const faixa = prazoParaFaixa(calcPrazo(p.dataLimite));
+        if (!filtroPrazo.includes(faixa)) return false;
+      }
       if (q && !p.nomeCliente.toLowerCase().includes(q) &&
                !p.apolice.toLowerCase().includes(q) &&
                !p.numeroParcela.toLowerCase().includes(q) &&
                !p.seguradora.toLowerCase().includes(q)) return false;
       return true;
     }).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroVencDe, filtroVencAte, busca]);
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroVencDe, filtroVencAte, filtroPrazo, busca]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -489,13 +534,36 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <DateInput value={filtroVencAte} onChange={e => setFiltroVencAte(e.target.value)}
             className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36" />
         </div>
-        {(busca || filtroSeguradora || filtroVencDe || filtroVencAte) && (
-          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroVencDe(''); setFiltroVencAte(''); }}
+        {(busca || filtroSeguradora || filtroVencDe || filtroVencAte || filtroPrazo.length > 0) && (
+          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">
             <X size={14} />
           </button>
         )}
         <span className="ml-auto text-sm text-gray-400 whitespace-nowrap">{filtered.length} registro(s)</span>
+
+        {/* Filtro de Prazo (multi-seleção) */}
+        <div className="w-full flex flex-wrap items-center gap-2 pt-1 border-t border-gray-100">
+          <span className="text-xs font-medium text-gray-400 whitespace-nowrap">Prazo:</span>
+          {PRAZO_FAIXAS.map(({ key, label }) => {
+            const ativo = filtroPrazo.includes(key);
+            return (
+              <button
+                key={key}
+                onClick={() => setFiltroPrazo(prev =>
+                  prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+                )}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                  ativo
+                    ? 'bg-blue-700 text-white border-blue-700'
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Tabela */}
@@ -504,21 +572,21 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Vencimento','Cliente','Apólice / Parcela','Valor','Seguradora','Forma Pgto','Status','Data Limite',''].map(h => (
+                {['Vencimento','Cliente','Apólice / Parcela','Valor','Seguradora','Forma Pgto','Status','Data Limite','Prazo',''].map(h => (
                   <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">Nenhuma parcela encontrada</td></tr>
+                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400 text-sm">Nenhuma parcela encontrada</td></tr>
               ) : filtered.map(p => {
-                const hoje = new Date().toISOString().split('T')[0];
-                const vencida = p.vencimento < hoje && p.status !== 'baixada' && p.status !== 'baixada_sistema';
+                const prazo = calcPrazo(p.dataLimite);
                 const clienteVinculado = p.clienteId ? clientes.find(c => c.id === p.clienteId) : null;
                 return (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className={`px-3 py-2.5 whitespace-nowrap font-mono text-xs ${vencida ? 'text-red-600 font-semibold' : 'text-gray-700'}`}>
+                  <tr key={p.id} onDoubleClick={() => abrirEdicao(p)}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer select-none">
+                    <td className="px-3 py-2.5 whitespace-nowrap font-mono text-xs text-gray-700">
                       {formatDate(p.vencimento)}
                     </td>
                     <td className="px-3 py-2.5 max-w-[180px]">
@@ -541,10 +609,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                       {p.dataLimite ? formatDate(p.dataLimite) : '—'}
                     </td>
+                    <td className="px-3 py-2.5"><PrazoBadge prazo={prazo} /></td>
                     <td className="px-3 py-2.5">
-                      <button onClick={() => abrirEdicao(p)}
-                        className="px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 rounded border border-blue-200">
-                        Editar
+                      <button onClick={e => { e.stopPropagation(); abrirEdicao(p); }}
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded" title="Editar">
+                        <Edit2 size={14} />
                       </button>
                     </td>
                   </tr>
