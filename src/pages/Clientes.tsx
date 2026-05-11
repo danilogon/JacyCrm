@@ -7,6 +7,7 @@ import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVi
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { NormalizarCidadesModal, toTitleCase } from '../components/NormalizarCidadesModal';
+import { MUNICIPIOS_BR } from '../data/municipiosBrasil';
 import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
 import { validateCpfCnpj } from '../utils/validators';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -43,9 +44,6 @@ const ESTADOS_BR = [
   { uf: 'SE', nome: 'Sergipe' },
   { uf: 'TO', nome: 'Tocantins' },
 ];
-
-/** Cache em memória de municípios por UF (persiste enquanto a aba estiver aberta) */
-const CIDADES_CACHE: Record<string, string[]> = {};
 
 /** Normalização para comparação de nomes de cidades (sem acento, sem apóstrofes, lowercase) */
 function normCidade(s: string): string {
@@ -105,9 +103,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const [confirmExcluir, setConfirmExcluir] = useState<string | null>(null);
   const [modalNormalizar, setModalNormalizar] = useState(false);
 
-  // Seletor de cidades por estado
-  const [cidadesDisponiveis, setCidadesDisponiveis] = useState<string[]>([]);
-  const [carregandoCidades, setCarregandoCidades] = useState(false);
+  // Cidades disponíveis para o estado selecionado (lista estática — sem fetch)
+  const cidadesDisponiveis: string[] = MUNICIPIOS_BR[form.uf] ?? [];
   const [buscandoCep, setBuscandoCep] = useState(false);
   const [erroCep, setErroCep] = useState('');
   const [modalVinculo, setModalVinculo] = useState<Cliente | null>(null);
@@ -146,31 +143,14 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const paginaAtual  = Math.min(pagina, totalPaginas);
   const clientesPagina = filtered.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
-  /** Carrega municípios do IBGE para a UF dada e auto-corrige o nome da cidade atual */
-  async function carregarCidades(uf: string, cidadeAtual?: string) {
-    if (!uf) { setCidadesDisponiveis([]); return; }
-    if (!CIDADES_CACHE[uf]) {
-      setCarregandoCidades(true);
-      try {
-        const resp = await fetch(
-          `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`
-        );
-        const data = await resp.json();
-        CIDADES_CACHE[uf] = (data as { nome: string }[]).map(c => c.nome);
-      } catch {
-        CIDADES_CACHE[uf] = [];
-      } finally {
-        setCarregandoCidades(false);
-      }
-    }
-    const lista = CIDADES_CACHE[uf] ?? [];
-    setCidadesDisponiveis(lista);
-    // Auto-corrige nome da cidade se houver correspondência normalizada mas não exata
-    if (cidadeAtual && lista.length > 0 && !lista.includes(cidadeAtual)) {
-      const normAtual = normCidade(cidadeAtual);
-      const match = lista.find(c => normCidade(c) === normAtual);
-      if (match) setForm(f => ({ ...f, cidade: match }));
-    }
+  /** Auto-corrige o nome da cidade para o canônico do IBGE (sem fetch — lista estática) */
+  function corrigirCidade(uf: string, cidadeAtual: string) {
+    if (!uf || !cidadeAtual) return;
+    const lista = MUNICIPIOS_BR[uf] ?? [];
+    if (lista.includes(cidadeAtual)) return; // já está correto
+    const normAtual = normCidade(cidadeAtual);
+    const match = lista.find(c => normCidade(c) === normAtual);
+    if (match) setForm(f => ({ ...f, cidade: match }));
   }
 
   async function buscarCep(cep: string) {
@@ -191,8 +171,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         cidade,
         uf,
       }));
-      // Carrega cidades do estado e auto-corrige o nome retornado pelo ViaCEP
-      if (uf) carregarCidades(uf, cidade);
+      // Auto-corrige o nome da cidade para o canônico do IBGE
+      if (uf && cidade) corrigirCidade(uf, cidade);
     } catch {
       setErroCep('Erro ao buscar CEP.');
     } finally {
@@ -202,7 +182,6 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
 
   function abrirCriacao() {
     setForm(formVazio);
-    setCidadesDisponiveis([]);
     setEditando(null);
     setModalForm(true);
   }
@@ -219,8 +198,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     });
     setEditando(c);
     setModalForm(true);
-    // Pré-carrega lista de cidades para o estado do cliente
-    if (c.uf) carregarCidades(c.uf, c.cidade);
+    // Auto-corrige nome da cidade ao abrir edição
+    if (c.uf && c.cidade) corrigirCidade(c.uf, c.cidade);
   }
 
   function salvar() {
@@ -898,7 +877,6 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                       onChange={e => {
                         const uf = e.target.value;
                         setForm(f => ({ ...f, uf, cidade: '' }));
-                        carregarCidades(uf);
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     >
@@ -909,10 +887,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                     </select>
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cidade
-                      {carregandoCidades && <span className="ml-2 text-xs text-blue-500 font-normal">Carregando cidades...</span>}
-                    </label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
                     {cidadesDisponiveis.length > 0 ? (
                       <select
                         value={form.cidade}
@@ -920,7 +895,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                       >
                         <option value="">Selecione a cidade</option>
-                        {/* Mantém o valor atual como opção se não estiver na lista (ex: importado antes da padronização) */}
+                        {/* Mantém o valor atual como opção se não estiver na lista do IBGE */}
                         {form.cidade && !cidadesDisponiveis.includes(form.cidade) && (
                           <option value={form.cidade}>{form.cidade}</option>
                         )}
@@ -932,9 +907,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                       <input
                         value={form.cidade}
                         onChange={e => setForm(f => ({ ...f, cidade: e.target.value }))}
-                        placeholder={form.uf ? (carregandoCidades ? 'Carregando...' : 'Selecione o estado primeiro') : 'Selecione o estado primeiro'}
-                        disabled={!!form.uf && carregandoCidades}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+                        placeholder="Selecione o estado primeiro"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     )}
                   </div>
