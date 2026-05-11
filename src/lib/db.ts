@@ -147,13 +147,15 @@ export async function fetchAll() {
 
 // ─── Helpers internos de upsert/delete ───────────────────────
 
-async function upsertRows(table: string, items: Record<string, unknown>[]) {
+async function upsertRows(table: string, items: Record<string, unknown>[], silent = false) {
   if (!items.length) return;
   const { error } = await supabase.from(table).upsert(items.map(objToSnake));
   if (error) {
     console.error(`[db] upsert ${table}:`, error);
-    // Mostra alerta visível para que erros de persistência não passem despercebidos
-    alert(`Erro ao salvar dados (${table}): ${error.message}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
+    if (!silent) {
+      // Mostra alerta visível para que erros de persistência não passem despercebidos
+      alert(`Erro ao salvar dados (${table}): ${error.message}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
+    }
     throw new Error(`[db] upsert ${table}: ${error.message}`);
   }
 }
@@ -191,8 +193,25 @@ export const db = {
   upsertCampos:     (items: CampoCustomizavel[])=> upsertRows('campos_customizaveis', items as unknown as Record<string, unknown>[]),
   deleteCampos:     (ids: string[])             => deleteRows('campos_customizaveis', ids),
 
-  // Clientes
-  upsertClientes:   (items: Cliente[])          => upsertRows('clientes', items as unknown as Record<string, unknown>[]),
+  // Clientes — tolerante a colunas ausentes (ex: sexo adicionada depois)
+  upsertClientes: async (items: Cliente[]) => {
+    try {
+      // Primeira tentativa silenciosa: se a coluna 'sexo' ainda não existe no DB,
+      // não mostra alert — retenta automaticamente sem o campo.
+      await upsertRows('clientes', items as unknown as Record<string, unknown>[], true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('sexo') || msg.includes('schema cache')) {
+        // Retenta sem o campo sexo e com alert normal em caso de nova falha
+        const semSexo = items.map(({ sexo: _s, ...rest }) => rest);
+        await upsertRows('clientes', semSexo as unknown as Record<string, unknown>[]);
+      } else {
+        // Outro erro: mostra alert e relança
+        alert(`Erro ao salvar dados (clientes): ${msg}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
+        throw e;
+      }
+    }
+  },
   deleteClientes:   (ids: string[])             => deleteRows('clientes', ids),
 
   // Renovações
