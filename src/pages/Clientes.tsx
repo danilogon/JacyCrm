@@ -122,12 +122,8 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     setBuscandoCpf(true);
     setCpfAutoPreenchido(false);
     try {
-      const resp = await fetch(`https://api.cpf-brasil.org/cpf/${cpf}`, {
-        headers: {
-          'X-API-Key': '9ccf048d4f396fae0620a27ea3be07b28b714dc3d5b7d94f163d8bdd8ef5cd92',
-          'Content-Type': 'application/json',
-        },
-      });
+      // Chama via proxy Vercel (evita bloqueio de CORS do navegador)
+      const resp = await fetch(`/api/cpf/${cpf}`);
       const data = await resp.json();
       if (data?.success && data?.data?.NOME) {
         const d = data.data;
