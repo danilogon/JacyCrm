@@ -592,9 +592,9 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     <td className="px-3 py-2.5 max-w-[180px]">
                       <div className="font-medium text-gray-800 truncate" title={p.nomeCliente}>{p.nomeCliente}</div>
                       {clienteVinculado && (
-                        <div className="text-xs text-blue-500 flex items-center gap-1 mt-0.5">
-                          <Link2 size={10} /> {clienteVinculado.nome}
-                        </div>
+                        <span className="inline-flex text-blue-400 mt-0.5" title={clienteVinculado.nome}>
+                          <Link2 size={11} />
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs text-gray-600 whitespace-nowrap">

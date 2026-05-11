@@ -1904,56 +1904,98 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
                     )}
                   </div>
 
-                  {/* Auditoria de import de parcelas */}
-                  {auditoriaP && (
-                    <div className="bg-white rounded-xl border border-gray-200 p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{auditoriaP.nomeArquivo}</h3>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            Data import: {auditoriaP.dataImport} · Seguradoras: {auditoriaP.seguradorasConsideradas.join(', ') || '—'}
-                          </p>
-                        </div>
-                        <button onClick={() => setAuditoriaP(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-3 mb-4">
-                        {[
-                          { label: 'Novas', value: auditoriaP.totalNovas, cls: 'bg-blue-50 text-blue-700' },
-                          { label: 'Atualizadas', value: auditoriaP.totalAtualizadas, cls: 'bg-gray-50 text-gray-700' },
-                          { label: 'Baixadas Sistema', value: auditoriaP.totalBaixadas, cls: 'bg-green-50 text-green-700' },
-                          { label: 'Ignoradas', value: auditoriaP.totalIgnoradas, cls: 'bg-red-50 text-red-700' },
-                        ].map(({ label, value, cls }) => (
-                          <div key={label} className={`rounded-lg px-3 py-2 text-center ${cls}`}>
-                            <div className="text-lg font-bold">{value}</div>
-                            <div className="text-xs">{label}</div>
+                  {/* Auditoria de import de parcelas — modal */}
+                  {auditoriaP && (() => {
+                    const audDataHora = new Date(auditoriaP.criadoEm).toLocaleString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    });
+                    return (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAuditoriaP(null)}>
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200">
+                            <div className="flex-1 min-w-0">
+                              <h2 className="text-base font-semibold text-gray-900 truncate">{auditoriaP.nomeArquivo}</h2>
+                              <div className="flex flex-wrap items-center gap-3 mt-1">
+                                <span className="text-xs text-gray-500">{audDataHora}</span>
+                                <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">Parcelas</span>
+                                {auditoriaP.seguradorasConsideradas.length > 0 && (
+                                  <span className="text-xs text-gray-500">Seguradoras: {auditoriaP.seguradorasConsideradas.join(', ')}</span>
+                                )}
+                              </div>
+                            </div>
+                            <button onClick={() => setAuditoriaP(null)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg shrink-0">
+                              <X size={18} />
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                      {auditoriaP.linhasIgnoradas.length > 0 && (
-                        <div>
-                          <h4 className="text-xs font-semibold text-red-700 mb-2">Linhas ignoradas ({auditoriaP.linhasIgnoradas.length})</h4>
-                          <div className="overflow-x-auto rounded-lg border border-red-100 max-h-48 overflow-y-auto">
-                            <table className="w-full text-xs">
-                              <thead className="bg-red-50 sticky top-0">
-                                <tr>
-                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Linha</th>
-                                  <th className="px-3 py-2 text-left font-semibold text-red-800">Motivo</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-red-50">
-                                {auditoriaP.linhasIgnoradas.map((l, i) => (
-                                  <tr key={i} className="hover:bg-red-50/50">
-                                    <td className="px-3 py-2 text-gray-500">{l.linha}</td>
-                                    <td className="px-3 py-2 text-red-700">{l.motivo}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
+
+                          {/* Body */}
+                          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                            {/* Resumo */}
+                            <div className="grid grid-cols-4 gap-3">
+                              {[
+                                { label: 'Novas', value: auditoriaP.totalNovas, cls: 'bg-blue-50 text-blue-700 border-blue-100' },
+                                { label: 'Atualizadas', value: auditoriaP.totalAtualizadas, cls: 'bg-gray-50 text-gray-700 border-gray-200' },
+                                { label: 'Baixadas Sistema', value: auditoriaP.totalBaixadas, cls: 'bg-green-50 text-green-700 border-green-100' },
+                                { label: 'Ignoradas', value: auditoriaP.totalIgnoradas, cls: 'bg-red-50 text-red-700 border-red-100' },
+                              ].map(({ label, value, cls }) => (
+                                <div key={label} className={`rounded-xl border px-4 py-3 text-center ${cls}`}>
+                                  <div className="text-2xl font-bold">{value}</div>
+                                  <div className="text-xs mt-0.5">{label}</div>
+                                </div>
+                              ))}
+                            </div>
+
+                            {/* Importadas com sucesso */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <CheckCircle2 size={16} className="text-green-600" />
+                                <h3 className="text-sm font-semibold text-green-700">
+                                  Processadas com sucesso ({auditoriaP.totalNovas + auditoriaP.totalAtualizadas + auditoriaP.totalBaixadas})
+                                </h3>
+                              </div>
+                              <div className="rounded-lg border border-green-100 bg-green-50/40 px-4 py-3 text-xs text-green-800 space-y-1">
+                                <div><span className="font-medium">{auditoriaP.totalNovas}</span> parcelas novas inseridas</div>
+                                <div><span className="font-medium">{auditoriaP.totalAtualizadas}</span> parcelas atualizadas</div>
+                                <div><span className="font-medium">{auditoriaP.totalBaixadas}</span> parcelas baixadas automaticamente pelo sistema</div>
+                              </div>
+                            </div>
+
+                            {/* Ignoradas */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-2">
+                                <XCircle size={16} className="text-red-500" />
+                                <h3 className="text-sm font-semibold text-red-700">Ignoradas / Erros ({auditoriaP.linhasIgnoradas.length})</h3>
+                              </div>
+                              {auditoriaP.linhasIgnoradas.length === 0 ? (
+                                <p className="text-xs text-gray-400 italic">Nenhuma linha ignorada</p>
+                              ) : (
+                                <div className="overflow-x-auto rounded-lg border border-red-100">
+                                  <table className="w-full text-xs">
+                                    <thead className="bg-red-50">
+                                      <tr>
+                                        <th className="px-3 py-2 text-left font-semibold text-red-800">Linha</th>
+                                        <th className="px-3 py-2 text-left font-semibold text-red-800">Motivo</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-red-50">
+                                      {auditoriaP.linhasIgnoradas.map((l, i) => (
+                                        <tr key={i} className="hover:bg-red-50/50">
+                                          <td className="px-3 py-2 text-gray-500">{l.linha}</td>
+                                          <td className="px-3 py-2 text-red-700">{l.motivo}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })()}
 
                   <ConfirmDialog
                     open={!!confirmDelP}
