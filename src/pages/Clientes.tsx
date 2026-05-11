@@ -123,7 +123,11 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
     nascimento: clientes.filter(c => c.tipo === 'PF' && !c.dataNascimento?.trim()).length,
   }), [clientes]);
 
+  const [pagina, setPagina] = useState(1);
+  const POR_PAGINA = 200;
+
   const filtered = useMemo(() => {
+    setPagina(1); // volta para a 1ª página sempre que filtros mudarem
     const q = busca.toLowerCase();
     return clientes
       .filter(c => {
@@ -137,6 +141,10 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
       })
       .sort((a, b) => a.nome.localeCompare(b.nome));
   }, [clientes, busca, filtroFaltando]);
+
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / POR_PAGINA));
+  const paginaAtual  = Math.min(pagina, totalPaginas);
+  const clientesPagina = filtered.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA);
 
   /** Carrega municípios do IBGE para a UF dada e auto-corrige o nome da cidade atual */
   async function carregarCidades(uf: string, cidadeAtual?: string) {
@@ -644,6 +652,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
         </div>
 
         <span className="ml-auto text-sm text-gray-400 whitespace-nowrap">{filtered.length} cliente(s)</span>
+
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
@@ -659,7 +668,7 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">Nenhum cliente encontrado</td></tr>
-              ) : filtered.map(c => (
+              ) : clientesPagina.map(c => (
                 <tr key={c.id} onDoubleClick={() => setVisualizando(c)} className="hover:bg-gray-50 cursor-pointer select-none" title="Duplo clique para ver detalhes">
                   <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap font-mono text-xs">{formatCpfCnpj(c.cpfCnpj)}</td>
                   <td className="px-4 py-2.5">
@@ -698,6 +707,61 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
             </tbody>
           </table>
         </div>
+
+        {/* Paginação */}
+        {totalPaginas > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+            <span className="text-xs text-gray-500">
+              Exibindo {(paginaAtual - 1) * POR_PAGINA + 1}–{Math.min(paginaAtual * POR_PAGINA, filtered.length)} de {filtered.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPagina(1)}
+                disabled={paginaAtual === 1}
+                className="px-2 py-1 rounded text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-default"
+              >«</button>
+              <button
+                onClick={() => setPagina(p => Math.max(1, p - 1))}
+                disabled={paginaAtual === 1}
+                className="px-2 py-1 rounded text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-default"
+              >‹</button>
+
+              {/* Páginas ao redor da atual */}
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPaginas || Math.abs(p - paginaAtual) <= 2)
+                .reduce<(number | '…')[]>((acc, p, i, arr) => {
+                  if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('…');
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) =>
+                  p === '…'
+                    ? <span key={`e${i}`} className="px-1 text-xs text-gray-400">…</span>
+                    : <button
+                        key={p}
+                        onClick={() => setPagina(p as number)}
+                        className={`min-w-[28px] px-2 py-1 rounded text-xs font-medium ${
+                          paginaAtual === p
+                            ? 'bg-blue-700 text-white'
+                            : 'text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >{p}</button>
+                )
+              }
+
+              <button
+                onClick={() => setPagina(p => Math.min(totalPaginas, p + 1))}
+                disabled={paginaAtual === totalPaginas}
+                className="px-2 py-1 rounded text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-default"
+              >›</button>
+              <button
+                onClick={() => setPagina(totalPaginas)}
+                disabled={paginaAtual === totalPaginas}
+                className="px-2 py-1 rounded text-xs text-gray-500 hover:bg-gray-200 disabled:opacity-30 disabled:cursor-default"
+              >»</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Modal Form */}
