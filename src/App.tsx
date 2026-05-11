@@ -18,11 +18,13 @@ import { DashboardProducao } from './pages/DashboardProducao';
 import { Tarefas } from './pages/Tarefas';
 import { ConsultaRenovacoes } from './pages/ConsultaRenovacoes';
 import { Emails } from './pages/Emails';
+import { Parcelas } from './pages/Parcelas';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
+  Parcela, ImportacaoParcelas,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -115,6 +117,8 @@ function AppRoutes() {
   const [modelosEmail, setModelosEmailState] = useState<ModeloEmail[]>([]);
   const [emailsDisparo, setEmailsDisparoState] = useState<EmailDisparo[]>([]);
   const [configGatilhos, setConfigGatilhosState] = useState<ConfigGatilho[]>([]);
+  const [parcelas,           setParcelasState]           = useState<Parcela[]>([]);
+  const [importacoesParcelas, setImportacoesParcelasState] = useState<ImportacaoParcelas[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -140,6 +144,8 @@ function AppRoutes() {
         setModelosEmailState(data.modelosEmail);
         setEmailsDisparoState(data.emailsDisparo);
         setConfigGatilhosState(data.configGatilhos);
+        setParcelasState(data.parcelas);
+        setImportacoesParcelasState(data.importacoesParcelas);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -198,6 +204,10 @@ function AppRoutes() {
 
   const setConfigGatilhos = useCallback(
     makeSyncer(setConfigGatilhosState, db.upsertConfigGatilhos, db.deleteConfigGatilhos), []);
+  const setParcelas = useCallback(
+    makeSyncer(setParcelasState, db.upsertParcelas, db.deleteParcelas), []);
+  const setImportacoesParcelas = useCallback(
+    makeSyncer(setImportacoesParcelasState, db.upsertImportacoesParcelas, db.deleteImportacoesParcelas), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -391,6 +401,18 @@ function AppRoutes() {
             camposCustomizaveis={campos}
             importacoes={importacoes}
             setImportacoes={setImportacoes}
+            parcelas={parcelas}
+          />
+        } />
+
+        <Route path="/parcelas" element={
+          <Parcelas
+            parcelas={parcelas}
+            setParcelas={setParcelas}
+            importacoesParcelas={importacoesParcelas}
+            setImportacoesParcelas={setImportacoesParcelas}
+            clientes={clientes}
+            setClientes={setClientes}
           />
         } />
 

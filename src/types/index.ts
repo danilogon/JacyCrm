@@ -422,3 +422,59 @@ export interface EmailDisparo {
   enviadoEm?: string;
   erroMsg?: string;
 }
+
+// ─── Parcelas (Follow Up de Pagamentos) ──────────────────────────────────────
+
+export type StatusParcela =
+  | ''
+  | 'nao_tratada'
+  | 'em_tratamento'
+  | 'baixada'
+  | 'cancelado'
+  | 'desconsiderado'
+  | 'aguardando_baixa'
+  | 'baixada_sistema'
+  | 'analise_critica';
+
+export interface Parcela {
+  id: string;
+  /** Chave única: apolice + "_" + numeroParcela */
+  chaveUnica: string;
+  /** Data em que a parcela apareceu pela 1ª vez no import (YYYY-MM-DD) */
+  primeiraAtualizacao: string;
+  /** Data do último import em que esta parcela apareceu (YYYY-MM-DD) */
+  ultimaAtualizacao: string;
+  nomeCliente: string;
+  /** Vínculo opcional com cliente cadastrado */
+  clienteId?: string;
+  apolice: string;
+  numeroParcela: string;
+  /** Data de vencimento original (YYYY-MM-DD) */
+  vencimento: string;
+  valorParcela: number;
+  seguradora: string;
+  formaPagamento: string;
+  /** Editável pelo operador */
+  status: StatusParcela;
+  /** Data limite para pagamento (YYYY-MM-DD), editável pelo operador */
+  dataLimite?: string;
+  observacoes: Observacao[];
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+export interface ImportacaoParcelas {
+  id: string;
+  nomeArquivo: string;
+  /** Data extraída do nome do arquivo DD-MM-YYYY → YYYY-MM-DD */
+  dataImport: string;
+  /** Seguradoras que apareceram neste import */
+  seguradorasConsideradas: string[];
+  totalImportadas: number;
+  totalNovas: number;
+  totalAtualizadas: number;
+  totalBaixadas: number;
+  totalIgnoradas: number;
+  linhasIgnoradas: { linha: number; motivo: string }[];
+  criadoEm: string;
+}

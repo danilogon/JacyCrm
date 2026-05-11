@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, Eye, X, Save, Download, Upload, Bell, Link
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo, ImportacaoLote } from '../types';
+import type { Cliente, Renovacao, SeguroNovo, Usuario, CampoCustomizavel, TipoVinculo, ImportacaoLote, Parcela } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { formatCpfCnpj, formatDate, generateId, parseImportDate } from '../utils/formatters';
@@ -21,6 +21,7 @@ interface Props {
   camposCustomizaveis?: CampoCustomizavel[];
   importacoes: ImportacaoLote[];
   setImportacoes: (items: ImportacaoLote[]) => void;
+  parcelas?: Parcela[];
 }
 
 type FormCliente = Omit<Cliente, 'id' | 'criadoEm' | 'atualizadoEm' | 'tipo'>;
@@ -32,7 +33,7 @@ const formVazio: FormCliente = {
   camposCustomizados: [],
 };
 
-export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camposCustomizaveis, importacoes, setImportacoes }: Props) {
+export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camposCustomizaveis, importacoes, setImportacoes, parcelas = [] }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin = usuario?.role === 'admin';
@@ -412,6 +413,26 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
   const clienteSeguros = visualizando
     ? segurosNovos.filter(s => s.clienteId === visualizando.id || s.cpfCnpjCliente === visualizando.cpfCnpj)
     : [];
+  const clienteParcelas = visualizando
+    ? parcelas.filter(p => p.clienteId === visualizando.id)
+    : [];
+
+  const PARCELA_STATUS_LABEL: Record<string, string> = {
+    '': '—', nao_tratada: 'Não tratada', em_tratamento: 'Em tratamento',
+    baixada: 'Baixada', cancelado: 'Cancelado', desconsiderado: 'Desconsiderado',
+    aguardando_baixa: 'Aguardando baixa', baixada_sistema: 'Baixada sistema', analise_critica: 'Análise crítica',
+  };
+  const PARCELA_STATUS_CLS: Record<string, string> = {
+    '': 'bg-gray-100 text-gray-500',
+    nao_tratada: 'bg-red-100 text-red-700',
+    em_tratamento: 'bg-yellow-100 text-yellow-700',
+    baixada: 'bg-green-100 text-green-700',
+    cancelado: 'bg-gray-200 text-gray-500',
+    desconsiderado: 'bg-gray-100 text-gray-400',
+    aguardando_baixa: 'bg-blue-100 text-blue-700',
+    baixada_sistema: 'bg-emerald-100 text-emerald-700',
+    analise_critica: 'bg-orange-100 text-orange-700',
+  };
 
   return (
     <div className="space-y-4">
@@ -913,8 +934,38 @@ export function Clientes({ clientes, setClientes, renovacoes, segurosNovos, camp
                 </div>
               )}
 
-              {clienteRenovacoes.length === 0 && clienteSeguros.length === 0 && (
-                <div className="text-sm text-gray-400 text-center py-4">Nenhuma apólice vinculada a este cliente.</div>
+              {clienteParcelas.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Parcelas em Aberto ({clienteParcelas.length})</h3>
+                  <div className="space-y-1.5">
+                    {clienteParcelas.map(p => (
+                      <div
+                        key={p.id}
+                        onDoubleClick={() => { setVisualizando(null); navigate('/parcelas', { state: { openId: p.id } }); }}
+                        className="flex items-center justify-between py-2 px-3 bg-gray-50 hover:bg-blue-50 rounded-lg text-sm cursor-pointer select-none"
+                        title="Duplo clique para abrir parcela"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-gray-700 truncate">{p.apolice} · Parc. {p.numeroParcela}</span>
+                          <span className="text-xs text-gray-400 whitespace-nowrap">{p.seguradora}</span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <span className="text-gray-500 text-xs">{formatDate(p.vencimento)}</span>
+                          <span className="text-xs font-medium text-gray-700">
+                            {p.valorParcela.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </span>
+                          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${PARCELA_STATUS_CLS[p.status] ?? 'bg-gray-100 text-gray-500'}`}>
+                            {PARCELA_STATUS_LABEL[p.status] ?? p.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {clienteRenovacoes.length === 0 && clienteSeguros.length === 0 && clienteParcelas.length === 0 && (
+                <div className="text-sm text-gray-400 text-center py-4">Nenhuma apólice ou parcela vinculada a este cliente.</div>
               )}
             </div>
           </div>

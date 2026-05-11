@@ -15,6 +15,7 @@ import type {
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
+  Parcela, ImportacaoParcelas,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -77,6 +78,8 @@ export async function fetchAll() {
     r_modelos_email,
     r_emails_disparo,
     r_config_gatilhos,
+    r_parcelas,
+    r_imp_parcelas,
   ] = await Promise.all([
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
@@ -96,6 +99,8 @@ export async function fetchAll() {
     supabase.from('modelos_email').select('*').order('criado_em', { ascending: false }),
     supabase.from('emails_disparo').select('*').order('criado_em', { ascending: false }),
     supabase.from('config_gatilhos').select('*').order('criado_em', { ascending: true }),
+    supabase.from('parcelas').select('*').order('vencimento'),
+    supabase.from('importacoes_parcelas').select('*').order('criado_em', { ascending: false }),
   ]);
 
   // Detecta erros críticos
@@ -126,6 +131,8 @@ export async function fetchAll() {
     modelosEmail: (r_modelos_email.data || []).map(r => rowToCamel<ModeloEmail>(r as Record<string, unknown>)),
     emailsDisparo: (r_emails_disparo.data || []).map(r => rowToCamel<EmailDisparo>(r as Record<string, unknown>)),
     configGatilhos: (r_config_gatilhos.data || []).map(r => rowToCamel<ConfigGatilho>(r as Record<string, unknown>)),
+    parcelas: (r_parcelas.data || []).map(r => rowToCamel<Parcela>(r as Record<string, unknown>)),
+    importacoesParcelas: (r_imp_parcelas.data || []).map(r => rowToCamel<ImportacaoParcelas>(r as Record<string, unknown>)),
     metas:    r_metas.data
       ? rowToCamel<ConfiguracoesMetas & { id: number }>(r_metas.data as Record<string, unknown>)
       : METAS_DEFAULT,
@@ -224,6 +231,12 @@ export const db = {
   // Configuração de Gatilhos
   upsertConfigGatilhos: (items: ConfigGatilho[]) => upsertRows('config_gatilhos', items as unknown as Record<string, unknown>[]),
   deleteConfigGatilhos: (ids: string[])           => deleteRows('config_gatilhos', ids),
+
+  // Parcelas (Follow Up de Pagamentos)
+  upsertParcelas:           (items: Parcela[])             => upsertRows('parcelas', items as unknown as Record<string, unknown>[]),
+  deleteParcelas:           (ids: string[])                => deleteRows('parcelas', ids),
+  upsertImportacoesParcelas:(items: ImportacaoParcelas[])  => upsertRows('importacoes_parcelas', items as unknown as Record<string, unknown>[]),
+  deleteImportacoesParcelas:(ids: string[])                => deleteRows('importacoes_parcelas', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {
