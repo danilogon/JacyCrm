@@ -11,7 +11,7 @@ const STATUS_LABELS: Record<StatusParcela, string> = {
   desconsiderada:   'Desconsiderada',
   seguro_cancelado:     'Seguro Cancelado',
   aguardando_baixa: 'Aguardando Baixa',
-  baixada_sistema:  'Baixada Sistema',
+  baixada_sistema:  'Baixa Automática',
   analise_critica:  'Análise Crítica',
 };
 

@@ -37,7 +37,7 @@ export const STATUS_PARCELA_LABELS: Record<string, string> = {
   desconsiderada:   'Desconsiderada',
   seguro_cancelado:     'Seguro Cancelado',
   aguardando_baixa: 'Aguardando Baixa',
-  baixada_sistema:  'Baixada Sistema',
+  baixada_sistema:  'Baixa Automática',
   analise_critica:  'Análise Crítica',
   // Legado (dados antigos no banco)
   '':               'Importada',
@@ -779,7 +779,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="pendentes">Pendentes</option>
           <option value="todas">Todos</option>
-          <option value="baixada_sistema">Baixada Sistema</option>
+          <option value="baixada_sistema">Baixa Automática</option>
           {STATUSES_EDITAVEIS.map(s => (
             <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
           ))}
@@ -982,7 +982,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select value={formStatus} onChange={e => setFormStatus(e.target.value as StatusParcela)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="baixada_sistema">Baixada Sistema</option>
+                    <option value="baixada_sistema">Baixa Automática</option>
                     {STATUSES_EDITAVEIS.map(s => (
                       <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
                     ))}
