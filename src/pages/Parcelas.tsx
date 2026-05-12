@@ -290,6 +290,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const proteger = empresa.protegerSeguradoraSemImport !== false;
 
       let totalNovas = 0, totalAtualizadas = 0;
+      const idsNovas: string[] = [];
       const parcelasMap = new Map(parcelas.map(p => [p.chaveUnica, p]));
       const updated: Parcela[] = [];
 
@@ -361,6 +362,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           };
           updated.push(nova);
           parcelasMap.set(chave, nova);
+          idsNovas.push(nova.id);
           // Propaga o vínculo para próximas parcelas da mesma apólice neste import
           if (clienteAutoId) vinculoIndex.set(`${apolice}|${seguradora}`, clienteAutoId);
           totalNovas++;
@@ -408,6 +410,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         totalBaixadas,
         totalIgnoradas: linhasIgnoradas.length,
         linhasIgnoradas,
+        idsSalvos: idsNovas,
         criadoEm: new Date().toISOString(),
       };
 

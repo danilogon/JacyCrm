@@ -2207,11 +2207,21 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
                   <ConfirmDialog
                     open={!!confirmDelP}
-                    title="Excluir registro de importação"
-                    message={confirmDelP ? `Excluir o registro da importação "${confirmDelP.nomeArquivo}"? Isso não desfaz as parcelas já importadas.` : ''}
+                    title="Excluir importação de parcelas"
+                    message={confirmDelP
+                      ? `Excluir a importação "${confirmDelP.nomeArquivo}"? As ${confirmDelP.totalNovas} parcelas novas criadas por este import também serão removidas.`
+                      : ''}
                     confirmLabel="Excluir"
                     danger
-                    onConfirm={() => { if (confirmDelP) setImportacoesParcelas(importacoesParcelas.filter(i => i.id !== confirmDelP.id)); setConfirmDelP(null); }}
+                    onConfirm={() => {
+                      if (!confirmDelP) return;
+                      const ids = new Set(confirmDelP.idsSalvos ?? []);
+                      if (ids.size > 0) {
+                        setParcelas(parcelas.filter(p => !ids.has(p.id)));
+                      }
+                      setImportacoesParcelas(importacoesParcelas.filter(i => i.id !== confirmDelP.id));
+                      setConfirmDelP(null);
+                    }}
                     onCancel={() => setConfirmDelP(null)}
                   />
                 </>

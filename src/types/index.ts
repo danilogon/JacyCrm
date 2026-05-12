@@ -573,6 +573,8 @@ export interface ImportacaoParcelas {
   totalBaixadas: number;
   totalIgnoradas: number;
   linhasIgnoradas: { linha: number; motivo: string }[];
+  /** IDs das parcelas criadas (novas) neste import — usado para desfazer a importação */
+  idsSalvos?: string[];
   criadoEm: string;
 }
 
