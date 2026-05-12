@@ -106,15 +106,10 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
   const [expandedSQL, setExpandedSQL] = useState(false);
 
-  const padroesVenc     = automacoes.filter(a => a.tipo === 'padrao_vencimento');
-  const padroesSemImp   = automacoes.filter(a => a.tipo === 'padrao_sem_import');
   const personalizadas  = automacoes.filter(a => a.tipo === 'personalizada');
 
-  function abrirNova(tipo: AutomacaoParcela['tipo']) {
-    setForm({ ...autoVazia(), tipo,
-      diasAposVencimento:  tipo === 'padrao_vencimento' ? 5 : undefined,
-      diasAntesSemImport:  tipo === 'padrao_sem_import' ? 30 : undefined,
-    });
+  function abrirNova() {
+    setForm({ ...autoVazia(), tipo: 'personalizada' });
     setModal('nova');
   }
 
@@ -244,65 +239,23 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
         )}
       </div>
 
-      {/* Section: After due date */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Zap size={16} className="text-amber-500" />
-              <h2 className="font-semibold text-gray-900 text-sm">Após X dias do vencimento</h2>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5">Muda o status automaticamente quando a parcela atingir X dias vencida.</p>
-          </div>
-          <button onClick={() => abrirNova('padrao_vencimento')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 shrink-0">
-            <Plus size={13} /> Nova
-          </button>
-        </div>
-        {padroesVenc.length === 0
-          ? <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra configurada.</p>
-          : <div className="space-y-2">{padroesVenc.map(a => <CardRegra key={a.id} a={a} />)}</div>
-        }
-      </div>
-
-      {/* Section: Missing from import */}
-      <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Zap size={16} className="text-orange-500" />
-              <h2 className="font-semibold text-gray-900 text-sm">Ausente no import com vencimento passado</h2>
-            </div>
-            <p className="text-xs text-gray-500 mt-0.5">Quando uma parcela não aparece no novo import e já venceu há X ou mais dias.</p>
-          </div>
-          <button onClick={() => abrirNova('padrao_sem_import')}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 shrink-0">
-            <Plus size={13} /> Nova
-          </button>
-        </div>
-        {padroesSemImp.length === 0
-          ? <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra configurada.</p>
-          : <div className="space-y-2">{padroesSemImp.map(a => <CardRegra key={a.id} a={a} />)}</div>
-        }
-      </div>
-
       {/* Section: Custom rules */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-2">
               <Zap size={16} className="text-blue-600" />
-              <h2 className="font-semibold text-gray-900 text-sm">Regras Personalizadas</h2>
+              <h2 className="font-semibold text-gray-900 text-sm">Regras de Automação</h2>
             </div>
             <p className="text-xs text-gray-500 mt-0.5">Crie condições combinadas (SE campo operador valor ENTÃO mudar status).</p>
           </div>
-          <button onClick={() => abrirNova('personalizada')}
+          <button onClick={() => abrirNova()}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 shrink-0">
             <Plus size={13} /> Nova Regra
           </button>
         </div>
         {personalizadas.length === 0
-          ? <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra personalizada criada ainda.</p>
+          ? <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra criada ainda.</p>
           : <div className="space-y-2">{personalizadas.map(a => <CardRegra key={a.id} a={a} />)}</div>
         }
       </div>
@@ -327,36 +280,8 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
-              {/* Standard: after due date */}
-              {form.tipo === 'padrao_vencimento' && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <p className="text-xs font-semibold text-amber-700 mb-3">Condição padrão</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-gray-700">Após</span>
-                    <input type="number" min="1" value={form.diasAposVencimento ?? 5}
-                      onChange={e => setForm(f => ({ ...f, diasAposVencimento: Number(e.target.value) }))}
-                      className="w-20 px-2 py-1.5 border border-amber-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <span className="text-sm text-gray-700">dias do vencimento da parcela</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Standard: missing from import */}
-              {form.tipo === 'padrao_sem_import' && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <p className="text-xs font-semibold text-orange-700 mb-3">Condição padrão</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm text-gray-700">Parcela ausente no import e vencimento há</span>
-                    <input type="number" min="1" value={form.diasAntesSemImport ?? 30}
-                      onChange={e => setForm(f => ({ ...f, diasAntesSemImport: Number(e.target.value) }))}
-                      className="w-20 px-2 py-1.5 border border-orange-300 rounded-lg text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <span className="text-sm text-gray-700">ou mais dias</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Custom: conditions builder */}
-              {form.tipo === 'personalizada' && (
+              {/* Conditions builder */}
+              {(
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b border-gray-200">
                     <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Condições (SE...)</span>
@@ -503,13 +428,11 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
               </div>
 
               {/* Preview */}
-              {(form.tipo !== 'personalizada' || form.condicoes.length > 0) && (
+              {form.condicoes.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
                   <p className="font-semibold mb-1">Resumo da regra:</p>
                   <p>
-                    {form.tipo === 'padrao_vencimento' && `Após ${form.diasAposVencimento ?? 0} dias do vencimento`}
-                    {form.tipo === 'padrao_sem_import' && `Parcela ausente no import com vencimento há ${form.diasAntesSemImport ?? 0}+ dias`}
-                    {form.tipo === 'personalizada' && form.condicoes.map((c, i) => (
+                    {form.condicoes.map((c, i) => (
                       <span key={c.id}>{i > 0 && <strong> {form.operadorLogico} </strong>}
                         {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g,' ')}{' '}
                         {c.tipoValor === 'campo' && c.valorCampo
