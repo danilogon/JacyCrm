@@ -10,7 +10,7 @@ import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
 
-const FORMAS_PAGAMENTO_PADRAO = ['Boleto', 'Cartão Seguradora', 'Crédito', 'Débito'];
+export const FORMAS_PAGAMENTO_PADRAO = ['Boleto', 'Cartão Seguradora', 'Crédito', 'Débito'];
 
 interface Props {
   parcelas: Parcela[];

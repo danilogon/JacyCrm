@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
 import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
+import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -1878,7 +1879,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
             setAutomacoes={setAutomacoesParcelas}
             seguradoras={seguradoras.filter(s => s.ativo).map(s => s.nome).sort()}
             ramos={ramos.filter(r => r.ativo).map(r => r.nome).sort()}
-            formasPagamento={formasPagamento.filter(f => f.ativo).map(f => f.nome).sort()}
+            formasPagamento={[...new Set([...FORMAS_PAGAMENTO_PADRAO, ...formasPagamento.filter(f => f.ativo).map(f => f.nome)])].sort()}
           />
         </div>
       )}

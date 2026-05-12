@@ -121,7 +121,7 @@ function ValorInput({ campo, valor, onChange, seguradoras = [], ramos = [], form
     );
   }
   // Campos de lista: seguradora, ramo, forma_pagamento
-  if (campo === 'seguradora' && seguradoras.length > 0) {
+  if (campo === 'seguradora') {
     return (
       <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
         <option value="">— Selecione —</option>
@@ -129,7 +129,7 @@ function ValorInput({ campo, valor, onChange, seguradoras = [], ramos = [], form
       </select>
     );
   }
-  if (campo === 'ramo' && ramos.length > 0) {
+  if (campo === 'ramo') {
     return (
       <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
         <option value="">— Selecione —</option>
@@ -137,7 +137,7 @@ function ValorInput({ campo, valor, onChange, seguradoras = [], ramos = [], form
       </select>
     );
   }
-  if (campo === 'forma_pagamento' && formasPagamento.length > 0) {
+  if (campo === 'forma_pagamento') {
     return (
       <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
         <option value="">— Selecione —</option>
