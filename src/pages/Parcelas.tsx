@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
-  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap,
+  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
@@ -154,6 +154,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   // ── Filtros ───────────────────────────────────────────────────────────────
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<StatusParcela | 'pendentes' | 'todas'>('pendentes');
+  const [filtroP1, setFiltroP1] = useState(false);
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroRamo, setFiltroRamo] = useState('');
   const [filtroVencDe, setFiltroVencDe] = useState('');
@@ -216,6 +217,9 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     return [...s].sort();
   }, [parcelas]);
 
+  // Primeira parcela: numeroParcela === '1' ou '01' (ignora zeros à esquerda)
+  const isPrimeiraParc = (p: Parcela) => p.numeroParcela.trim().replace(/^0+/, '') === '1';
+
   const filtered = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return parcelas.filter(p => {
@@ -226,6 +230,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       }
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroRamo && p.ramo !== filtroRamo) return false;
+      if (filtroP1 && !isPrimeiraParc(p)) return false;
       if (filtroVencDe && p.vencimento < filtroVencDe) return false;
       if (filtroVencAte && p.vencimento > filtroVencAte) return false;
       if (filtroPrazo.length > 0) {
@@ -255,7 +260,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         default: return a.vencimento.localeCompare(b.vencimento); // vencimento_asc
       }
     });
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, busca, ordenar]);
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, filtroP1, busca, ordenar]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -263,7 +268,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     const baixadasSistema = parcelas.filter(p => p.status === 'baixada_sistema');
     const valorAberto = pendentes.reduce((s, p) => s + p.valorParcela, 0);
     const naoTratadas = pendentes.filter(p => p.status === '' || p.status === 'nao_tratada').length;
-    return { pendentes: pendentes.length, baixadasSistema: baixadasSistema.length, valorAberto, naoTratadas };
+    const primeirasPendentes = pendentes.filter(p => isPrimeiraParc(p)).length;
+    return { pendentes: pendentes.length, baixadasSistema: baixadasSistema.length, valorAberto, naoTratadas, primeirasPendentes };
   }, [parcelas]);
 
   // ── Importação XLSX ───────────────────────────────────────────────────────
@@ -596,15 +602,19 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Pendentes', value: kpis.pendentes, color: 'bg-blue-700', text: 'text-blue-700' },
-          { label: 'Não Tratadas', value: kpis.naoTratadas, color: 'bg-amber-500', text: 'text-amber-600' },
-          { label: 'Valor em Aberto', value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'bg-green-600', text: 'text-green-700' },
-          { label: 'Baixadas Sistema', value: kpis.baixadasSistema, color: 'bg-purple-600', text: 'text-purple-700' },
+          { label: 'Pendentes', value: kpis.pendentes, text: 'text-blue-700' },
+          { label: 'Não Tratadas', value: kpis.naoTratadas, text: 'text-amber-600' },
+          { label: 'Valor em Aberto', value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
+          { label: 'Baixadas Sistema', value: kpis.baixadasSistema, text: 'text-purple-700' },
+          { label: '1ª Parcelas Pendentes', value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
         ].map(k => (
-          <div key={k.label} className="bg-white rounded-xl border border-gray-200 p-4">
-            <div className={`text-xs font-semibold mb-1 ${k.text}`}>{k.label}</div>
+          <div key={k.label} className={`bg-white rounded-xl border p-4 ${(k as { bell?: boolean }).bell && filtroP1 ? 'border-amber-400 bg-amber-50' : 'border-gray-200'}`}>
+            <div className={`text-xs font-semibold mb-1 flex items-center gap-1 ${k.text}`}>
+              {(k as { bell?: boolean }).bell && <Bell size={11} />}
+              {k.label}
+            </div>
             <div className="text-xl font-bold text-gray-900">{k.value}</div>
           </div>
         ))}
@@ -721,8 +731,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <option value="seguradora_asc">Seguradora A→Z</option>
           <option value="status_asc">Status A→Z</option>
         </select>
-        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0) && (
-          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); }}
+        {/* Filtro 1ª parcela */}
+        <button
+          onClick={() => setFiltroP1(v => !v)}
+          title="Filtrar apenas primeiras parcelas pendentes"
+          className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors ${
+            filtroP1
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'border-gray-300 text-gray-600 hover:border-amber-400 hover:text-amber-600'
+          }`}
+        >
+          <Bell size={14} /> 1ª Parcela
+        </button>
+        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0 || filtroP1) && (
+          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); setFiltroP1(false); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">
             <X size={14} />
           </button>
@@ -785,7 +807,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                       )}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs text-gray-600 whitespace-nowrap">
-                      {p.apolice}<br /><span className="text-gray-400">Parc. {p.numeroParcela}</span>
+                      {p.apolice}<br />
+                      <span className="text-gray-400">Parc. {p.numeroParcela}</span>
+                      {isPrimeiraParc(p) && (
+                        <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-bold border border-amber-200">
+                          <Bell size={9} /> 1ª
+                        </span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
                       <div className="font-medium text-gray-800">
