@@ -41,7 +41,7 @@ interface Props {
   setAutomacoesParcelas: (a: AutomacaoParcela[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'automacoes_parcelas' | 'importacoes';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -316,7 +316,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'campos', label: 'Campos Customizáveis' },
     { key: 'origens_prospeccao', label: 'Origem do Negócio' },
     { key: 'regras_parcelas', label: 'Regras de Parcelas' },
-    { key: 'automacoes_parcelas', label: 'Automações de Parcelas' },
     { key: 'importacoes', label: 'Importações' },
   ];
 
@@ -1677,16 +1676,15 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             onConfirm={() => { if (confirmDelRegra) setRegrasParcelas(regrasParcelas.filter(r => r.id !== confirmDelRegra)); setConfirmDelRegra(null); }}
             onCancel={() => setConfirmDelRegra(null)}
           />
-        </div>
-      )}
 
-      {tab === 'automacoes_parcelas' && (
-        <AutomacoesParcelasConfig
-          automacoes={automacoesParcelas}
-          setAutomacoes={setAutomacoesParcelas}
-          seguradoras={seguradoras.filter(s => s.ativo).map(s => s.nome).sort()}
-          ramos={ramos.filter(r => r.ativo).map(r => r.nome).sort()}
-        />
+          {/* Automações de Parcelas — dentro de Regras de Parcelas */}
+          <AutomacoesParcelasConfig
+            automacoes={automacoesParcelas}
+            setAutomacoes={setAutomacoesParcelas}
+            seguradoras={seguradoras.filter(s => s.ativo).map(s => s.nome).sort()}
+            ramos={ramos.filter(r => r.ativo).map(r => r.nome).sort()}
+          />
+        </div>
       )}
 
       {/* Importações */}
