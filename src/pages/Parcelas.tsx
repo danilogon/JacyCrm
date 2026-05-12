@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela } from '../types';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
@@ -27,33 +27,50 @@ interface Props {
 
 // ─── Status ──────────────────────────────────────────────────────────────────
 
-export const STATUS_PARCELA_LABELS: Record<StatusParcela, string> = {
-  '':                'Não Tratada',
-  nao_tratada:       'Não Tratada',
-  em_tratamento:     'Em Tratamento',
-  baixada:           'Parcela Baixada',
-  cancelado:         'Seguro Cancelado',
-  desconsiderado:    'Desconsiderado',
-  aguardando_baixa:  'Aguardando Baixa',
-  baixada_sistema:   'Baixada Sistema',
-  analise_critica:   'Análise Crítica',
+// Inclui mapeamento legado para dados existentes no banco
+export const STATUS_PARCELA_LABELS: Record<string, string> = {
+  // Novos
+  importada:        'Importada',
+  tratar:           'Tratar',
+  em_tratativa:     'Em Tratativa',
+  quitada:          'Quitada',
+  desconsiderada:   'Desconsiderada',
+  ap_cancelada:     'AP Cancelada',
+  aguardando_baixa: 'Aguardando Baixa',
+  baixada_sistema:  'Baixada Sistema',
+  analise_critica:  'Análise Crítica',
+  // Legado (dados antigos no banco)
+  '':               'Importada',
+  nao_tratada:      'Importada',
+  em_tratamento:    'Em Tratativa',
+  baixada:          'Quitada',
+  cancelado:        'AP Cancelada',
+  desconsiderado:   'Desconsiderada',
 };
 
-const STATUS_CLS: Record<StatusParcela, string> = {
+const STATUS_CLS: Record<string, string> = {
+  // Novos
+  importada:        'bg-gray-100 text-gray-500',
+  tratar:           'bg-amber-100 text-amber-700',
+  em_tratativa:     'bg-blue-100 text-blue-700',
+  quitada:          'bg-green-100 text-green-700',
+  desconsiderada:   'bg-gray-100 text-gray-500',
+  ap_cancelada:     'bg-red-100 text-red-700',
+  aguardando_baixa: 'bg-cyan-100 text-cyan-700',
+  baixada_sistema:  'bg-purple-100 text-purple-700',
+  analise_critica:  'bg-orange-100 text-orange-700',
+  // Legado
   '':               'bg-gray-100 text-gray-500',
-  nao_tratada:      'bg-gray-100 text-gray-600',
-  em_tratamento:    'bg-amber-100 text-amber-700',
+  nao_tratada:      'bg-gray-100 text-gray-500',
+  em_tratamento:    'bg-blue-100 text-blue-700',
   baixada:          'bg-green-100 text-green-700',
   cancelado:        'bg-red-100 text-red-700',
   desconsiderado:   'bg-gray-100 text-gray-500',
-  aguardando_baixa: 'bg-blue-100 text-blue-700',
-  baixada_sistema:  'bg-purple-100 text-purple-700',
-  analise_critica:  'bg-orange-100 text-orange-700',
 };
 
 const STATUSES_EDITAVEIS: StatusParcela[] = [
-  '', 'nao_tratada', 'em_tratamento', 'baixada', 'cancelado',
-  'desconsiderado', 'aguardando_baixa',
+  'importada', 'tratar', 'em_tratativa', 'quitada',
+  'desconsiderada', 'ap_cancelada', 'aguardando_baixa',
 ];
 
 // ─── Helpers de parse ─────────────────────────────────────────────────────────
@@ -129,7 +146,7 @@ function PrazoBadge({ prazo }: { prazo: number | null }) {
 
 // ─── Badge ────────────────────────────────────────────────────────────────────
 
-function StatusBadge({ status }: { status: StatusParcela }) {
+function StatusBadge({ status }: { status: string }) {
   const label = STATUS_PARCELA_LABELS[status] ?? status;
   const cls   = STATUS_CLS[status] ?? 'bg-gray-100 text-gray-500';
   return (
@@ -164,7 +181,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
 
   // ── Modal de edição ───────────────────────────────────────────────────────
   const [editando, setEditando] = useState<Parcela | null>(null);
-  const [formStatus, setFormStatus] = useState<StatusParcela>('');
+  const [formStatus, setFormStatus] = useState<StatusParcela>('importada');
   const [formDataLimite, setFormDataLimite] = useState('');
   const [formRamo, setFormRamo] = useState('');
   const [formFormaPagamento, setFormFormaPagamento] = useState('');
@@ -224,7 +241,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     const q = busca.toLowerCase().trim();
     return parcelas.filter(p => {
       if (filtroStatus === 'pendentes') {
-        if (p.status === 'baixada' || p.status === 'baixada_sistema' || p.status === 'cancelado') return false;
+        const s = p.status as string;
+        // Novos + legado: excluir concluídos
+        if (s === 'quitada' || s === 'ap_cancelada' || s === 'baixada_sistema' ||
+            s === 'baixada' || s === 'cancelado') return false;
       } else if (filtroStatus !== 'todas') {
         if (p.status !== filtroStatus) return false;
       }
@@ -264,10 +284,16 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
 
   // KPIs
   const kpis = useMemo(() => {
-    const pendentes = parcelas.filter(p => p.status !== 'baixada' && p.status !== 'baixada_sistema' && p.status !== 'cancelado');
+    const isConcluido = (s: string) =>
+      s === 'quitada' || s === 'ap_cancelada' || s === 'baixada_sistema' ||
+      s === 'baixada' || s === 'cancelado'; // legado
+    const pendentes = parcelas.filter(p => !isConcluido(p.status as string));
     const baixadasSistema = parcelas.filter(p => p.status === 'baixada_sistema');
     const valorAberto = pendentes.reduce((s, p) => s + p.valorParcela, 0);
-    const naoTratadas = pendentes.filter(p => p.status === '' || p.status === 'nao_tratada').length;
+    const naoTratadas = pendentes.filter(p => {
+      const s = p.status as string;
+      return s === 'importada' || s === '' || s === 'nao_tratada';
+    }).length;
     const primeirasPendentes = pendentes.filter(p => isPrimeiraParc(p)).length;
     return { pendentes: pendentes.length, baixadasSistema: baixadasSistema.length, valorAberto, naoTratadas, primeirasPendentes };
   }, [parcelas]);
@@ -348,6 +374,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         } else {
           // Nova parcela — herda vínculo de cliente se já existe para esta apólice+seguradora
           const clienteAutoId = vinculoIndex.get(`${apolice}|${seguradora}`);
+          const agora = new Date().toISOString();
+          const logImport: LogParcela = {
+            id: generateId(),
+            data: agora,
+            autor: 'Sistema',
+            tipo: 'importacao',
+            descricao: `Parcela importada do arquivo ${file.name}`,
+          };
           const nova: Parcela = {
             id: generateId(),
             chaveUnica: chave,
@@ -361,10 +395,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             valorParcela,
             seguradora,
             formaPagamento,
-            status: '',
+            status: 'importada',
             observacoes: [],
-            criadoEm: new Date().toISOString(),
-            atualizadoEm: new Date().toISOString(),
+            logs: [logImport],
+            criadoEm: agora,
+            atualizadoEm: agora,
           };
           updated.push(nova);
           parcelasMap.set(chave, nova);
@@ -390,8 +425,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         }
         // Seguradora veio no import mas esta parcela não apareceu
         const statusAtual = p.status;
-        // Se já está baixada/cancelada/análise crítica, só verificar data limite
-        if (statusAtual === 'baixada' || statusAtual === 'cancelado' || statusAtual === 'baixada_sistema') {
+        // Se já está baixada/cancelada/análise crítica, só verificar data limite (inclui legado)
+        const statusAtualStr = statusAtual as string;
+        if (statusAtualStr === 'quitada' || statusAtualStr === 'ap_cancelada' || statusAtualStr === 'baixada_sistema' ||
+            statusAtualStr === 'baixada' || statusAtualStr === 'cancelado') {
           updated.push(p);
           return;
         }
@@ -400,7 +437,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         if (p.dataLimite && dataImport > p.dataLimite) {
           novoStatus = 'analise_critica';
         }
-        updated.push({ ...p, status: novoStatus, atualizadoEm: new Date().toISOString() });
+        const agoraImp = new Date().toISOString();
+        const logBaixa: LogParcela = {
+          id: generateId(),
+          data: agoraImp,
+          autor: 'Sistema',
+          tipo: 'importacao',
+          descricao: `Status atualizado por importação: ${file.name}`,
+          mudancas: [{ campo: 'Status', de: STATUS_PARCELA_LABELS[p.status as string] ?? p.status, para: STATUS_PARCELA_LABELS[novoStatus] }],
+        };
+        updated.push({
+          ...p, status: novoStatus,
+          logs: [...(p.logs ?? []), logBaixa],
+          atualizadoEm: agoraImp,
+        });
         totalBaixadas++;
       });
 
@@ -442,15 +492,52 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
 
   function salvarEdicao() {
     if (!editando) return;
-    const obs: Observacao[] = (novaObs.trim() || novosArquivos.length > 0)
+    const agora = new Date().toISOString();
+
+    // Detectar mudanças para o log
+    const mudancas: LogParcela['mudancas'] = [];
+    if (editando.status !== formStatus) {
+      mudancas!.push({ campo: 'Status', de: STATUS_PARCELA_LABELS[editando.status as string] ?? editando.status, para: STATUS_PARCELA_LABELS[formStatus] ?? formStatus });
+    }
+    if ((editando.dataLimite ?? '') !== formDataLimite) {
+      mudancas!.push({ campo: 'Data Limite', de: editando.dataLimite ?? '—', para: formDataLimite || '—' });
+    }
+    if ((editando.ramo ?? '') !== formRamo) {
+      mudancas!.push({ campo: 'Ramo', de: editando.ramo ?? '—', para: formRamo || '—' });
+    }
+    if ((editando.formaPagamento ?? '') !== formFormaPagamento) {
+      mudancas!.push({ campo: 'Forma de Pagamento', de: editando.formaPagamento ?? '—', para: formFormaPagamento || '—' });
+    }
+    const prorrogStr = (v: boolean | undefined) => v === undefined ? 'N/A' : v ? 'Sim' : 'Não';
+    if (editando.prorrogada !== formProrrogada) {
+      mudancas!.push({ campo: 'Prorrogada', de: prorrogStr(editando.prorrogada), para: prorrogStr(formProrrogada) });
+    }
+    if ((editando.dataProrrogacao ?? '') !== formDataProrrogacao) {
+      mudancas!.push({ campo: 'Data Prorrogação', de: editando.dataProrrogacao ?? '—', para: formDataProrrogacao || '—' });
+    }
+
+    const temObservacao = novaObs.trim() || novosArquivos.length > 0;
+    const obs: Observacao[] = temObservacao
       ? [...editando.observacoes, {
           id: generateId(),
           texto: novaObs.trim(),
           autor: usuario?.nome ?? 'Sistema',
-          data: new Date().toISOString(),
+          data: agora,
           arquivos: novosArquivos,
         }]
       : editando.observacoes;
+
+    // Criar entrada de log se houve mudanças ou observação
+    const novoLog: LogParcela | null = (mudancas!.length > 0 || temObservacao) ? {
+      id: generateId(),
+      data: agora,
+      autor: usuario?.nome ?? 'Usuário',
+      tipo: 'edicao',
+      descricao: mudancas!.length > 0
+        ? `${mudancas!.length} campo(s) alterado(s)${temObservacao ? ' + observação' : ''}`
+        : 'Observação adicionada',
+      mudancas: mudancas!.length > 0 ? mudancas! : undefined,
+    } : null;
 
     const updated: Parcela = {
       ...editando,
@@ -461,7 +548,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       prorrogada: formProrrogada,
       dataProrrogacao: formDataProrrogacao || undefined,
       observacoes: obs,
-      atualizadoEm: new Date().toISOString(),
+      logs: novoLog ? [...(editando.logs ?? []), novoLog] : (editando.logs ?? []),
+      atualizadoEm: agora,
     };
     setParcelas(parcelas.map(p => p.id === updated.id ? updated : p));
     setEditando(null);
@@ -499,7 +587,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       seguradora: seguradora.trim().toUpperCase() || 'MANUAL',
       formaPagamento: formaPagamento.trim(),
       ramo: ramo.trim() || undefined,
-      status: '',
+      status: 'importada',
       observacoes: [],
       criadoEm: new Date().toISOString(),
       atualizadoEm: new Date().toISOString(),
@@ -692,8 +780,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="pendentes">Pendentes</option>
           <option value="todas">Todos</option>
-          <option value="">Não Tratada</option>
-          {STATUSES_EDITAVEIS.filter(s => s !== '').map(s => (
+          {STATUSES_EDITAVEIS.map(s => (
             <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
           ))}
           <option value="baixada_sistema">Baixada Sistema</option>
@@ -900,6 +987,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     {STATUSES_EDITAVEIS.map(s => (
                       <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
                     ))}
+                    <option value="baixada_sistema">Baixada Sistema</option>
+                    <option value="analise_critica">Análise Crítica</option>
                   </select>
                 </div>
                 <div>
@@ -980,6 +1069,47 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   )}
                 </div>
               </div>
+
+              {/* Log de atividades */}
+              {(editando.logs ?? []).length > 0 && (
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="text-sm font-semibold text-gray-700 mb-3">Log de Atividades</div>
+                  <div className="space-y-2">
+                    {[...(editando.logs ?? [])].reverse().map(log => (
+                      <div key={log.id} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100 text-xs">
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide text-[10px] ${
+                              log.tipo === 'automacao' ? 'bg-purple-100 text-purple-700' :
+                              log.tipo === 'importacao' ? 'bg-blue-100 text-blue-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {log.tipo === 'automacao' ? 'Automação' : log.tipo === 'importacao' ? 'Import' : 'Edição'}
+                            </span>
+                            <span className="font-medium text-gray-700">{log.autor}</span>
+                          </div>
+                          <span className="text-gray-400">
+                            {new Date(log.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <div className="text-gray-600">{log.descricao}</div>
+                        {log.mudancas && log.mudancas.length > 0 && (
+                          <div className="mt-1.5 space-y-1">
+                            {log.mudancas.map((m, i) => (
+                              <div key={i} className="flex items-center gap-1.5 text-gray-500">
+                                <span className="font-medium text-gray-600">{m.campo}:</span>
+                                <span className="line-through text-red-400">{m.de}</span>
+                                <span className="text-gray-400">→</span>
+                                <span className="text-green-600 font-medium">{m.para}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Histórico de observações */}
               {editando.observacoes.length > 0 && (

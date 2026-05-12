@@ -435,15 +435,30 @@ export interface EmailDisparo {
 // ─── Parcelas (Follow Up de Pagamentos) ──────────────────────────────────────
 
 export type StatusParcela =
-  | ''
-  | 'nao_tratada'
-  | 'em_tratamento'
-  | 'baixada'
-  | 'cancelado'
-  | 'desconsiderado'
+  | 'importada'        // parcela importada da planilha (inicial)
+  | 'tratar'           // dentro do prazo — acionar o cliente
+  | 'em_tratativa'     // contato realizado, regularização em andamento
+  | 'quitada'          // parcela paga pelo cliente
+  | 'desconsiderada'   // concluída sem interação direta com o cliente
+  | 'ap_cancelada'     // apólice cancelada (sem quitação)
   | 'aguardando_baixa'
   | 'baixada_sistema'
   | 'analise_critica';
+
+// ─── Log de atividades da parcela ────────────────────────────────────────────
+
+export interface LogParcela {
+  id: string;
+  /** Timestamp ISO */
+  data: string;
+  /** Nome do usuário ou 'Sistema' */
+  autor: string;
+  tipo: 'importacao' | 'edicao' | 'automacao';
+  /** Descrição resumida da ação */
+  descricao: string;
+  /** Campos alterados nesta ação */
+  mudancas?: { campo: string; de: string; para: string }[];
+}
 
 // ─── Automações de Parcelas ──────────────────────────────────────────────────
 
@@ -554,6 +569,8 @@ export interface Parcela {
   /** Data da prorrogação (YYYY-MM-DD) */
   dataProrrogacao?: string;
   observacoes: Observacao[];
+  /** Log de todas as alterações (importação, edições manuais, automações) */
+  logs?: LogParcela[];
   criadoEm: string;
   atualizadoEm: string;
 }

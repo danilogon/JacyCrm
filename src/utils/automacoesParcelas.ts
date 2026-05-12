@@ -1,4 +1,13 @@
-import type { Parcela, AutomacaoParcela, CondicaoAutomacao, CampoParcela } from '../types';
+import type { Parcela, AutomacaoParcela, CondicaoAutomacao, CampoParcela, LogParcela } from '../types';
+
+function uid(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+const CAMPO_LABEL: Record<string, string> = {
+  status: 'Status', prorrogada: 'Prorrogada',
+  dataProrrogacao: 'Data Prorrogação', dataLimite: 'Data Limite',
+};
 
 function diasEntre(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
@@ -127,7 +136,24 @@ export function aplicarAutomacoes(
 
         if (Object.keys(patch).length > 0) {
           totalAlteradas++;
-          return { ...p, ...patch, atualizadoEm: agora };
+          const mudancas = Object.entries(patch).map(([campo, para]) => ({
+            campo: CAMPO_LABEL[campo] ?? campo,
+            de: String((p as unknown as Record<string, unknown>)[campo] ?? '—'),
+            para: String(para ?? '—'),
+          }));
+          const logEntry: LogParcela = {
+            id: uid(),
+            data: agora,
+            autor: 'Sistema',
+            tipo: 'automacao',
+            descricao: `Automação "${auto.nome}" aplicada`,
+            mudancas,
+          };
+          return {
+            ...p, ...patch,
+            logs: [...(p.logs ?? []), logEntry],
+            atualizadoEm: agora,
+          };
         }
       }
     }

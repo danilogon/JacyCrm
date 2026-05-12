@@ -4,20 +4,20 @@ import type { AutomacaoParcela, CondicaoAutomacao, CampoParcela, OperadorCondica
 import { generateId } from '../utils/formatters';
 
 const STATUS_LABELS: Record<StatusParcela, string> = {
-  '': 'Não Tratada',
-  nao_tratada: 'Não Tratada',
-  em_tratamento: 'Em Tratamento',
-  baixada: 'Parcela Baixada',
-  cancelado: 'Seguro Cancelado',
-  desconsiderado: 'Desconsiderado',
+  importada:        'Importada',
+  tratar:           'Tratar',
+  em_tratativa:     'Em Tratativa',
+  quitada:          'Quitada',
+  desconsiderada:   'Desconsiderada',
+  ap_cancelada:     'AP Cancelada',
   aguardando_baixa: 'Aguardando Baixa',
-  baixada_sistema: 'Baixada Sistema',
-  analise_critica: 'Análise Crítica',
+  baixada_sistema:  'Baixada Sistema',
+  analise_critica:  'Análise Crítica',
 };
 
 const TODOS_STATUS: StatusParcela[] = [
-  '', 'nao_tratada', 'em_tratamento', 'baixada', 'cancelado',
-  'desconsiderado', 'aguardando_baixa', 'baixada_sistema', 'analise_critica',
+  'importada', 'tratar', 'em_tratativa', 'quitada',
+  'desconsiderada', 'ap_cancelada', 'aguardando_baixa', 'baixada_sistema', 'analise_critica',
 ];
 
 const CAMPO_LABELS: Record<CampoParcela, string> = {
@@ -196,7 +196,7 @@ const autoVazia = (): Omit<AutomacaoParcela, 'id' | 'criadoEm' | 'atualizadoEm'>
   filtroRamo: '',
   filtroFormaPagamento: '',
   alterarStatus: true,
-  novoStatus: 'em_tratamento',
+  novoStatus: 'em_tratativa',
   acaoProrrogada: '',
   acaoDataProrrogacao: '',
   acaoDataLimite: '',
