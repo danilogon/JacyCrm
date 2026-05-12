@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
-  Link2, Paperclip, FileText, History, CheckCircle,
+  Link2, Paperclip, FileText, History, CheckCircle, Plus,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
@@ -157,6 +157,16 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [modalVinculo, setModalVinculo] = useState<Parcela | null>(null);
   const [buscaVinculo, setBuscaVinculo] = useState('');
   const [clienteVinculoSel, setClienteVinculoSel] = useState<Cliente | null>(null);
+
+  // ── Modal nova parcela manual ─────────────────────────────────────────────
+  const formNovaParcVazio = {
+    nomeCliente: '', apolice: '', numeroParcela: '',
+    vencimento: '', valorParcela: '', seguradora: '', formaPagamento: '',
+  };
+  const [modalNovaParcela, setModalNovaParcela] = useState(false);
+  const [formNovaParc, setFormNovaParc] = useState(formNovaParcVazio);
+  const [clienteNovaSel, setClienteNovaSel] = useState<Cliente | null>(null);
+  const [buscaClienteNova, setBuscaClienteNova] = useState('');
 
   // ── Histórico de imports ──────────────────────────────────────────────────
   const [showHistorico, setShowHistorico] = useState(false);
@@ -387,6 +397,37 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     setClienteVinculoSel(null);
   }
 
+  function criarParcelaManual() {
+    const { nomeCliente, apolice, numeroParcela, vencimento, valorParcela, seguradora, formaPagamento } = formNovaParc;
+    if (!nomeCliente.trim() || !apolice.trim() || !numeroParcela.trim() || !vencimento) return;
+
+    const chave = `${apolice.trim()}_${numeroParcela.trim()}`;
+    const hoje  = new Date().toISOString().split('T')[0];
+    const nova: Parcela = {
+      id: generateId(),
+      chaveUnica: chave,
+      primeiraAtualizacao: hoje,
+      ultimaAtualizacao: hoje,
+      nomeCliente: nomeCliente.trim(),
+      clienteId: clienteNovaSel?.id,
+      apolice: apolice.trim(),
+      numeroParcela: numeroParcela.trim(),
+      vencimento,
+      valorParcela: parseFloat(String(valorParcela).replace(/\./g, '').replace(',', '.')) || 0,
+      seguradora: seguradora.trim().toUpperCase() || 'MANUAL',
+      formaPagamento: formaPagamento.trim(),
+      status: '',
+      observacoes: [],
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+    };
+    setParcelas([...parcelas, nova]);
+    setModalNovaParcela(false);
+    setFormNovaParc(formNovaParcVazio);
+    setClienteNovaSel(null);
+    setBuscaClienteNova('');
+  }
+
   function removerVinculo(parcelaId: string) {
     setParcelas(parcelas.map(p =>
       p.id === parcelaId ? { ...p, clienteId: undefined, atualizadoEm: new Date().toISOString() } : p
@@ -427,6 +468,12 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
           >
             <History size={14} /> Histórico
+          </button>
+          <button
+            onClick={() => { setModalNovaParcela(true); setFormNovaParc(formNovaParcVazio); setClienteNovaSel(null); setBuscaClienteNova(''); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
+          >
+            <Plus size={14} /> Nova Parcela
           </button>
           <label className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 cursor-pointer">
             <Upload size={14} /> Importar XLSX
@@ -573,14 +620,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Vencimento','Cliente','Apólice / Parcela','Valor','Seguradora','Forma Pgto','Status','Data Limite','Prazo',''].map(h => (
+                {['Vencimento','Cliente','Apólice / Parcela','Valor / Forma Pgto','Seguradora','Status','Data Limite','Prazo',''].map(h => (
                   <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400 text-sm">Nenhuma parcela encontrada</td></tr>
+                <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400 text-sm">Nenhuma parcela encontrada</td></tr>
               ) : filtered.map(p => {
                 const prazo = calcPrazo(p.dataLimite);
                 const clienteVinculado = p.clienteId ? clientes.find(c => c.id === p.clienteId) : null;
@@ -601,11 +648,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     <td className="px-3 py-2.5 font-mono text-xs text-gray-600 whitespace-nowrap">
                       {p.apolice}<br /><span className="text-gray-400">Parc. {p.numeroParcela}</span>
                     </td>
-                    <td className="px-3 py-2.5 whitespace-nowrap text-gray-800 font-medium">
-                      {p.valorParcela > 0 ? `R$ ${p.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="font-medium text-gray-800">
+                        {p.valorParcela > 0 ? `R$ ${p.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">{p.formaPagamento || '—'}</div>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.seguradora}</td>
-                    <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">{p.formaPagamento || '—'}</td>
                     <td className="px-3 py-2.5"><StatusBadge status={p.status} /></td>
                     <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                       {p.dataLimite ? formatDate(p.dataLimite) : '—'}
@@ -755,6 +804,174 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               <button onClick={salvarEdicao}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
                 <Save size={14} /> Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de nova parcela manual */}
+      {modalNovaParcela && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <Plus size={16} className="text-blue-600" /> Nova Parcela Manual
+              </h2>
+              <button onClick={() => setModalNovaParcela(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Cliente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vincular a cliente cadastrado <span className="text-gray-400 font-normal">(opcional)</span>
+                </label>
+                {clienteNovaSel ? (
+                  <div className="flex items-center justify-between px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg">
+                    <div>
+                      <div className="text-sm font-medium text-blue-800">{clienteNovaSel.nome}</div>
+                      <div className="text-xs text-blue-500">{clienteNovaSel.cpfCnpj}</div>
+                    </div>
+                    <button onClick={() => { setClienteNovaSel(null); setFormNovaParc(f => ({ ...f, nomeCliente: '' })); }}
+                      className="p-0.5 text-blue-400 hover:text-blue-700 rounded"><X size={14} /></button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="text" value={buscaClienteNova}
+                      onChange={e => setBuscaClienteNova(e.target.value)}
+                      placeholder="Buscar por nome ou CPF/CNPJ..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {buscaClienteNova.length >= 2 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                        {clientes.filter(c =>
+                          c.nome.toLowerCase().includes(buscaClienteNova.toLowerCase()) ||
+                          c.cpfCnpj.includes(buscaClienteNova)
+                        ).slice(0, 8).map(c => (
+                          <button key={c.id} type="button"
+                            onMouseDown={() => {
+                              setClienteNovaSel(c);
+                              setFormNovaParc(f => ({ ...f, nomeCliente: c.nome }));
+                              setBuscaClienteNova('');
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm border-b border-gray-100 last:border-0">
+                            <div className="font-medium text-gray-800">{c.nome}</div>
+                            <div className="text-xs text-gray-400">{c.cpfCnpj}</div>
+                          </button>
+                        ))}
+                        {clientes.filter(c =>
+                          c.nome.toLowerCase().includes(buscaClienteNova.toLowerCase()) ||
+                          c.cpfCnpj.includes(buscaClienteNova)
+                        ).length === 0 && (
+                          <div className="px-3 py-2 text-sm text-gray-400">Nenhum cliente encontrado</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Nome do cliente no arquivo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nome do cliente <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text" value={formNovaParc.nomeCliente}
+                  onChange={e => setFormNovaParc(f => ({ ...f, nomeCliente: e.target.value }))}
+                  placeholder="Nome como aparece na apólice"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Apólice + Parcela */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Apólice <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text" value={formNovaParc.apolice}
+                    onChange={e => setFormNovaParc(f => ({ ...f, apolice: e.target.value }))}
+                    placeholder="Número da apólice"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Parcela <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text" value={formNovaParc.numeroParcela}
+                    onChange={e => setFormNovaParc(f => ({ ...f, numeroParcela: e.target.value }))}
+                    placeholder="Ex: 01/12"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Vencimento + Valor */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Vencimento <span className="text-red-500">*</span>
+                  </label>
+                  <DateInput
+                    value={formNovaParc.vencimento}
+                    onChange={e => setFormNovaParc(f => ({ ...f, vencimento: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Valor (R$)</label>
+                  <input
+                    type="text" value={formNovaParc.valorParcela}
+                    onChange={e => setFormNovaParc(f => ({ ...f, valorParcela: e.target.value }))}
+                    placeholder="0,00"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Seguradora + Forma de Pagamento */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora</label>
+                  <input
+                    type="text" value={formNovaParc.seguradora}
+                    onChange={e => setFormNovaParc(f => ({ ...f, seguradora: e.target.value }))}
+                    placeholder="Nome da seguradora"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                  <input
+                    type="text" value={formNovaParc.formaPagamento}
+                    onChange={e => setFormNovaParc(f => ({ ...f, formaPagamento: e.target.value }))}
+                    placeholder="Ex: Boleto, Débito..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400">
+                Campos marcados com <span className="text-red-500">*</span> são obrigatórios.
+                A chave única será gerada como <span className="font-mono">{formNovaParc.apolice || 'apólice'}_{formNovaParc.numeroParcela || 'parcela'}</span>.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+              <button onClick={() => setModalNovaParcela(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+              <button
+                onClick={criarParcelaManual}
+                disabled={!formNovaParc.nomeCliente.trim() || !formNovaParc.apolice.trim() || !formNovaParc.numeroParcela.trim() || !formNovaParc.vencimento}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 disabled:opacity-50"
+              >
+                <Save size={14} /> Criar Parcela
               </button>
             </div>
           </div>
