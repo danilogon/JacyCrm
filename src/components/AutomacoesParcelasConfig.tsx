@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, Save, Play, ChevronDown, ChevronUp, Zap } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Save, Play, Zap } from 'lucide-react';
 import type { AutomacaoParcela, CondicaoAutomacao, CampoParcela, OperadorCondicao, StatusParcela } from '../types';
 import { generateId } from '../utils/formatters';
 
@@ -42,8 +42,15 @@ const OPCOES_DATA_ACAO = [
   { value: '', label: 'Não alterar' },
   { value: 'hoje', label: 'Data de hoje' },
   { value: 'vencimento', label: 'Data de vencimento da parcela' },
-  { value: 'custom', label: 'Data específica...' },
+  { value: 'relativo', label: 'X dias após...' },
+  { value: 'custom', label: 'Data específica (fixa)' },
   { value: 'limpar', label: '🗑 Limpar (remover data)' },
+];
+
+const BASES_RELATIVO = [
+  { value: 'vencimento', label: 'vencimento da parcela' },
+  { value: 'import', label: 'último import' },
+  { value: 'hoje', label: 'hoje' },
 ];
 
 /** Retorna os campos compatíveis para comparação campo-a-campo (excluindo o próprio campo) */
@@ -120,18 +127,50 @@ function ValorInput({ campo, valor, onChange }: { campo: CampoParcela; valor: st
   );
 }
 
-/** Helper: render um seletor de data para ações */
+/** Helper: render um seletor de data para ações (suporta relativo "+N:base") */
 function AcaoDataInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const modo = value === '' ? '' : value === 'limpar' ? 'limpar' : value === 'hoje' ? 'hoje' : value === 'vencimento' ? 'vencimento' : 'custom';
+  const isRelativo = value.startsWith('+');
+  const isFixa = value && !isRelativo && value !== 'hoje' && value !== 'vencimento' && value !== 'limpar';
+  const modo = value === '' ? '' : value === 'limpar' ? 'limpar' : value === 'hoje' ? 'hoje'
+    : value === 'vencimento' ? 'vencimento' : isRelativo ? 'relativo' : 'custom';
+
+  // Parse relative value "+N:base"
+  let diasRel = 1;
+  let baseRel = 'vencimento';
+  if (isRelativo) {
+    const [d, b] = value.slice(1).split(':');
+    diasRel = parseInt(d, 10) || 1;
+    baseRel = b || 'vencimento';
+  }
+
+  function handleModoChange(novo: string) {
+    if (novo === 'relativo') onChange('+1:vencimento');
+    else if (novo === 'custom') onChange(new Date().toISOString().slice(0, 10));
+    else onChange(novo);
+  }
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1.5">
       <label className="text-xs font-medium text-gray-500">{label}</label>
-      <select value={modo} onChange={e => onChange(e.target.value === 'custom' ? '' : e.target.value)}
+      <select value={modo} onChange={e => handleModoChange(e.target.value)}
         className="px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
         {OPCOES_DATA_ACAO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
-      {modo === 'custom' && (
-        <input type="date" value={value === 'hoje' || value === 'vencimento' || value === 'limpar' ? '' : value}
+      {modo === 'relativo' && (
+        <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded px-2 py-1.5">
+          <input type="number" min="0" value={diasRel}
+            onChange={e => onChange(`+${e.target.value || '0'}:${baseRel}`)}
+            className="w-14 px-1.5 py-0.5 border border-blue-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          <span className="text-xs text-blue-700 shrink-0">dias após</span>
+          <select value={baseRel}
+            onChange={e => onChange(`+${diasRel}:${e.target.value}`)}
+            className="flex-1 px-1.5 py-0.5 border border-blue-300 rounded text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+            {BASES_RELATIVO.map(b => <option key={b.value} value={b.value}>{b.label}</option>)}
+          </select>
+        </div>
+      )}
+      {(modo === 'custom' || isFixa) && (
+        <input type="date" value={isFixa ? value : ''}
           onChange={e => onChange(e.target.value)}
           className="px-2 py-1.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       )}
@@ -168,7 +207,6 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   const [modal, setModal] = useState<AutomacaoParcela | 'nova' | null>(null);
   const [form, setForm] = useState(autoVazia());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
-  const [expandedSQL, setExpandedSQL] = useState(false);
 
   const personalizadas  = automacoes.filter(a => a.tipo === 'personalizada');
   const [filtroSegVis, setFiltroSegVis] = useState('');
@@ -312,38 +350,6 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   return (
     <div className="space-y-6">
 
-      {/* SQL hint */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-        <button className="flex items-center justify-between w-full text-left"
-          onClick={() => setExpandedSQL(v => !v)}>
-          <span className="text-sm font-semibold text-amber-800">Pré-requisito: criar tabela no Supabase</span>
-          {expandedSQL ? <ChevronUp size={16} className="text-amber-600" /> : <ChevronDown size={16} className="text-amber-600" />}
-        </button>
-        {expandedSQL && (
-          <div className="mt-3">
-            <p className="text-xs text-amber-700 mb-2">Acesse <strong>Supabase → SQL Editor</strong> e execute o comando abaixo para criar a tabela de automações:</p>
-            <pre className="bg-white border border-amber-200 rounded p-3 text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap">{`CREATE TABLE IF NOT EXISTS automacoes_parcelas (
-  id text PRIMARY KEY,
-  nome text NOT NULL,
-  ativo boolean NOT NULL DEFAULT true,
-  tipo text NOT NULL,
-  dias_apos_vencimento integer,
-  dias_antes_sem_import integer,
-  condicoes jsonb DEFAULT '[]',
-  operador_logico text DEFAULT 'E',
-  filtro_seguradora text DEFAULT '',
-  filtro_ramo text DEFAULT '',
-  novo_status text NOT NULL,
-  prioridade integer DEFAULT 0,
-  criado_em text,
-  atualizado_em text
-);
-ALTER TABLE automacoes_parcelas ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK (true);`}</pre>
-          </div>
-        )}
-      </div>
-
       {/* Section: Custom rules */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-3">
@@ -430,14 +436,13 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b border-gray-200">
                     <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Condições (SE...)</span>
-                    {form.condicoes.length > 1 && (
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'E' }))}
-                          className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'E' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>E</button>
-                        <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'OU' }))}
-                          className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'OU' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>OU</button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-400 mr-1">Operador:</span>
+                      <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'E' }))}
+                        className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'E' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>E</button>
+                      <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'OU' }))}
+                        className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'OU' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>OU</button>
+                    </div>
                   </div>
 
                   <div className="p-3 space-y-2">

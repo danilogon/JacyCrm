@@ -20,10 +20,21 @@ function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | nu
 }
 
 function resolverAcaoData(valor: string, hoje: Date, p: Parcela): string {
-  if (valor === 'limpar') return '';  // '' = limpar o campo
+  if (valor === 'limpar') return '';
   if (valor === 'hoje') return hoje.toISOString().slice(0, 10);
   if (valor === 'vencimento') return p.vencimento;
-  return valor; // specific date YYYY-MM-DD
+  // Relativo: "+N:base" (ex: "+5:vencimento", "+3:import", "+2:hoje")
+  if (valor.startsWith('+')) {
+    const [diasStr, base] = valor.slice(1).split(':');
+    const dias = parseInt(diasStr, 10) || 0;
+    let baseDate: Date;
+    if (base === 'import') baseDate = new Date(p.ultimaAtualizacao + 'T00:00:00');
+    else if (base === 'vencimento') baseDate = new Date(p.vencimento + 'T00:00:00');
+    else baseDate = new Date(hoje);
+    baseDate.setDate(baseDate.getDate() + dias);
+    return baseDate.toISOString().slice(0, 10);
+  }
+  return valor; // data fixa YYYY-MM-DD
 }
 
 function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {

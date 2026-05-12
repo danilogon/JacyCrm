@@ -300,18 +300,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
   const [formRegra, setFormRegra] = useState<Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'>>(regraVazia);
   const [confirmDelRegra, setConfirmDelRegra] = useState<string | null>(null);
 
-  const regraDefault = regrasParcelas.find(r => r.isDefault) ?? null;
-
-  function abrirEditarRegraDefault() {
-    if (regraDefault) {
-      setFormRegra({ nome: regraDefault.nome, isDefault: true, seguradora: '', ramo: '', formaPagamento: '', ativo: regraDefault.ativo });
-      setModalRegra(regraDefault);
-    } else {
-      setFormRegra({ nome: 'Regra Padrão', isDefault: true, seguradora: '', ramo: '', formaPagamento: '', ativo: true });
-      setModalRegra('nova');
-    }
-  }
-
   function salvarRegra() {
     if (!formRegra.nome.trim()) { alert('Nome da regra é obrigatório.'); return; }
     const now = new Date().toISOString();
@@ -1785,39 +1773,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
               </div>
             </div>
           </div>
-
-          {/* Regra Padrão */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h2 className="font-semibold text-gray-900">Regra Padrão</h2>
-                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Padrão</span>
-                </div>
-                <p className="text-sm text-gray-500">
-                  Aplicada a todas as parcelas que não se encaixam em nenhuma regra específica.
-                </p>
-              </div>
-              <button
-                onClick={abrirEditarRegraDefault}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 shrink-0"
-              >
-                <Edit2 size={14} /> {regraDefault ? 'Editar' : 'Configurar'}
-              </button>
-            </div>
-            {regraDefault ? (
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="text-sm font-medium text-gray-800">{regraDefault.nome}</span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${regraDefault.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                  {regraDefault.ativo ? 'Ativa' : 'Inativa'}
-                </span>
-                <span className="text-xs text-gray-400 italic">As regras específicas serão configuradas em breve.</span>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Nenhuma regra padrão configurada ainda.</p>
-            )}
-          </div>
-
 
           {/* Modal criar/editar regra */}
           {modalRegra !== null && (
