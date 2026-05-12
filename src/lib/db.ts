@@ -306,16 +306,37 @@ export const db = {
   deleteConfigGatilhos: (ids: string[])           => deleteRows('config_gatilhos', ids),
 
   // Parcelas (Follow Up de Pagamentos)
-  // Parcelas — tolerante a colunas ausentes (ex: ramo adicionada depois)
+  // Parcelas — tolerante a colunas ausentes no banco (retira automaticamente
+  // qualquer coluna que o Supabase rejeitar com "schema cache" até conseguir salvar)
   upsertParcelas: async (items: Parcela[]) => {
-    try {
-      await upsertRows('parcelas', items as unknown as Record<string, unknown>[], true);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('ramo') || msg.includes('schema cache')) {
-        const semRamo = items.map(({ ramo: _r, ...rest }) => rest);
-        await upsertRows('parcelas', semRamo as unknown as Record<string, unknown>[]);
-      } else {
+    // Colunas opcionais que podem ainda não existir no banco legado
+    const COLS_OPCIONAIS = ['ramo', 'prorrogada', 'dataProrrogacao', 'dataLimite', 'logs', 'atualizadoEm'];
+    let rows = items as unknown as Record<string, unknown>[];
+    const removidas: string[] = [];
+
+    for (let tentativa = 0; tentativa <= COLS_OPCIONAIS.length; tentativa++) {
+      try {
+        await upsertRows('parcelas', rows, true);
+        return; // sucesso
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // Extrai o nome da coluna que o Supabase não reconhece
+        const match = msg.match(/Could not find the '(\w+)' column/);
+        if (match) {
+          // Converte snake_case → camelCase para remover do objeto
+          const colSnake = match[1];
+          const colCamel = toCamel(colSnake);
+          removidas.push(colCamel);
+          rows = rows.map(r => {
+            const c = { ...r };
+            delete c[colCamel];
+            delete c[colSnake];
+            return c;
+          });
+          console.warn(`[db] coluna '${colSnake}' ausente no banco — removida e retentando. Execute a migração SQL.`);
+          continue;
+        }
+        // Erro não relacionado a coluna ausente
         alert(`Erro ao salvar dados (parcelas): ${msg}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
         throw e;
       }
