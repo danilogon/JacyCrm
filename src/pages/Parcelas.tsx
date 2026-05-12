@@ -172,6 +172,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<StatusParcela | 'pendentes' | 'todas'>('pendentes');
   const [filtroP1, setFiltroP1] = useState(false);
+  const [filtroSemVinculo, setFiltroSemVinculo] = useState(false);
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroRamo, setFiltroRamo] = useState('');
   const [filtroVencDe, setFiltroVencDe] = useState('');
@@ -292,6 +293,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroRamo && p.ramo !== filtroRamo) return false;
       if (filtroP1 && !isPrimeiraParc(p)) return false;
+      if (filtroSemVinculo && p.clienteId) return false;
       if (filtroVencDe && p.vencimento < filtroVencDe) return false;
       if (filtroVencAte && p.vencimento > filtroVencAte) return false;
       if (filtroPrazo.length > 0) {
@@ -321,7 +323,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         default: return a.vencimento.localeCompare(b.vencimento); // vencimento_asc
       }
     });
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, filtroP1, busca, ordenar]);
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, filtroP1, filtroSemVinculo, busca, ordenar]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -925,8 +927,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         >
           <Bell size={14} /> 1ª Parcela
         </button>
-        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0 || filtroP1) && (
-          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); setFiltroP1(false); }}
+        {/* Filtro sem vínculo */}
+        <button
+          onClick={() => setFiltroSemVinculo(v => !v)}
+          title="Filtrar apenas parcelas não vinculadas a clientes"
+          className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors ${
+            filtroSemVinculo
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600'
+          }`}
+        >
+          <Link2 size={14} /> Sem vínculo
+        </button>
+        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0 || filtroP1 || filtroSemVinculo) && (
+          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); setFiltroP1(false); setFiltroSemVinculo(false); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">
             <X size={14} />
           </button>
