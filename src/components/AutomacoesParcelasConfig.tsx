@@ -358,11 +358,12 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                 ? <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>
                 : null}
             {(() => {
-              const temSeg = a.condicoes.some(c => c.campo === 'seguradora' && c.operador === 'igual') || !!a.filtroSeguradora;
-              const temRamo = a.condicoes.some(c => c.campo === 'ramo' && c.operador === 'igual') || !!a.filtroRamo;
-              const esp = (temSeg ? 1 : 0) + (temRamo ? 1 : 0);
-              const labels = ['Geral', 'Específica', 'Mais específica'];
-              const colors = ['bg-gray-100 text-gray-500', 'bg-blue-50 text-blue-600', 'bg-indigo-100 text-indigo-700'];
+              const temSeg  = a.condicoes.some(c => c.campo === 'seguradora'      && c.operador === 'igual') || !!a.filtroSeguradora;
+              const temRamo = a.condicoes.some(c => c.campo === 'ramo'            && c.operador === 'igual') || !!a.filtroRamo;
+              const temFp   = a.condicoes.some(c => c.campo === 'forma_pagamento' && c.operador === 'igual') || !!a.filtroFormaPagamento;
+              const esp = (temSeg ? 1 : 0) + (temRamo ? 1 : 0) + (temFp ? 1 : 0);
+              const labels = ['Geral', 'Específica', 'Mais específica', 'Muito específica'];
+              const colors = ['bg-gray-100 text-gray-500', 'bg-blue-50 text-blue-600', 'bg-indigo-100 text-indigo-700', 'bg-purple-100 text-purple-700'];
               return <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${colors[esp]} border-transparent`}>{labels[esp]}</span>;
             })()}
             {a.prioridade > 0 && <span className="text-gray-400">· desempate {a.prioridade}</span>}

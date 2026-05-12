@@ -93,10 +93,13 @@ export function aplicarAutomacoes(
   // e ramo existem (com operador 'igual') — mais específica = roda primeiro.
   // Desempate pelo campo prioridade.
   function especificidade(a: AutomacaoParcela): number {
-    const temSeguradora = a.condicoes.some(c => c.campo === 'seguradora' && c.operador === 'igual');
-    const temRamo       = a.condicoes.some(c => c.campo === 'ramo'       && c.operador === 'igual');
-    // Mantém retrocompat com filtroSeguradora/filtroRamo legados
-    return (temSeguradora || !!a.filtroSeguradora ? 1 : 0) + (temRamo || !!a.filtroRamo ? 1 : 0);
+    const temSeguradora   = a.condicoes.some(c => c.campo === 'seguradora'     && c.operador === 'igual');
+    const temRamo         = a.condicoes.some(c => c.campo === 'ramo'           && c.operador === 'igual');
+    const temFormaPgto    = a.condicoes.some(c => c.campo === 'forma_pagamento' && c.operador === 'igual');
+    // Mantém retrocompat com filtros legados
+    return (temSeguradora || !!a.filtroSeguradora ? 1 : 0)
+         + (temRamo       || !!a.filtroRamo       ? 1 : 0)
+         + (temFormaPgto  || !!a.filtroFormaPagamento ? 1 : 0);
   }
   const ativas = [...automacoes]
     .filter(a => a.ativo)
