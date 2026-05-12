@@ -7,17 +7,17 @@ const STATUS_LABELS: Record<StatusParcela, string> = {
   importada:        'Importada',
   tratar:           'Tratar',
   em_tratativa:     'Em Tratativa',
-  quitada:          'Quitada',
+  paga:          'Paga',
   desconsiderada:   'Desconsiderada',
-  ap_cancelada:     'AP Cancelada',
+  seguro_cancelado:     'Seguro Cancelado',
   aguardando_baixa: 'Aguardando Baixa',
   baixada_sistema:  'Baixada Sistema',
   analise_critica:  'Análise Crítica',
 };
 
 const TODOS_STATUS: StatusParcela[] = [
-  'importada', 'tratar', 'em_tratativa', 'quitada',
-  'desconsiderada', 'ap_cancelada', 'aguardando_baixa', 'baixada_sistema', 'analise_critica',
+  'importada', 'tratar', 'em_tratativa', 'paga',
+  'desconsiderada', 'seguro_cancelado', 'aguardando_baixa', 'baixada_sistema', 'analise_critica',
 ];
 
 const CAMPO_LABELS: Record<CampoParcela, string> = {

@@ -438,9 +438,9 @@ export type StatusParcela =
   | 'importada'        // parcela importada da planilha (inicial)
   | 'tratar'           // dentro do prazo — acionar o cliente
   | 'em_tratativa'     // contato realizado, regularização em andamento
-  | 'quitada'          // parcela paga pelo cliente
+  | 'paga'             // parcela paga pelo cliente
   | 'desconsiderada'   // concluída sem interação direta com o cliente
-  | 'ap_cancelada'     // apólice cancelada (sem quitação)
+  | 'seguro_cancelado'     // apólice cancelada (sem quitação)
   | 'aguardando_baixa'
   | 'baixada_sistema'
   | 'analise_critica';

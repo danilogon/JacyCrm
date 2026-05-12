@@ -33,9 +33,9 @@ export const STATUS_PARCELA_LABELS: Record<string, string> = {
   importada:        'Importada',
   tratar:           'Tratar',
   em_tratativa:     'Em Tratativa',
-  quitada:          'Quitada',
+  paga:          'Paga',
   desconsiderada:   'Desconsiderada',
-  ap_cancelada:     'AP Cancelada',
+  seguro_cancelado:     'Seguro Cancelado',
   aguardando_baixa: 'Aguardando Baixa',
   baixada_sistema:  'Baixada Sistema',
   analise_critica:  'Análise Crítica',
@@ -43,8 +43,8 @@ export const STATUS_PARCELA_LABELS: Record<string, string> = {
   '':               'Importada',
   nao_tratada:      'Importada',
   em_tratamento:    'Em Tratativa',
-  baixada:          'Quitada',
-  cancelado:        'AP Cancelada',
+  baixada:          'Paga',
+  cancelado:        'Seguro Cancelado',
   desconsiderado:   'Desconsiderada',
 };
 
@@ -53,9 +53,9 @@ const STATUS_CLS: Record<string, string> = {
   importada:        'bg-gray-100 text-gray-500',
   tratar:           'bg-amber-100 text-amber-700',
   em_tratativa:     'bg-blue-100 text-blue-700',
-  quitada:          'bg-green-100 text-green-700',
+  paga:          'bg-green-100 text-green-700',
   desconsiderada:   'bg-gray-100 text-gray-500',
-  ap_cancelada:     'bg-red-100 text-red-700',
+  seguro_cancelado:     'bg-red-100 text-red-700',
   aguardando_baixa: 'bg-cyan-100 text-cyan-700',
   baixada_sistema:  'bg-purple-100 text-purple-700',
   analise_critica:  'bg-orange-100 text-orange-700',
@@ -69,8 +69,8 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 const STATUSES_EDITAVEIS: StatusParcela[] = [
-  'importada', 'tratar', 'em_tratativa', 'quitada',
-  'desconsiderada', 'ap_cancelada', 'aguardando_baixa',
+  'importada', 'tratar', 'em_tratativa', 'paga',
+  'desconsiderada', 'seguro_cancelado', 'aguardando_baixa',
 ];
 
 // ─── Helpers de parse ─────────────────────────────────────────────────────────
@@ -243,7 +243,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       if (filtroStatus === 'pendentes') {
         const s = p.status as string;
         // Novos + legado: excluir concluídos
-        if (s === 'quitada' || s === 'ap_cancelada' || s === 'baixada_sistema' ||
+        if (s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
             s === 'baixada' || s === 'cancelado') return false;
       } else if (filtroStatus !== 'todas') {
         if (p.status !== filtroStatus) return false;
@@ -285,7 +285,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   // KPIs
   const kpis = useMemo(() => {
     const isConcluido = (s: string) =>
-      s === 'quitada' || s === 'ap_cancelada' || s === 'baixada_sistema' ||
+      s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
       s === 'baixada' || s === 'cancelado'; // legado
     const pendentes = parcelas.filter(p => !isConcluido(p.status as string));
     const baixadasSistema = parcelas.filter(p => p.status === 'baixada_sistema');
@@ -427,7 +427,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         const statusAtual = p.status;
         // Se já está baixada/cancelada/análise crítica, só verificar data limite (inclui legado)
         const statusAtualStr = statusAtual as string;
-        if (statusAtualStr === 'quitada' || statusAtualStr === 'ap_cancelada' || statusAtualStr === 'baixada_sistema' ||
+        if (statusAtualStr === 'paga' || statusAtualStr === 'seguro_cancelado' || statusAtualStr === 'baixada_sistema' ||
             statusAtualStr === 'baixada' || statusAtualStr === 'cancelado') {
           updated.push(p);
           return;
