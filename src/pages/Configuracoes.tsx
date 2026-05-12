@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela } from '../types';
+import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -41,6 +41,8 @@ interface Props {
   setImportacoesParcelas: (i: ImportacaoParcelas[]) => void;
   automacoesParcelas: AutomacaoParcela[];
   setAutomacoesParcelas: (a: AutomacaoParcela[]) => void;
+  parcelas: Parcela[];
+  setParcelas: (p: Parcela[]) => void;
 }
 
 type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
@@ -171,7 +173,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -251,6 +253,33 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
   const segsOrd    = useMemo(() => [...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [seguradoras]);
   const ramosOrd   = useMemo(() => [...ramos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [ramos]);
+
+  // ── Nomes órfãos (existem em registros mas não no cadastro) ─────────────
+  const [mapeamentoSegOrfas, setMapeamentoSegOrfas] = useState<Record<string, string>>({});
+  const [mapeamentoRamoOrfas, setMapeamentoRamoOrfas] = useState<Record<string, string>>({});
+
+  const segNomesAtuais = useMemo(() => new Set(seguradoras.map(s => s.nome)), [seguradoras]);
+  const segOrfas = useMemo(() => {
+    const all = new Set<string>();
+    parcelas.forEach(p => p.seguradora && all.add(p.seguradora));
+    renovacoes.forEach(r => {
+      r.seguradoraAnterior && all.add(r.seguradoraAnterior);
+      r.seguradoraNova && all.add(r.seguradoraNova);
+    });
+    segurosNovos.forEach(s => s.seguradora && all.add(s.seguradora));
+    prospeccoes.forEach(p => p.seguradora && all.add(p.seguradora));
+    return [...all].filter(n => !segNomesAtuais.has(n)).sort();
+  }, [parcelas, renovacoes, segurosNovos, prospeccoes, segNomesAtuais]);
+
+  const ramoNomesAtuais = useMemo(() => new Set(ramos.map(r => r.nome)), [ramos]);
+  const ramoOrfas = useMemo(() => {
+    const all = new Set<string>();
+    parcelas.forEach(p => p.ramo && all.add(p.ramo));
+    renovacoes.forEach(r => r.ramo && all.add(r.ramo));
+    segurosNovos.forEach(s => s.ramo && all.add(s.ramo));
+    prospeccoes.forEach(p => p.ramo && all.add(p.ramo));
+    return [...all].filter(n => !ramoNomesAtuais.has(n)).sort();
+  }, [parcelas, renovacoes, segurosNovos, prospeccoes, ramoNomesAtuais]);
   const camposOrd  = useMemo(() => [...campos].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')), [campos]);
   const origensOrd = useMemo(() => {
     const sistema = origensProspeccao.filter(o => o.isSystem).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
@@ -326,13 +355,84 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
     setConfirmUndo(null);
   }
 
+  // ── Cascade rename helpers ────────────────────────────────────────────────
+  function aplicarMigracoesSeg(migrations: { nomeAntigo: string; nomeNovo: string }[]) {
+    if (!migrations.length) return;
+    const agora = new Date().toISOString();
+    setParcelas(parcelas.map(p => {
+      const m = migrations.find(x => x.nomeAntigo === p.seguradora);
+      return m ? { ...p, seguradora: m.nomeNovo, atualizadoEm: agora } : p;
+    }));
+    setRenovacoes(renovacoes.map(r => {
+      const mAnt = migrations.find(x => x.nomeAntigo === r.seguradoraAnterior);
+      const mNov = migrations.find(x => x.nomeAntigo === r.seguradoraNova);
+      if (!mAnt && !mNov) return r;
+      return {
+        ...r,
+        seguradoraAnterior: mAnt ? mAnt.nomeNovo : r.seguradoraAnterior,
+        seguradoraNova: mNov ? mNov.nomeNovo : r.seguradoraNova,
+        atualizadoEm: agora,
+      };
+    }));
+    setSegurosNovos(segurosNovos.map(s => {
+      const m = migrations.find(x => x.nomeAntigo === s.seguradora);
+      return m ? { ...s, seguradora: m.nomeNovo, atualizadoEm: agora } : s;
+    }));
+    setProspeccoes(prospeccoes.map(p => {
+      const m = migrations.find(x => x.nomeAntigo === p.seguradora);
+      return m ? { ...p, seguradora: m.nomeNovo, atualizadoEm: agora } : p;
+    }));
+    setRegrasParcelas(regrasParcelas.map(r => {
+      const m = migrations.find(x => x.nomeAntigo === r.seguradora);
+      return m ? { ...r, seguradora: m.nomeNovo, atualizadoEm: agora } : r;
+    }));
+    setAutomacoesParcelas(automacoesParcelas.map(a => {
+      const m = migrations.find(x => x.nomeAntigo === a.filtroSeguradora);
+      return m ? { ...a, filtroSeguradora: m.nomeNovo, atualizadoEm: agora } : a;
+    }));
+  }
+
+  function aplicarMigracoesRamo(migrations: { nomeAntigo: string; nomeNovo: string }[]) {
+    if (!migrations.length) return;
+    const agora = new Date().toISOString();
+    setParcelas(parcelas.map(p => {
+      const m = migrations.find(x => x.nomeAntigo === p.ramo);
+      return m ? { ...p, ramo: m.nomeNovo, atualizadoEm: agora } : p;
+    }));
+    setRenovacoes(renovacoes.map(r => {
+      const m = migrations.find(x => x.nomeAntigo === r.ramo);
+      return m ? { ...r, ramo: m.nomeNovo, atualizadoEm: agora } : r;
+    }));
+    setSegurosNovos(segurosNovos.map(s => {
+      const m = migrations.find(x => x.nomeAntigo === s.ramo);
+      return m ? { ...s, ramo: m.nomeNovo, atualizadoEm: agora } : s;
+    }));
+    setProspeccoes(prospeccoes.map(p => {
+      const m = migrations.find(x => x.nomeAntigo === p.ramo);
+      return m ? { ...p, ramo: m.nomeNovo, atualizadoEm: agora } : p;
+    }));
+    setRegrasParcelas(regrasParcelas.map(r => {
+      const m = migrations.find(x => x.nomeAntigo === r.ramo);
+      return m ? { ...r, ramo: m.nomeNovo, atualizadoEm: agora } : r;
+    }));
+    setAutomacoesParcelas(automacoesParcelas.map(a => {
+      const m = migrations.find(x => x.nomeAntigo === a.filtroRamo);
+      return m ? { ...a, filtroRamo: m.nomeNovo, atualizadoEm: agora } : a;
+    }));
+  }
+
   // --- Seguradoras ---
   function salvarSeg() {
     if (!formSegNome.trim()) return;
+    const nomeNovo = formSegNome.trim().toUpperCase();
     if (criandoSeg) {
-      setSeguradoras([...seguradoras, { id: generateId(), nome: formSegNome.trim().toUpperCase(), ativo: true }]);
+      setSeguradoras([...seguradoras, { id: generateId(), nome: nomeNovo, ativo: true }]);
     } else if (editSeg) {
-      setSeguradoras(seguradoras.map(s => s.id === editSeg.id ? { ...s, nome: formSegNome.trim().toUpperCase() } : s));
+      const nomeAntigo = editSeg.nome;
+      setSeguradoras(seguradoras.map(s => s.id === editSeg.id ? { ...s, nome: nomeNovo } : s));
+      if (nomeNovo !== nomeAntigo) {
+        aplicarMigracoesSeg([{ nomeAntigo, nomeNovo }]);
+      }
     }
     setEditSeg(null); setCriandoSeg(false);
   }
@@ -344,7 +444,12 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
     if (criandoRamo) {
       setRamos([...ramos, { id: generateId(), ...ramoComNome }]);
     } else if (editRamo) {
+      const nomeNovo = ramoComNome.nome;
+      const nomeAntigo = editRamo.nome;
       setRamos(ramos.map(r => r.id === editRamo.id ? { ...editRamo, ...ramoComNome } : r));
+      if (nomeNovo !== nomeAntigo) {
+        aplicarMigracoesRamo([{ nomeAntigo, nomeNovo }]);
+      }
     }
     setEditRamo(null); setCriandoRamo(false);
   }
@@ -569,6 +674,44 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
           <ConfirmDialog open={!!confirmDelSeg} title="Excluir seguradora" message="Deseja excluir esta seguradora?"
             onConfirm={() => { setSeguradoras(seguradoras.filter(s => s.id !== confirmDelSeg)); setConfirmDelSeg(null); }}
             onCancel={() => setConfirmDelSeg(null)} />
+
+          {/* Painel de nomes inconsistentes */}
+          {segOrfas.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-700 font-semibold text-sm">⚠️ Nomes inconsistentes em registros</span>
+                <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">{segOrfas.length}</span>
+              </div>
+              <p className="text-xs text-amber-600">Os nomes abaixo existem em parcelas/renovações mas não correspondem a nenhuma seguradora cadastrada. Selecione para qual seguradora migrar e clique em Aplicar:</p>
+              <div className="space-y-2">
+                {segOrfas.map(nome => (
+                  <div key={nome} className="flex items-center gap-3">
+                    <span className="text-sm font-mono text-gray-700 bg-white px-2 py-1 rounded border border-gray-200 min-w-[160px] shrink-0">{nome}</span>
+                    <span className="text-gray-400 text-sm">→</span>
+                    <select
+                      value={mapeamentoSegOrfas[nome] ?? ''}
+                      onChange={e => setMapeamentoSegOrfas(prev => ({ ...prev, [nome]: e.target.value }))}
+                      className="flex-1 px-2 py-1.5 border border-amber-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                      <option value="">— Selecionar destino —</option>
+                      {segsOrd.map(s => <option key={s.id} value={s.nome}>{s.nome}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <button
+                disabled={segOrfas.every(n => !mapeamentoSegOrfas[n])}
+                onClick={() => {
+                  const migrations = segOrfas
+                    .filter(n => mapeamentoSegOrfas[n])
+                    .map(n => ({ nomeAntigo: n, nomeNovo: mapeamentoSegOrfas[n] }));
+                  aplicarMigracoesSeg(migrations);
+                  setMapeamentoSegOrfas({});
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                Aplicar Migrações
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -718,6 +861,44 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
           <ConfirmDialog open={!!confirmDelRamo} title="Excluir ramo" message="Deseja excluir este ramo?"
             onConfirm={() => { setRamos(ramos.filter(r => r.id !== confirmDelRamo)); setConfirmDelRamo(null); }}
             onCancel={() => setConfirmDelRamo(null)} />
+
+          {/* Painel de ramos inconsistentes */}
+          {ramoOrfas.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-amber-700 font-semibold text-sm">⚠️ Ramos inconsistentes em registros</span>
+                <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">{ramoOrfas.length}</span>
+              </div>
+              <p className="text-xs text-amber-600">Os ramos abaixo existem em parcelas/renovações mas não correspondem a nenhum ramo cadastrado. Selecione para qual ramo migrar e clique em Aplicar:</p>
+              <div className="space-y-2">
+                {ramoOrfas.map(nome => (
+                  <div key={nome} className="flex items-center gap-3">
+                    <span className="text-sm font-mono text-gray-700 bg-white px-2 py-1 rounded border border-gray-200 min-w-[160px] shrink-0">{nome}</span>
+                    <span className="text-gray-400 text-sm">→</span>
+                    <select
+                      value={mapeamentoRamoOrfas[nome] ?? ''}
+                      onChange={e => setMapeamentoRamoOrfas(prev => ({ ...prev, [nome]: e.target.value }))}
+                      className="flex-1 px-2 py-1.5 border border-amber-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                      <option value="">— Selecionar destino —</option>
+                      {ramosOrd.map(r => <option key={r.id} value={r.nome}>{r.nome}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+              <button
+                disabled={ramoOrfas.every(n => !mapeamentoRamoOrfas[n])}
+                onClick={() => {
+                  const migrations = ramoOrfas
+                    .filter(n => mapeamentoRamoOrfas[n])
+                    .map(n => ({ nomeAntigo: n, nomeNovo: mapeamentoRamoOrfas[n] }));
+                  aplicarMigracoesRamo(migrations);
+                  setMapeamentoRamoOrfas({});
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg text-sm hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed">
+                Aplicar Migrações
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -5,10 +5,12 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento } from '../types';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
+
+const FORMAS_PAGAMENTO_PADRAO = ['Boleto', 'Cartão Seguradora', 'Crédito', 'Débito'];
 
 interface Props {
   parcelas: Parcela[];
@@ -20,6 +22,7 @@ interface Props {
   ramos: Ramo[];
   automacoesParcelas: AutomacaoParcela[];
   empresa: ConfiguracaoEmpresa;
+  formasPagamento: FormaPagamento[];
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -138,9 +141,15 @@ function StatusBadge({ status }: { status: StatusParcela }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  // ── Opções de forma de pagamento (padrão + gerenciadas) ──────────────────
+  const opcoesForma = useMemo(() => {
+    const gerenciadas = formasPagamento.filter(f => f.ativo).map(f => f.nome);
+    return [...new Set([...FORMAS_PAGAMENTO_PADRAO, ...gerenciadas])].sort();
+  }, [formasPagamento]);
 
   // ── Filtros ───────────────────────────────────────────────────────────────
   const [busca, setBusca] = useState('');
@@ -1109,12 +1118,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
-                  <input
-                    type="text" value={formNovaParc.formaPagamento}
+                  <select
+                    value={formNovaParc.formaPagamento}
                     onChange={e => setFormNovaParc(f => ({ ...f, formaPagamento: e.target.value }))}
-                    placeholder="Ex: Boleto, Débito..."
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">— Não informada —</option>
+                    {opcoesForma.map(fp => <option key={fp} value={fp}>{fp}</option>)}
+                  </select>
                 </div>
               </div>
 

@@ -442,6 +442,7 @@ function AppRoutes() {
             ramos={ramos}
             automacoesParcelas={automacoesParcelas}
             empresa={empresa}
+            formasPagamento={formasPagamento}
           />
         } />
 
@@ -508,6 +509,8 @@ function AppRoutes() {
               setImportacoesParcelas={setImportacoesParcelas}
               automacoesParcelas={automacoesParcelas}
               setAutomacoesParcelas={setAutomacoesParcelas}
+              parcelas={parcelas}
+              setParcelas={setParcelas}
             />
           } />
         )}

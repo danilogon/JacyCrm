@@ -43,6 +43,7 @@ const OPCOES_DATA_ACAO = [
   { value: 'hoje', label: 'Data de hoje' },
   { value: 'vencimento', label: 'Data de vencimento da parcela' },
   { value: 'custom', label: 'Data específica...' },
+  { value: 'limpar', label: '🗑 Limpar (remover data)' },
 ];
 
 /** Retorna os campos compatíveis para comparação campo-a-campo (excluindo o próprio campo) */
@@ -121,7 +122,7 @@ function ValorInput({ campo, valor, onChange }: { campo: CampoParcela; valor: st
 
 /** Helper: render um seletor de data para ações */
 function AcaoDataInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
-  const modo = value === '' ? '' : value === 'hoje' ? 'hoje' : value === 'vencimento' ? 'vencimento' : 'custom';
+  const modo = value === '' ? '' : value === 'limpar' ? 'limpar' : value === 'hoje' ? 'hoje' : value === 'vencimento' ? 'vencimento' : 'custom';
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-gray-500">{label}</label>
@@ -130,7 +131,7 @@ function AcaoDataInput({ label, value, onChange }: { label: string; value: strin
         {OPCOES_DATA_ACAO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
       {modo === 'custom' && (
-        <input type="date" value={value === 'hoje' || value === 'vencimento' ? '' : value}
+        <input type="date" value={value === 'hoje' || value === 'vencimento' || value === 'limpar' ? '' : value}
           onChange={e => onChange(e.target.value)}
           className="px-2 py-1.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       )}
@@ -279,8 +280,16 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
             )}
             {a.acaoProrrogada === 'sim' && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200">Prorrogada: Sim</span>}
             {a.acaoProrrogada === 'nao' && <span className="px-1.5 py-0.5 bg-gray-50 text-gray-600 rounded border border-gray-200">Prorrogada: Não</span>}
-            {a.acaoDataProrrogacao && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">Data Prorr.: {a.acaoDataProrrogacao}</span>}
-            {a.acaoDataLimite && <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>}
+            {a.acaoDataProrrogacao === 'limpar'
+              ? <span className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded border border-red-200">Data Prorr.: Limpar</span>
+              : a.acaoDataProrrogacao
+                ? <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">Data Prorr.: {a.acaoDataProrrogacao}</span>
+                : null}
+            {a.acaoDataLimite === 'limpar'
+              ? <span className="px-1.5 py-0.5 bg-red-50 text-red-600 rounded border border-red-200">Data Limite: Limpar</span>
+              : a.acaoDataLimite
+                ? <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>
+                : null}
             {a.prioridade > 0 && <span className="ml-1 text-gray-400">· Prio {a.prioridade}</span>}
           </div>
         </div>

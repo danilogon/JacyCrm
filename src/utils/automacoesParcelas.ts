@@ -20,6 +20,7 @@ function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | nu
 }
 
 function resolverAcaoData(valor: string, hoje: Date, p: Parcela): string {
+  if (valor === 'limpar') return '';  // '' = limpar o campo
   if (valor === 'hoje') return hoje.toISOString().slice(0, 10);
   if (valor === 'vencimento') return p.vencimento;
   return valor; // specific date YYYY-MM-DD
