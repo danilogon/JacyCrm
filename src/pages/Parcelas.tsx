@@ -378,9 +378,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   // ── Vínculo com cliente ───────────────────────────────────────────────────
   function confirmarVinculo() {
     if (!modalVinculo || !clienteVinculoSel) return;
-    setParcelas(parcelas.map(p =>
-      p.id === modalVinculo.id ? { ...p, clienteId: clienteVinculoSel.id, atualizadoEm: new Date().toISOString() } : p
-    ));
+    const parcelaAtualizada = { ...modalVinculo, clienteId: clienteVinculoSel.id, atualizadoEm: new Date().toISOString() };
+    setParcelas(parcelas.map(p => p.id === modalVinculo.id ? parcelaAtualizada : p));
+    // Atualiza editando para que salvarEdicao() não sobrescreva o clienteId recém-vinculado
+    if (editando?.id === modalVinculo.id) setEditando(parcelaAtualizada);
     setModalVinculo(null);
     setBuscaVinculo('');
     setClienteVinculoSel(null);
