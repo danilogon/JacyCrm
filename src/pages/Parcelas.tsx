@@ -23,6 +23,7 @@ interface Props {
   automacoesParcelas: AutomacaoParcela[];
   empresa: ConfiguracaoEmpresa;
   formasPagamento: FormaPagamento[];
+  podeImportarParcelas?: boolean;
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -157,7 +158,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -662,10 +663,12 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           >
             <Plus size={14} /> Nova Parcela
           </button>
-          <label className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 cursor-pointer">
-            <Upload size={14} /> Importar XLSX
-            <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={importarXLSX} />
-          </label>
+          {podeImportarParcelas && (
+            <label className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 cursor-pointer">
+              <Upload size={14} /> Importar XLSX
+              <input ref={fileRef} type="file" accept=".xlsx" className="hidden" onChange={importarXLSX} />
+            </label>
+          )}
         </div>
       </div>
 

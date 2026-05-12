@@ -72,6 +72,10 @@ export interface Usuario {
   configRamos?: ConfigRamoUsuario[];
   /** Requer código 2FA enviado por e-mail a cada login */
   exigir2FA?: boolean;
+  /** Acesso à aba de Parcelas (follow-up de pagamentos) */
+  acessoParcelas?: boolean;
+  /** Pode importar planilha XLSX de parcelas */
+  podeImportarParcelas?: boolean;
 }
 
 export type StatusRenovacao =

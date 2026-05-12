@@ -266,6 +266,8 @@ function AppRoutes() {
   const podeVerMetas             = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarMetas ?? true);
   const podeVerComissoes         = usuario.role === 'admin' || (usuario.visualizarComissoes ?? false);
   const podeVerLookalike         = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.visualizarLookalike ?? false);
+  const podeParcelas             = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoParcelas ?? false);
+  const podeImportarParcelas     = usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.podeImportarParcelas ?? false);
 
   return (
     <Routes>
@@ -431,20 +433,23 @@ function AppRoutes() {
           />
         } />
 
-        <Route path="/parcelas" element={
-          <Parcelas
-            parcelas={parcelas}
-            setParcelas={setParcelas}
-            importacoesParcelas={importacoesParcelas}
-            setImportacoesParcelas={setImportacoesParcelas}
-            clientes={clientes}
-            setClientes={setClientes}
-            ramos={ramos}
-            automacoesParcelas={automacoesParcelas}
-            empresa={empresa}
-            formasPagamento={formasPagamento}
-          />
-        } />
+        {podeParcelas && (
+          <Route path="/parcelas" element={
+            <Parcelas
+              parcelas={parcelas}
+              setParcelas={setParcelas}
+              importacoesParcelas={importacoesParcelas}
+              setImportacoesParcelas={setImportacoesParcelas}
+              clientes={clientes}
+              setClientes={setClientes}
+              ramos={ramos}
+              automacoesParcelas={automacoesParcelas}
+              empresa={empresa}
+              formasPagamento={formasPagamento}
+              podeImportarParcelas={podeImportarParcelas}
+            />
+          } />
+        )}
 
         {podeVerComissoes && (
           <Route path="/comissoes" element={

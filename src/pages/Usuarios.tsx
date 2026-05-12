@@ -45,6 +45,8 @@ type FormUsuario = {
   diasPermitidos: number[];
   exigir2FA: boolean;
   configRamos: ConfigRamoUsuario[];
+  acessoParcelas: boolean;
+  podeImportarParcelas: boolean;
 };
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -69,6 +71,8 @@ const formVazio: FormUsuario = {
   tipoUsuarioId: '',
   horarioLoginInicio: '', horarioLoginFim: '', diasPermitidos: [], exigir2FA: false,
   configRamos: [],
+  acessoParcelas: false,
+  podeImportarParcelas: false,
 };
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
@@ -133,6 +137,8 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       diasPermitidos: u.diasPermitidos ?? [],
       exigir2FA: u.exigir2FA ?? false,
       configRamos: u.configRamos ?? [],
+      acessoParcelas: u.acessoParcelas ?? false,
+      podeImportarParcelas: u.podeImportarParcelas ?? false,
     }));
   }
 
@@ -163,6 +169,8 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       diasPermitidos:     u.diasPermitidos     ?? [],
       exigir2FA:          u.exigir2FA          ?? false,
       configRamos:        u.configRamos        ?? [],
+      acessoParcelas:     u.acessoParcelas     ?? false,
+      podeImportarParcelas: u.podeImportarParcelas ?? false,
     });
     setEditando(u);
     setCriando(false);
@@ -226,6 +234,8 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
         diasPermitidos:     form.diasPermitidos.length > 0 ? form.diasPermitidos : undefined,
         exigir2FA:          form.exigir2FA,
         configRamos:        form.configRamos.length > 0 ? form.configRamos : undefined,
+        acessoParcelas:     form.acessoParcelas || undefined,
+        podeImportarParcelas: form.podeImportarParcelas || undefined,
       };
 
       if (criando) {
@@ -450,6 +460,12 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
                 <Ck v={form.acessoProspeccao} label="Acesso a Prospecção" onChange={v => setForm(f => ({...f, acessoProspeccao: v}))} />
                 <Ck v={form.acessoConsultaRenovacoes} label="Consulta de Renovações" onChange={v => setForm(f => ({...f, acessoConsultaRenovacoes: v}))} />
                 <Ck v={form.podeDescartarProspeccao} label="Pode descartar prospecções" onChange={v => setForm(f => ({...f, podeDescartarProspeccao: v}))} />
+                <Ck v={form.acessoParcelas} label="Acesso a Parcelas (Follow-up)" onChange={v => setForm(f => ({...f, acessoParcelas: v, podeImportarParcelas: v ? f.podeImportarParcelas : false}))} />
+                {form.acessoParcelas && (
+                  <div className="ml-6">
+                    <Ck v={form.podeImportarParcelas} label="Pode importar planilha de parcelas" onChange={v => setForm(f => ({...f, podeImportarParcelas: v}))} />
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-gray-100 pt-4 space-y-3">
