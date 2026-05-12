@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
-  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell,
+  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
@@ -206,6 +206,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
 
   // ── Histórico de imports ──────────────────────────────────────────────────
   const [showHistorico, setShowHistorico] = useState(false);
+  const [historicoSel, setHistoricoSel] = useState<ImportacaoParcelas | null>(null);
   const [importResult, setImportResult] = useState<ImportacaoParcelas | null>(null);
 
   // ── Automações ───────────────────────────────────────────────────────────
@@ -287,14 +288,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
       s === 'baixada' || s === 'cancelado'; // legado
     const pendentes = parcelas.filter(p => !isConcluido(p.status as string));
-    const baixadasSistema = parcelas.filter(p => p.status === 'baixada_sistema');
     const valorAberto = pendentes.reduce((s, p) => s + p.valorParcela, 0);
-    const naoTratadas = pendentes.filter(p => {
-      const s = p.status as string;
-      return s === 'importada' || s === '' || s === 'nao_tratada';
-    }).length;
+    const tratar = pendentes.filter(p => p.status === 'tratar').length;
+    const emTratativa = pendentes.filter(p => p.status === 'em_tratativa').length;
     const primeirasPendentes = pendentes.filter(p => isPrimeiraParc(p)).length;
-    return { pendentes: pendentes.length, baixadasSistema: baixadasSistema.length, valorAberto, naoTratadas, primeirasPendentes };
+    return { pendentes: pendentes.length, tratar, emTratativa, valorAberto, primeirasPendentes };
   }, [parcelas]);
 
   // ── Importação XLSX ───────────────────────────────────────────────────────
@@ -634,7 +632,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         </div>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setShowHistorico(v => !v)}
+            onClick={() => { setShowHistorico(v => !v); setHistoricoSel(null); }}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
           >
             <History size={14} /> Histórico
@@ -691,11 +689,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Pendentes', value: kpis.pendentes, text: 'text-blue-700' },
-          { label: 'Não Tratadas', value: kpis.naoTratadas, text: 'text-amber-600' },
-          { label: 'Valor em Aberto', value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
-          { label: 'Baixadas Sistema', value: kpis.baixadasSistema, text: 'text-purple-700' },
-          { label: '1ª Parcelas Pendentes', value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
+          { label: 'Pendentes',         value: kpis.pendentes,   text: 'text-blue-700' },
+          { label: 'Tratar',            value: kpis.tratar,      text: 'text-amber-700' },
+          { label: 'Em Tratativa',      value: kpis.emTratativa, text: 'text-blue-600' },
+          { label: 'Valor em Aberto',   value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
+          { label: '1ª Parcelas',       value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
         ].map(k => (
           <div key={k.label} className={`bg-white rounded-xl border p-4 ${(k as { bell?: boolean }).bell && filtroP1 ? 'border-amber-400 bg-amber-50' : 'border-gray-200'}`}>
             <div className={`text-xs font-semibold mb-1 flex items-center gap-1 ${k.text}`}>
@@ -710,56 +708,95 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       {/* Histórico de imports */}
       {showHistorico && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          {/* Header */}
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <span className="text-sm font-semibold text-gray-700">Histórico de Importações</span>
-            <button onClick={() => setShowHistorico(false)} className="p-1 text-gray-400 hover:text-gray-600"><X size={14} /></button>
+            <div className="flex items-center gap-2">
+              {historicoSel && (
+                <button onClick={() => setHistoricoSel(null)}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mr-1">
+                  <ChevronLeft size={15} /> Voltar
+                </button>
+              )}
+              <span className="text-sm font-semibold text-gray-700">
+                {historicoSel ? historicoSel.nomeArquivo : 'Histórico de Importações'}
+              </span>
+            </div>
+            <button onClick={() => { setShowHistorico(false); setHistoricoSel(null); }}
+              className="p-1 text-gray-400 hover:text-gray-600"><X size={14} /></button>
           </div>
-          {importacoesParcelas.length === 0 ? (
-            <div className="px-4 py-8 text-center text-gray-400 text-sm">Nenhuma importação realizada.</div>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {importacoesParcelas.map(imp => (
-                <div key={imp.id} className="px-4 py-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-800">{imp.nomeArquivo}</span>
-                    <span className="text-xs text-gray-400">{formatDate(imp.dataImport)}</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-0.5">
-                    {imp.totalNovas} novas · {imp.totalAtualizadas} atualizadas · {imp.totalBaixadas} baixadas ·{' '}
-                    {imp.totalIgnoradas} ignoradas
-                  </div>
-                  {/* Relatório por seguradora */}
-                  {imp.seguradorasConsideradas.length > 0 && (
-                    <div className="mt-2 overflow-x-auto">
-                      <table className="w-full text-xs border border-gray-100 rounded">
-                        <thead>
-                          <tr className="bg-gray-50">
-                            <th className="text-left px-2 py-1 font-semibold text-gray-500 border-b border-gray-100">Seguradora</th>
-                            <th className="text-right px-2 py-1 font-semibold text-gray-500 border-b border-gray-100">Parcelas importadas</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {imp.seguradorasConsideradas.sort().map(seg => (
-                            <tr key={seg} className="border-b border-gray-50 last:border-0">
-                              <td className="px-2 py-1 text-gray-700">{seg}</td>
-                              <td className="px-2 py-1 text-right text-gray-600 font-medium">
-                                {imp.seguradorasContagem?.[seg] ?? '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+
+          {/* Lista de planilhas */}
+          {!historicoSel && (
+            importacoesParcelas.length === 0 ? (
+              <div className="px-4 py-8 text-center text-gray-400 text-sm">Nenhuma importação realizada.</div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {importacoesParcelas.map(imp => (
+                  <button key={imp.id} onClick={() => setHistoricoSel(imp)}
+                    className="w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors flex items-center justify-between group">
+                    <div>
+                      <div className="text-sm font-medium text-gray-800">{imp.nomeArquivo}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {imp.seguradorasConsideradas.length} seguradora(s) · {imp.totalImportadas} parcelas
+                        {imp.totalIgnoradas > 0 && <span className="text-amber-600"> · {imp.totalIgnoradas} ignoradas</span>}
+                      </div>
                     </div>
-                  )}
-                  {imp.linhasIgnoradas.length > 0 && (
-                    <div className="mt-1 space-y-0.5">
-                      {imp.linhasIgnoradas.map((l, i) => (
-                        <div key={i} className="text-xs text-red-500">Linha {l.linha}: {l.motivo}</div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-xs text-gray-400">{formatDate(imp.dataImport)}</span>
+                      <ChevronRight size={14} className="text-gray-300 group-hover:text-gray-500 transition-colors" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
+
+          {/* Detalhe da planilha selecionada */}
+          {historicoSel && (
+            <div className="px-4 py-3 text-sm space-y-3">
+              {/* Resumo */}
+              <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+                <span><strong className="text-gray-700">{historicoSel.totalNovas}</strong> novas</span>
+                <span><strong className="text-gray-700">{historicoSel.totalAtualizadas}</strong> atualizadas</span>
+                <span><strong className="text-gray-700">{historicoSel.totalBaixadas}</strong> baixadas automáticas</span>
+                {historicoSel.totalIgnoradas > 0 && (
+                  <span className="text-amber-600"><strong>{historicoSel.totalIgnoradas}</strong> ignoradas</span>
+                )}
+              </div>
+
+              {/* Tabela seguradora × parcelas */}
+              {historicoSel.seguradorasConsideradas.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs border border-gray-100 rounded">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        <th className="text-left px-3 py-2 font-semibold text-gray-500 border-b border-gray-100">Seguradora</th>
+                        <th className="text-right px-3 py-2 font-semibold text-gray-500 border-b border-gray-100">Parcelas importadas</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historicoSel.seguradorasConsideradas.sort().map(seg => (
+                        <tr key={seg} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
+                          <td className="px-3 py-2 text-gray-700">{seg}</td>
+                          <td className="px-3 py-2 text-right text-gray-600 font-medium">
+                            {historicoSel.seguradorasContagem?.[seg] ?? '—'}
+                          </td>
+                        </tr>
                       ))}
-                    </div>
-                  )}
+                    </tbody>
+                  </table>
                 </div>
-              ))}
+              )}
+
+              {/* Linhas ignoradas */}
+              {historicoSel.linhasIgnoradas.length > 0 && (
+                <div className="space-y-0.5">
+                  <div className="text-xs font-semibold text-gray-500 mb-1">Linhas ignoradas</div>
+                  {historicoSel.linhasIgnoradas.map((l, i) => (
+                    <div key={i} className="text-xs text-red-500">Linha {l.linha}: {l.motivo}</div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
