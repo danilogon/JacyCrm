@@ -1079,7 +1079,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               {/* Prorrogação */}
               <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Desconsiderada pela seguradora na prorrogação?</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Desconsiderada na prorrogação</label>
                   <select
                     value={formProrrogada === undefined ? '' : formProrrogada ? 'sim' : 'nao'}
                     onChange={e => {
