@@ -11,6 +11,11 @@
  *   Ex: "santa barbara do oeste" ≈ "santa barbara doeste".
  *   Sugere o nome IBGE para cada opção quando encontrado.
  *
+ * Fase 3 — Cidades não reconhecidas pelo IBGE:
+ *   Lista cidades cujo normKey não possui correspondência exata no índice IBGE.
+ *   Exibe sugestão automática (cidade IBGE mais próxima por Levenshtein + prefixo)
+ *   e permite digitar a correção manualmente.
+ *
  * Lógica de sugestão do nome canônico:
  *   1. Busca no IBGE pelo normKey exato (match sem acento/case/pontuação).
  *   2. Se o cliente tiver UF preenchida, prefere a cidade daquele estado.
@@ -18,7 +23,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { X, MapPin, CheckCircle2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { X, MapPin, CheckCircle2, AlertTriangle, RefreshCw, AlertCircle } from 'lucide-react';
 import type { Cliente } from '../types';
 import { MUNICIPIOS_BR } from '../data/municipiosBrasil';
 
@@ -86,6 +91,20 @@ for (const [uf, cidades] of Object.entries(MUNICIPIOS_BR)) {
   }
 }
 
+/** Índice por prefixo de 3 chars → lista de nomes canônicos IBGE (busca rápida para sugestões) */
+const IBGE_BY_PREFIX3 = new Map<string, string[]>();
+for (const [uf, cidades] of Object.entries(MUNICIPIOS_BR)) {
+  for (const nome of cidades) {
+    const k = normKey(nome);
+    if (k.length >= 2) {
+      const p = k.substring(0, Math.min(3, k.length));
+      if (!IBGE_BY_PREFIX3.has(p)) IBGE_BY_PREFIX3.set(p, []);
+      IBGE_BY_PREFIX3.get(p)!.push(nome);
+    }
+    void uf;
+  }
+}
+
 /**
  * Retorna o nome canônico do IBGE para um dado nome de cidade.
  * Prefere o município do estado informado quando há homônimos.
@@ -101,6 +120,62 @@ function ibgeCanonical(name: string, preferredUf?: string): string | null {
     if (inUf) return inUf.nome;
   }
   return matches[0].nome; // primeiro estado alfabético como fallback
+}
+
+/**
+ * Para cidades sem match exato no IBGE, tenta encontrar a mais próxima por Levenshtein.
+ * Usa índice de prefixo para limitar candidatos e manter performance.
+ */
+function sugerirIbgeProximo(nome: string, uf?: string): string | null {
+  const k = normKey(nome);
+  if (!k || k.length < 2) return null;
+  if (IBGE_BY_NORM.has(k)) return null; // já tem match exato
+
+  const p3 = k.substring(0, Math.min(3, k.length));
+  const p2 = k.substring(0, Math.min(2, k.length));
+
+  // Coleta candidatos: UF prioritária + prefixo 3 chars + prefixo 2 chars
+  const vistos = new Set<string>();
+  const candidatos: string[] = [];
+
+  const adicionar = (nome: string) => {
+    if (!vistos.has(nome)) { vistos.add(nome); candidatos.push(nome); }
+  };
+
+  // 1. Dentro da UF (se informada)
+  if (uf && MUNICIPIOS_BR[uf]) {
+    for (const c of MUNICIPIOS_BR[uf]) {
+      const ck = normKey(c);
+      if (ck.startsWith(p2)) adicionar(c);
+    }
+  }
+
+  // 2. Por prefixo de 3 letras
+  for (const c of (IBGE_BY_PREFIX3.get(p3) ?? [])) adicionar(c);
+
+  // 3. Se poucos candidatos, expandir para prefixo de 2 letras
+  if (candidatos.length < 8) {
+    for (const [pfx, names] of IBGE_BY_PREFIX3) {
+      if (pfx.startsWith(p2)) names.forEach(adicionar);
+    }
+  }
+
+  if (candidatos.length === 0) return null;
+
+  let melhorDist = Infinity;
+  let melhorNome: string | null = null;
+
+  for (const c of candidatos) {
+    const dist = levenshtein(k, normKey(c));
+    if (dist < melhorDist) {
+      melhorDist = dist;
+      melhorNome = c;
+    }
+  }
+
+  // Só sugere se a distância for razoável
+  const limiar = Math.max(3, Math.floor(k.length * 0.3));
+  return melhorNome && melhorDist <= limiar ? melhorNome : null;
 }
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
@@ -119,6 +194,15 @@ interface GrupoProximo {
   canonico: string;      // nome proposto (editável)
   ibgeSugestao: string | null;
   total: number;
+  ignorado?: boolean;
+}
+
+interface GrupoForaIbge {
+  cidadeOriginal: string; // nome exato como está no banco
+  uf: string;             // UF mais comum para esta cidade
+  total: number;          // qtd de clientes com esta cidade
+  correcao: string;       // nome editável pelo usuário
+  sugestaoIbge: string | null; // cidade IBGE mais próxima (pode ser null)
   ignorado?: boolean;
 }
 
@@ -143,7 +227,6 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
       if (!map.has(k)) map.set(k, new Map());
       map.get(k)!.set(uf, (map.get(k)!.get(uf) ?? 0) + 1);
     }
-    // Retorna só a UF mais frequente por key
     const result = new Map<string, string>();
     map.forEach((ufMap, k) => {
       const top = [...ufMap.entries()].sort((a, b) => b[1] - a[1])[0];
@@ -154,7 +237,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
   // ── Fase 1: grupos exatos ────────────────────────────────────────────────
   const gruposExatos = useMemo<GrupoExato[]>(() => {
-    const map = new Map<string, Map<string, number>>(); // key → (nome original → count)
+    const map = new Map<string, Map<string, number>>();
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
@@ -164,7 +247,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     }
     const grupos: GrupoExato[] = [];
     map.forEach((variantes, key) => {
-      if (variantes.size < 2) return; // só mostra se tem variação
+      if (variantes.size < 2) return;
       const maisFrequente = [...variantes.entries()].sort((a, b) => b[1] - a[1])[0][0];
       const prefUf = ufPorKey.get(key);
       const ibge   = ibgeCanonical(maisFrequente, prefUf);
@@ -181,7 +264,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
   // ── Mapa fase 1: nome original → canônico ───────────────────────────────
   const mapaFase1 = useMemo(() => {
-    const map2 = new Map<string, string>(); // normKey → canonical
+    const map2 = new Map<string, string>();
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
@@ -191,7 +274,6 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
         map2.set(k, ibgeCanonical(raw, prefUf) ?? toTitleCase(raw));
       }
     }
-    // Sobrescreve com escolhas dos grupos exatos (editáveis pelo usuário)
     for (const g of gruposExatos) map2.set(g.key, g.canonico);
 
     const m = new Map<string, string>();
@@ -205,7 +287,7 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
   // ── Fase 2: pares próximos ──────────────────────────────────────────────
   const gruposProximos = useMemo<GrupoProximo[]>(() => {
-    const canonicos = new Map<string, number>(); // canônico → count
+    const canonicos = new Map<string, number>();
     for (const c of clientes) {
       const raw = (c.cidade ?? '').trim();
       if (!raw) continue;
@@ -233,7 +315,6 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
       if (grupo.length > 1) {
         grupo.forEach(n => visitados.add(n));
-        // Tenta encontrar nome IBGE para cada variante do grupo
         const ibgeMatches = grupo
           .map(nome => {
             const k = normKey(nome);
@@ -242,7 +323,6 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
           })
           .filter((v): v is string => v !== null);
 
-        // Canônico: match IBGE (se único e consensual) ou mais frequente
         const ibgeUnico = ibgeMatches.length > 0 && new Set(ibgeMatches).size === 1
           ? ibgeMatches[0]
           : null;
@@ -264,13 +344,51 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
     return grupos.sort((a, b) => b.total - a.total);
   }, [clientes, mapaFase1, ufPorKey]);
 
+  // ── Fase 3: cidades fora do IBGE ────────────────────────────────────────
+  const gruposForaIbge = useMemo<GrupoForaIbge[]>(() => {
+    // Agrupa clientes por cidade original
+    const map = new Map<string, { count: number; ufs: Map<string, number> }>();
+
+    for (const c of clientes) {
+      const cidade = (c.cidade ?? '').trim();
+      const uf     = (c.uf ?? '').trim().toUpperCase();
+      if (!cidade) continue;
+
+      const k = normKey(cidade);
+      // Ignora se já tem match exato no IBGE
+      if (IBGE_BY_NORM.has(k)) continue;
+
+      if (!map.has(cidade)) map.set(cidade, { count: 0, ufs: new Map() });
+      const entry = map.get(cidade)!;
+      entry.count++;
+      if (uf) entry.ufs.set(uf, (entry.ufs.get(uf) ?? 0) + 1);
+    }
+
+    return [...map.entries()]
+      .map(([cidade, { count, ufs }]) => {
+        const ufMaisComum = [...ufs.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? '';
+        const sugestao    = sugerirIbgeProximo(cidade, ufMaisComum);
+        return {
+          cidadeOriginal: cidade,
+          uf: ufMaisComum,
+          total: count,
+          correcao: sugestao ?? cidade,
+          sugestaoIbge: sugestao,
+        } satisfies GrupoForaIbge;
+      })
+      .sort((a, b) => b.total - a.total);
+  }, [clientes]);
+
   // ── Estado editável ──────────────────────────────────────────────────────
-  const [exatos, setExatos]     = useState<GrupoExato[]>(() => gruposExatos);
-  const [proximos, setProximos] = useState<GrupoProximo[]>(() => gruposProximos);
-  const [salvando, setSalvando] = useState(false);
+  const [exatos,    setExatos]    = useState<GrupoExato[]>(() => gruposExatos);
+  const [proximos,  setProximos]  = useState<GrupoProximo[]>(() => gruposProximos);
+  const [foraIbge,  setForaIbge]  = useState<GrupoForaIbge[]>(() => gruposForaIbge);
+  const [salvando,  setSalvando]  = useState(false);
 
   const totalAfetadosExatos   = exatos.reduce((s, g) => s + g.total, 0);
   const totalAfetadosProximos = proximos.filter(g => !g.ignorado).reduce((s, g) => s + g.total, 0);
+  const foraIbgeAtivos        = foraIbge.filter(g => !g.ignorado);
+  const totalAfetadosForaIbge = foraIbgeAtivos.reduce((s, g) => s + g.total, 0);
 
   // ── Aplicar ──────────────────────────────────────────────────────────────
   function aplicar() {
@@ -306,6 +424,15 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
       }
     }
 
+    // Fase 3 → corrige cidades fora do IBGE
+    for (const g of foraIbge) {
+      if (g.ignorado) continue;
+      const correcao = g.correcao.trim();
+      if (correcao && correcao !== g.cidadeOriginal) {
+        mapa.set(g.cidadeOriginal, correcao);
+      }
+    }
+
     onConfirmar(mapa);
   }
 
@@ -327,8 +454,8 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
 
         <div className="overflow-y-auto flex-1 p-5 space-y-6">
 
-          {/* Resumo */}
-          <div className="grid grid-cols-3 gap-3 text-center">
+          {/* Resumo — 4 cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
               <div className="text-2xl font-bold text-blue-700">{clientes.length}</div>
               <div className="text-xs text-blue-600 mt-0.5">clientes</div>
@@ -342,6 +469,12 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
                 {proximos.filter(g => !g.ignorado).length}
               </div>
               <div className={`text-xs mt-0.5 ${proximos.filter(g => !g.ignorado).length > 0 ? 'text-orange-600' : 'text-gray-400'}`}>possíveis duplicatas</div>
+            </div>
+            <div className={`border rounded-lg p-3 ${foraIbgeAtivos.length > 0 ? 'bg-red-50 border-red-100' : 'bg-gray-50 border-gray-100'}`}>
+              <div className={`text-2xl font-bold ${foraIbgeAtivos.length > 0 ? 'text-red-700' : 'text-gray-400'}`}>
+                {foraIbgeAtivos.length}
+              </div>
+              <div className={`text-xs mt-0.5 ${foraIbgeAtivos.length > 0 ? 'text-red-600' : 'text-gray-400'}`}>fora do IBGE</div>
             </div>
           </div>
 
@@ -442,7 +575,6 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
                               onChange={e => setProximos(prev => prev.map((x, i) => i === idx ? { ...x, canonico: e.target.value } : x))}
                               className="flex-1 min-w-[140px] px-2 py-1 border border-orange-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              {/* IBGE como primeira opção destacada se existir */}
                               {g.ibgeSugestao && !g.nomes.includes(g.ibgeSugestao) && (
                                 <option value={g.ibgeSugestao}>★ {g.ibgeSugestao} (IBGE)</option>
                               )}
@@ -479,6 +611,93 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
             )}
           </div>
 
+          {/* ── Fase 3: Cidades fora do IBGE ── */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <AlertCircle size={16} className="text-red-500" />
+              <h3 className="font-semibold text-gray-800 text-sm">
+                Cidades não reconhecidas pelo IBGE
+                <span className="ml-1.5 text-gray-400 font-normal">
+                  ({foraIbgeAtivos.length} cidade{foraIbgeAtivos.length !== 1 ? 's' : ''} · {totalAfetadosForaIbge} cliente{totalAfetadosForaIbge !== 1 ? 's' : ''})
+                </span>
+              </h3>
+            </div>
+
+            {foraIbge.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-4 bg-gray-50 rounded-lg">
+                Todas as cidades foram encontradas no IBGE. ✓
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {foraIbge.map((g, idx) => (
+                  <div
+                    key={g.cidadeOriginal}
+                    className={`border rounded-lg p-3 ${g.ignorado ? 'border-gray-200 bg-gray-50 opacity-60' : 'border-red-200 bg-red-50'}`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        {/* Linha superior: cidade original + UF + contagem */}
+                        <div className="flex items-center gap-2 flex-wrap mb-2">
+                          <span className="inline-block bg-white border border-red-300 rounded px-1.5 py-0.5 text-xs font-mono text-red-700 font-semibold">
+                            {g.cidadeOriginal}
+                          </span>
+                          {g.uf && (
+                            <span className="text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded px-1.5 py-0.5">
+                              {g.uf}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">
+                            ({g.total} cliente{g.total !== 1 ? 's' : ''})
+                          </span>
+                          {g.sugestaoIbge && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded">
+                              IBGE: <strong>{g.sugestaoIbge}</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Linha inferior: campo de correção */}
+                        {!g.ignorado && (
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-gray-500 shrink-0">→ corrigir para:</span>
+                            <input
+                              value={g.correcao}
+                              onChange={e => setForaIbge(prev =>
+                                prev.map((x, i) => i === idx ? { ...x, correcao: e.target.value } : x)
+                              )}
+                              className="flex-1 min-w-[160px] px-2 py-1 border border-red-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              placeholder="Nome correto da cidade..."
+                            />
+                            {g.sugestaoIbge && g.sugestaoIbge !== g.correcao && (
+                              <button
+                                onClick={() => setForaIbge(prev =>
+                                  prev.map((x, i) => i === idx ? { ...x, correcao: g.sugestaoIbge! } : x)
+                                )}
+                                className="shrink-0 flex items-center gap-1 px-2 py-1 text-xs bg-blue-50 border border-blue-200 text-blue-700 rounded hover:bg-blue-100 whitespace-nowrap"
+                                title="Usar sugestão do IBGE"
+                              >
+                                Usar: <strong>{g.sugestaoIbge}</strong>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => setForaIbge(prev =>
+                          prev.map((x, i) => i === idx ? { ...x, ignorado: !x.ignorado } : x)
+                        )}
+                        className={`shrink-0 px-2 py-1 rounded text-xs font-medium transition-colors ${g.ignorado ? 'bg-gray-200 text-gray-600 hover:bg-gray-300' : 'bg-red-100 text-red-600 hover:bg-red-200'}`}
+                      >
+                        {g.ignorado ? 'Restaurar' : 'Ignorar'}
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Info */}
           <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-sm text-blue-700">
             <p className="font-medium">Normalização de caixa</p>
@@ -493,9 +712,14 @@ export function NormalizarCidadesModal({ clientes, onConfirmar, onFechar }: Prop
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-200 shrink-0 bg-white rounded-b-xl">
           <p className="text-xs text-gray-500">
-            {exatos.length + proximos.filter(g => !g.ignorado).length === 0
+            {exatos.length + proximos.filter(g => !g.ignorado).length + foraIbgeAtivos.length === 0
               ? 'Apenas normalização de caixa/IBGE será aplicada.'
-              : `${exatos.length} grupos exatos + ${proximos.filter(g => !g.ignorado).length} duplicatas serão unificados.`}
+              : [
+                  exatos.length > 0 && `${exatos.length} grupo${exatos.length !== 1 ? 's' : ''} exato${exatos.length !== 1 ? 's' : ''}`,
+                  proximos.filter(g => !g.ignorado).length > 0 && `${proximos.filter(g => !g.ignorado).length} duplicata${proximos.filter(g => !g.ignorado).length !== 1 ? 's' : ''}`,
+                  foraIbgeAtivos.length > 0 && `${foraIbgeAtivos.length} fora do IBGE`,
+                ].filter(Boolean).join(' + ') + ' serão corrigidos.'
+            }
           </p>
           <div className="flex items-center gap-2">
             <button onClick={onFechar} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50">
