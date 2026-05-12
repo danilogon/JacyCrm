@@ -157,6 +157,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [formStatus, setFormStatus] = useState<StatusParcela>('');
   const [formDataLimite, setFormDataLimite] = useState('');
   const [formRamo, setFormRamo] = useState('');
+  const [formProrrogada, setFormProrrogada] = useState<boolean | undefined>(undefined);
+  const [formDataProrrogacao, setFormDataProrrogacao] = useState('');
   const [novaObs, setNovaObs] = useState('');
   const [novosArquivos, setNovosArquivos] = useState<ArquivoAnexo[]>([]);
 
@@ -412,6 +414,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     setFormStatus(p.status);
     setFormDataLimite(p.dataLimite ?? '');
     setFormRamo(p.ramo ?? '');
+    setFormProrrogada(p.prorrogada);
+    setFormDataProrrogacao(p.dataProrrogacao ?? '');
     setNovaObs('');
     setNovosArquivos([]);
   }
@@ -433,6 +437,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       status: formStatus,
       dataLimite: formDataLimite || undefined,
       ramo: formRamo || undefined,
+      prorrogada: formProrrogada,
+      dataProrrogacao: formDataProrrogacao || undefined,
       observacoes: obs,
       atualizadoEm: new Date().toISOString(),
     };
@@ -869,6 +875,27 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   <DateInput value={formDataLimite} onChange={e => setFormDataLimite(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   <p className="text-xs text-gray-400 mt-1">Data máxima para pagamento.</p>
+                </div>
+              </div>
+
+              {/* Prorrogação */}
+              <div className="grid grid-cols-2 gap-4 border-t border-gray-100 pt-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Desconsiderada pela seguradora na prorrogação?</label>
+                  <div className="flex rounded border border-gray-300 overflow-hidden text-sm">
+                    {([undefined, true, false] as const).map((v) => (
+                      <button key={String(v)} type="button"
+                        onClick={() => setFormProrrogada(v)}
+                        className={`flex-1 py-2 border-l first:border-l-0 border-gray-300 transition-colors text-sm ${formProrrogada === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                        {v === undefined ? 'N/A' : v ? 'Sim' : 'Não'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Prorrogação</label>
+                  <DateInput value={formDataProrrogacao} onChange={e => setFormDataProrrogacao(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
 

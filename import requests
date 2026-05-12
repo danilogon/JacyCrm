@@ -1,0 +1,10 @@
+import requests
+
+headers = {
+    'X-API-Key': '9ccf048d4f396fae0620a27ea3be07b28b714dc3d5b7d94f163d8bdd8ef5cd92',
+    'Content-Type': 'application/json'
+}
+
+response = requests.get('https://api.cpf-brasil.org/cpf/31645710890', headers=headers)
+data = response.json()
+print(data)

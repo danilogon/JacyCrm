@@ -22,7 +22,7 @@ import { Parcelas } from './pages/Parcelas';
 import { DashboardLookalike } from './pages/DashboardLookalike';
 import { fetchAll, db } from './lib/db';
 import type {
-  Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
+  Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo, FormaPagamento,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
   Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
@@ -107,6 +107,7 @@ function AppRoutes() {
   const [clientes,     setClientesState]     = useState<Cliente[]>([]);
   const [seguradoras,  setSeguradorasState]  = useState<Seguradora[]>([]);
   const [ramos,        setRamosState]        = useState<Ramo[]>([]);
+  const [formasPagamento, setFormasPagamentoState] = useState<FormaPagamento[]>([]);
   const [metas,        setMetasState]        = useState<ConfiguracoesMetas>({ planosRenovacao: [], planosSeguroNovo: [] });
   const [motivos,      setMotivosState]      = useState<MotivoPerda[]>([]);
   const [campos,       setCamposState]       = useState<CampoCustomizavel[]>([]);
@@ -132,6 +133,7 @@ function AppRoutes() {
         setUsuariosState(data.usuarios);
         setSeguradorasState(data.seguradoras);
         setRamosState(data.ramos);
+        setFormasPagamentoState(data.formasPagamento);
         setMotivosState(data.motivos);
         setCamposState(data.campos);
         setMetasState(data.metas);
@@ -182,6 +184,9 @@ function AppRoutes() {
 
   const setRamos = useCallback(
     makeSyncer(setRamosState, db.upsertRamos, db.deleteRamos), []);
+
+  const setFormasPagamento = useCallback(
+    makeSyncer(setFormasPagamentoState, db.upsertFormasPagamento, db.deleteFormasPagamento), []);
 
   const setMotivos = useCallback(
     makeSyncer(setMotivosState, db.upsertMotivos, db.deleteMotivos), []);
@@ -472,6 +477,8 @@ function AppRoutes() {
               setSeguradoras={setSeguradoras}
               ramos={ramos}
               setRamos={setRamos}
+              formasPagamento={formasPagamento}
+              setFormasPagamento={setFormasPagamento}
               metas={metas}
               setMetas={setMetas}
               motivos={motivos}

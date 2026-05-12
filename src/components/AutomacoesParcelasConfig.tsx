@@ -28,16 +28,29 @@ const CAMPO_LABELS: Record<CampoParcela, string> = {
   ramo: 'Ramo',
   forma_pagamento: 'Forma de pagamento',
   valor_parcela: 'Valor da parcela (R$)',
+  prorrogada: 'Parcela desconsiderada na prorrogação',
+  data_prorrogacao: 'Data de prorrogação',
 };
 
 const CAMPOS_NUMERICOS: CampoParcela[] = ['dias_apos_vencimento', 'dias_sem_import', 'valor_parcela'];
 const CAMPOS_STATUS: CampoParcela[] = ['status'];
 const CAMPOS_TEXTO: CampoParcela[] = ['seguradora', 'ramo', 'forma_pagamento'];
+const CAMPOS_BOOLEANOS: CampoParcela[] = ['prorrogada'];
+const CAMPOS_DATA: CampoParcela[] = ['data_prorrogacao'];
+
+const OPCOES_DATA_ACAO = [
+  { value: '', label: 'Não alterar' },
+  { value: 'hoje', label: 'Data de hoje' },
+  { value: 'vencimento', label: 'Data de vencimento da parcela' },
+  { value: 'custom', label: 'Data específica...' },
+];
 
 /** Retorna os campos compatíveis para comparação campo-a-campo (excluindo o próprio campo) */
 function camposCompativeisParaReferencia(campo: CampoParcela): CampoParcela[] {
   if (CAMPOS_NUMERICOS.includes(campo)) return CAMPOS_NUMERICOS.filter(c => c !== campo);
   if (CAMPOS_STATUS.includes(campo)) return [];
+  if (CAMPOS_BOOLEANOS.includes(campo)) return [];
+  if (CAMPOS_DATA.includes(campo)) return [];
   return CAMPOS_TEXTO.filter(c => c !== campo);
 }
 
@@ -50,6 +63,16 @@ function operadoresParaCampo(campo: CampoParcela): { value: OperadorCondicao; la
       { value: 'menor_igual', label: 'é menor ou igual a' },
       { value: 'igual', label: 'é igual a' },
       { value: 'diferente', label: 'é diferente de' },
+    ];
+  }
+  if (CAMPOS_DATA.includes(campo)) {
+    return [
+      { value: 'igual', label: 'é igual a' },
+      { value: 'diferente', label: 'é diferente de' },
+      { value: 'maior_que', label: 'é depois de' },
+      { value: 'maior_igual', label: 'é igual ou depois de' },
+      { value: 'menor_que', label: 'é antes de' },
+      { value: 'menor_igual', label: 'é igual ou antes de' },
     ];
   }
   return [
@@ -67,6 +90,21 @@ function ValorInput({ campo, valor, onChange }: { campo: CampoParcela; valor: st
       </select>
     );
   }
+  if (CAMPOS_BOOLEANOS.includes(campo)) {
+    return (
+      <select value={valor} onChange={e => onChange(e.target.value)}
+        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        <option value="sim">Sim</option>
+        <option value="nao">Não</option>
+      </select>
+    );
+  }
+  if (CAMPOS_DATA.includes(campo)) {
+    return (
+      <input type="date" value={valor} onChange={e => onChange(e.target.value)}
+        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+    );
+  }
   if (CAMPOS_NUMERICOS.includes(campo)) {
     return (
       <input type="number" value={valor} onChange={e => onChange(e.target.value)} min="0"
@@ -81,11 +119,31 @@ function ValorInput({ campo, valor, onChange }: { campo: CampoParcela; valor: st
   );
 }
 
+/** Helper: render um seletor de data para ações */
+function AcaoDataInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  const modo = value === '' ? '' : value === 'hoje' ? 'hoje' : value === 'vencimento' ? 'vencimento' : 'custom';
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-medium text-gray-500">{label}</label>
+      <select value={modo} onChange={e => onChange(e.target.value === 'custom' ? '' : e.target.value)}
+        className="px-2 py-1.5 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+        {OPCOES_DATA_ACAO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      {modo === 'custom' && (
+        <input type="date" value={value === 'hoje' || value === 'vencimento' ? '' : value}
+          onChange={e => onChange(e.target.value)}
+          className="px-2 py-1.5 border border-blue-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+      )}
+    </div>
+  );
+}
+
 interface Props {
   automacoes: AutomacaoParcela[];
   setAutomacoes: (a: AutomacaoParcela[]) => void;
   seguradoras: string[];
   ramos: string[];
+  formasPagamento: string[];
 }
 
 const autoVazia = (): Omit<AutomacaoParcela, 'id' | 'criadoEm' | 'atualizadoEm'> => ({
@@ -96,11 +154,16 @@ const autoVazia = (): Omit<AutomacaoParcela, 'id' | 'criadoEm' | 'atualizadoEm'>
   operadorLogico: 'E',
   filtroSeguradora: '',
   filtroRamo: '',
+  filtroFormaPagamento: '',
+  alterarStatus: true,
   novoStatus: 'em_tratamento',
+  acaoProrrogada: '',
+  acaoDataProrrogacao: '',
+  acaoDataLimite: '',
   prioridade: 0,
 });
 
-export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradoras, ramos }: Props) {
+export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradoras, ramos, formasPagamento }: Props) {
   const [modal, setModal] = useState<AutomacaoParcela | 'nova' | null>(null);
   const [form, setForm] = useState(autoVazia());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
@@ -210,9 +273,15 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
             </span>
           </div>
           <div className="text-xs text-gray-500 mt-1 font-mono">{resumoCondicoes(a)}</div>
-          <div className="text-xs text-gray-400 mt-0.5">
-            → <span className="font-medium text-gray-600">{STATUS_LABELS[a.novoStatus]}</span>
-            {a.prioridade > 0 && <span className="ml-2">Prioridade: {a.prioridade}</span>}
+          <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-1.5">
+            {a.alterarStatus !== false && (
+              <span>→ <span className="font-medium text-gray-600">{STATUS_LABELS[a.novoStatus]}</span></span>
+            )}
+            {a.acaoProrrogada === 'sim' && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 rounded border border-amber-200">Prorrogada: Sim</span>}
+            {a.acaoProrrogada === 'nao' && <span className="px-1.5 py-0.5 bg-gray-50 text-gray-600 rounded border border-gray-200">Prorrogada: Não</span>}
+            {a.acaoDataProrrogacao && <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded border border-blue-200">Data Prorr.: {a.acaoDataProrrogacao}</span>}
+            {a.acaoDataLimite && <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>}
+            {a.prioridade > 0 && <span className="ml-1 text-gray-400">· Prio {a.prioridade}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -449,13 +518,50 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                 </div>
               )}
 
-              {/* Action */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ENTÃO mudar status para</label>
-                <select value={form.novoStatus} onChange={e => setForm(f => ({ ...f, novoStatus: e.target.value as StatusParcela }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                  {TODOS_STATUS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
-                </select>
+              {/* Actions (ENTÃO) */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
+                  <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Ações (ENTÃO...)</span>
+                </div>
+                <div className="p-3 space-y-3">
+                  {/* Status */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label className="flex items-center gap-1.5 text-sm text-gray-700 shrink-0 cursor-pointer">
+                      <input type="checkbox" checked={form.alterarStatus !== false}
+                        onChange={e => setForm(f => ({ ...f, alterarStatus: e.target.checked }))}
+                        className="w-4 h-4 rounded border-gray-300 text-blue-600" />
+                      Mudar status para
+                    </label>
+                    {form.alterarStatus !== false && (
+                      <select value={form.novoStatus} onChange={e => setForm(f => ({ ...f, novoStatus: e.target.value as StatusParcela }))}
+                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        {TODOS_STATUS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
+                      </select>
+                    )}
+                  </div>
+                  {/* Prorrogada */}
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <label className="text-sm text-gray-700 shrink-0">Parcela desconsiderada na prorrogação:</label>
+                    <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
+                      {([['', 'Não alterar'], ['sim', 'Sim'], ['nao', 'Não']] as const).map(([v, l]) => (
+                        <button key={v} type="button"
+                          onClick={() => setForm(f => ({ ...f, acaoProrrogada: v }))}
+                          className={`px-2.5 py-1.5 border-l first:border-l-0 border-gray-300 transition-colors ${(form.acaoProrrogada ?? '') === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {/* Data Prorrogação + Data Limite */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <AcaoDataInput label="Data de Prorrogação"
+                      value={form.acaoDataProrrogacao ?? ''}
+                      onChange={v => setForm(f => ({ ...f, acaoDataProrrogacao: v }))} />
+                    <AcaoDataInput label="Data Limite"
+                      value={form.acaoDataLimite ?? ''}
+                      onChange={v => setForm(f => ({ ...f, acaoDataLimite: v }))} />
+                  </div>
+                </div>
               </div>
 
               {/* Scope filters */}
@@ -476,6 +582,16 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                     {ramos.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
                 </div>
+                {formasPagamento.length > 0 && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Filtro Forma de Pagamento (opcional)</label>
+                    <select value={form.filtroFormaPagamento ?? ''} onChange={e => setForm(f => ({ ...f, filtroFormaPagamento: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">— Qualquer —</option>
+                      {formasPagamento.map(fp => <option key={fp} value={fp}>{fp}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Priority + Active */}

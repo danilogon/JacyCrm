@@ -454,7 +454,16 @@ export type CampoParcela =
   | 'seguradora'
   | 'ramo'
   | 'forma_pagamento'
-  | 'valor_parcela';
+  | 'valor_parcela'
+  | 'prorrogada'             // boolean: parcela desconsiderada pela seguradora na prorrogação
+  | 'data_prorrogacao';      // YYYY-MM-DD: data da prorrogação
+
+/** Formas de pagamento gerenciadas (similar a Ramo/Seguradora) */
+export interface FormaPagamento {
+  id: string;
+  nome: string;
+  ativo: boolean;
+}
 
 export type OperadorCondicao =
   | 'igual'
@@ -491,8 +500,25 @@ export interface AutomacaoParcela {
   /** Optional scope filters - empty string = any */
   filtroSeguradora: string;
   filtroRamo: string;
-  /** The action: change status to this value */
+  filtroFormaPagamento?: string;
+
+  // ── Ações (ENTÃO) ────────────────────────────────────────────────────────
+  /** true = change status; false = keep current status */
+  alterarStatus?: boolean;
+  /** The action: change status to this value (only applied when alterarStatus !== false) */
   novoStatus: StatusParcela;
+  /** '' = don't change | 'sim' = set true | 'nao' = set false */
+  acaoProrrogada?: '' | 'sim' | 'nao';
+  /**
+   * '' = don't change
+   * 'hoje' = today's date
+   * 'vencimento' = parcela's vencimento date
+   * 'YYYY-MM-DD' = specific date
+   */
+  acaoDataProrrogacao?: string;
+  /** Same as acaoDataProrrogacao but for dataLimite */
+  acaoDataLimite?: string;
+
   /** Lower number = higher priority, executed first */
   prioridade: number;
   criadoEm: string;
@@ -523,6 +549,10 @@ export interface Parcela {
   status: StatusParcela;
   /** Data limite para pagamento (YYYY-MM-DD), editável pelo operador */
   dataLimite?: string;
+  /** Parcela desconsiderada pela seguradora na prorrogação */
+  prorrogada?: boolean;
+  /** Data da prorrogação (YYYY-MM-DD) */
+  dataProrrogacao?: string;
   observacoes: Observacao[];
   criadoEm: string;
   atualizadoEm: string;

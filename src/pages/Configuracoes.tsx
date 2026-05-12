@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela } from '../types';
+import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -10,6 +10,8 @@ interface Props {
   setSeguradoras: (s: Seguradora[]) => void;
   ramos: Ramo[];
   setRamos: (r: Ramo[]) => void;
+  formasPagamento: FormaPagamento[];
+  setFormasPagamento: (f: FormaPagamento[]) => void;
   metas: ConfiguracoesMetas;
   setMetas: (m: ConfiguracoesMetas) => void;
   motivos: MotivoPerda[];
@@ -41,7 +43,7 @@ interface Props {
   setAutomacoesParcelas: (a: AutomacaoParcela[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -169,7 +171,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -270,17 +272,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
   const [confirmDelRegra, setConfirmDelRegra] = useState<string | null>(null);
 
   const regraDefault = regrasParcelas.find(r => r.isDefault) ?? null;
-  const regrasEspecificas = regrasParcelas.filter(r => !r.isDefault);
-
-  function abrirNovaRegra() {
-    setFormRegra({ ...regraVazia, isDefault: false });
-    setModalRegra('nova');
-  }
-
-  function abrirEditarRegra(r: RegraParcelaNegocio) {
-    setFormRegra({ nome: r.nome, isDefault: r.isDefault, seguradora: r.seguradora, ramo: r.ramo, formaPagamento: r.formaPagamento, ativo: r.ativo });
-    setModalRegra(r);
-  }
 
   function abrirEditarRegraDefault() {
     if (regraDefault) {
@@ -311,6 +302,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'tipos_usuario', label: 'Tipos de Usuário' },
     { key: 'seguradoras', label: 'Seguradoras' },
     { key: 'ramos', label: 'Ramos' },
+    { key: 'formas_pagamento', label: 'Formas de Pagamento' },
     { key: 'metas', label: 'Metas' },
     { key: 'motivos', label: 'Motivos de Perda' },
     { key: 'campos', label: 'Campos Customizáveis' },
@@ -728,6 +720,98 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             onCancel={() => setConfirmDelRamo(null)} />
         </div>
       )}
+
+      {/* Formas de Pagamento */}
+      {tab === 'formas_pagamento' && (() => {
+        const [formFp, setFormFp] = useState({ nome: '', ativo: true });
+        const [editFp, setEditFp] = useState<FormaPagamento | null>(null);
+        const [criandoFp, setCriandoFp] = useState(false);
+        const [confirmDelFp, setConfirmDelFp] = useState<string | null>(null);
+        function salvarFp() {
+          if (!formFp.nome.trim()) return;
+          if (editFp) {
+            setFormasPagamento(formasPagamento.map(f => f.id === editFp.id ? { ...f, nome: formFp.nome.trim(), ativo: formFp.ativo } : f));
+          } else {
+            setFormasPagamento([...formasPagamento, { id: generateId(), nome: formFp.nome.trim(), ativo: formFp.ativo }]);
+          }
+          setEditFp(null); setCriandoFp(false);
+        }
+        return (
+          <div className="space-y-3">
+            <div className="flex justify-end">
+              <button onClick={() => { setFormFp({ nome: '', ativo: true }); setCriandoFp(true); setEditFp(null); }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                <Plus size={14} /> Nova Forma de Pagamento
+              </button>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    {['Nome', 'Status', 'Ações'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {formasPagamento.length === 0 && (
+                    <tr><td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">Nenhuma forma de pagamento cadastrada.</td></tr>
+                  )}
+                  {formasPagamento.map(f => (
+                    <tr key={f.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-2.5 font-medium text-gray-800">{f.nome}</td>
+                      <td className="px-4 py-2.5">
+                        <button onClick={() => setFormasPagamento(formasPagamento.map(x => x.id === f.id ? {...x, ativo: !x.ativo} : x))}
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${f.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {f.ativo ? 'Ativo' : 'Inativo'}
+                        </button>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <div className="flex gap-1">
+                          <button onClick={() => { setFormFp({ nome: f.nome, ativo: f.ativo }); setEditFp(f); setCriandoFp(false); }}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar"><Edit2 size={14} /></button>
+                          <button onClick={() => setConfirmDelFp(f.id)}
+                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Excluir"><Trash2 size={14} /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {(criandoFp || editFp) && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+                  <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                    <h2 className="font-bold text-gray-900">{editFp ? 'Editar Forma de Pagamento' : 'Nova Forma de Pagamento'}</h2>
+                    <button onClick={() => { setEditFp(null); setCriandoFp(false); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+                  </div>
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
+                      <input value={formFp.nome} onChange={e => setFormFp(f => ({...f, nome: e.target.value}))}
+                        placeholder="Ex.: Débito em Conta, Boleto, Cartão..."
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <Ck v={formFp.ativo} label="Ativa" onChange={v => setFormFp(f => ({...f, ativo: v}))} />
+                  </div>
+                  <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+                    <button onClick={() => { setEditFp(null); setCriandoFp(false); }} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+                    <button onClick={salvarFp} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800"><Save size={14} /> Salvar</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            <ConfirmDialog open={!!confirmDelFp} title="Excluir forma de pagamento" message="Deseja excluir esta forma de pagamento?"
+              onConfirm={() => { if (confirmDelFp) setFormasPagamento(formasPagamento.filter(f => f.id !== confirmDelFp)); setConfirmDelFp(null); }}
+              onCancel={() => setConfirmDelFp(null)} />
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-700">
+              <strong>Pré-requisito Supabase:</strong> execute no SQL Editor:<br />
+              <code className="bg-white px-2 py-0.5 rounded border border-amber-200 mt-1 inline-block">CREATE TABLE IF NOT EXISTS formas_pagamento (id text PRIMARY KEY, nome text NOT NULL, ativo boolean DEFAULT true); ALTER TABLE formas_pagamento ENABLE ROW LEVEL SECURITY; CREATE POLICY "allow_all" ON formas_pagamento FOR ALL USING (true) WITH CHECK (true);</code>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Metas */}
       {tab === 'metas' && (
@@ -1553,66 +1637,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             )}
           </div>
 
-          {/* Regras Específicas */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex items-center justify-between mb-1">
-              <div>
-                <h2 className="font-semibold text-gray-900">Regras Específicas</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  Identificadas pela combinação de Seguradora + Ramo + Forma de Pagamento. Têm prioridade sobre a regra padrão.
-                </p>
-              </div>
-              <button
-                onClick={abrirNovaRegra}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white text-sm rounded-lg hover:bg-blue-800 shrink-0"
-              >
-                <Plus size={14} /> Nova Regra
-              </button>
-            </div>
-
-            {regrasEspecificas.length === 0 ? (
-              <div className="mt-4 text-center py-10 text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                Nenhuma regra específica cadastrada ainda.
-              </div>
-            ) : (
-              <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-100">
-                    <tr>
-                      {['Nome', 'Seguradora', 'Ramo', 'Forma de Pagamento', 'Status', 'Ações'].map(h => (
-                        <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {regrasEspecificas.map(r => (
-                      <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-2.5 font-medium text-gray-800">{r.nome}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{r.seguradora || <span className="text-gray-300 italic">Qualquer</span>}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{r.ramo || <span className="text-gray-300 italic">Qualquer</span>}</td>
-                        <td className="px-4 py-2.5 text-gray-600">{r.formaPagamento || <span className="text-gray-300 italic">Qualquer</span>}</td>
-                        <td className="px-4 py-2.5">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
-                            {r.ativo ? 'Ativa' : 'Inativa'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1">
-                            <button onClick={() => abrirEditarRegra(r)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar">
-                              <Edit2 size={14} />
-                            </button>
-                            <button onClick={() => setConfirmDelRegra(r.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded" title="Excluir">
-                              <Trash2 size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
 
           {/* Modal criar/editar regra */}
           {modalRegra !== null && (
@@ -1718,6 +1742,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             setAutomacoes={setAutomacoesParcelas}
             seguradoras={seguradoras.filter(s => s.ativo).map(s => s.nome).sort()}
             ramos={ramos.filter(r => r.ativo).map(r => r.nome).sort()}
+            formasPagamento={formasPagamento.filter(f => f.ativo).map(f => f.nome).sort()}
           />
         </div>
       )}

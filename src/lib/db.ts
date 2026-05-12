@@ -12,7 +12,7 @@
 import { supabase } from './supabase';
 import type {
   Usuario, Renovacao, SeguroNovo, Prospeccao, Cliente,
-  Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
+  Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
   Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
@@ -93,6 +93,7 @@ export async function fetchAll() {
     r_usuarios,
     r_seguradoras,
     r_ramos,
+    r_formas_pagamento,
     r_motivos,
     r_campos,
     r_metas,
@@ -118,6 +119,7 @@ export async function fetchAll() {
     supabase.from('usuarios').select('*'),
     supabase.from('seguradoras').select('*'),
     supabase.from('ramos').select('*'),
+    supabase.from('formas_pagamento').select('*').order('nome'),
     supabase.from('motivos_perda').select('*').order('ordem'),
     supabase.from('campos_customizaveis').select('*'),
     supabase.from('configuracoes_metas').select('*').eq('id', 1).maybeSingle(),
@@ -162,6 +164,7 @@ export async function fetchAll() {
     usuarios:     (r_usuarios.data    || []).map(r => rowToCamel<Usuario>(r as Record<string, unknown>)),
     seguradoras:  (r_seguradoras.data || []).map(r => rowToCamel<Seguradora>(r as Record<string, unknown>)),
     ramos:        (r_ramos.data       || []).map(r => rowToCamel<Ramo>(r as Record<string, unknown>)),
+    formasPagamento: r_formas_pagamento.error ? [] : (r_formas_pagamento.data || []).map(r => rowToCamel<FormaPagamento>(r as Record<string, unknown>)),
     motivos:      (r_motivos.data     || []).map(r => rowToCamel<MotivoPerda>(r as Record<string, unknown>)),
     campos:       (r_campos.data      || []).map(r => rowToCamel<CampoCustomizavel>(r as Record<string, unknown>)),
     tiposUsuario: (r_tipos.data       || []).map(r => rowToCamel<TipoUsuario>(r as Record<string, unknown>)),
@@ -228,6 +231,10 @@ export const db = {
   // Ramos
   upsertRamos:      (items: Ramo[])             => upsertRows('ramos', items as unknown as Record<string, unknown>[]),
   deleteRamos:      (ids: string[])             => deleteRows('ramos', ids),
+
+  // Formas de Pagamento
+  upsertFormasPagamento: (items: FormaPagamento[]) => upsertRows('formas_pagamento', items as unknown as Record<string, unknown>[]),
+  deleteFormasPagamento: (ids: string[])            => deleteRows('formas_pagamento', ids),
 
   // Motivos de perda
   upsertMotivos:    (items: MotivoPerda[])      => upsertRows('motivos_perda', items as unknown as Record<string, unknown>[]),

@@ -4,7 +4,7 @@ function diasEntre(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
-function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | number {
+function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | number | boolean {
   switch (campo) {
     case 'dias_apos_vencimento': return diasEntre(new Date(p.vencimento + 'T00:00:00'), hoje);
     case 'dias_sem_import':      return diasEntre(new Date(p.ultimaAtualizacao + 'T00:00:00'), hoje);
@@ -13,12 +13,29 @@ function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | nu
     case 'ramo':                 return p.ramo ?? '';
     case 'forma_pagamento':      return p.formaPagamento;
     case 'valor_parcela':        return p.valorParcela;
+    case 'prorrogada':           return p.prorrogada ?? false;
+    case 'data_prorrogacao':     return p.dataProrrogacao ?? '';
     default:                     return '';
   }
 }
 
+function resolverAcaoData(valor: string, hoje: Date, p: Parcela): string {
+  if (valor === 'hoje') return hoje.toISOString().slice(0, 10);
+  if (valor === 'vencimento') return p.vencimento;
+  return valor; // specific date YYYY-MM-DD
+}
+
 function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
   const valor = resolverCampo(p, cond.campo, hoje);
+
+  // Booleano: compara 'sim'/'nao' com o valor booleano
+  if (cond.campo === 'prorrogada') {
+    const boolValor = valor === true;
+    const boolRef = cond.tipoValor === 'campo' && cond.valorCampo
+      ? resolverCampo(p, cond.valorCampo, hoje) === true
+      : cond.valor === 'sim';
+    return cond.operador === 'igual' ? boolValor === boolRef : boolValor !== boolRef;
+  }
 
   // Resolve o lado direito: campo dinâmico ou valor literal
   let refStr: string;
@@ -35,10 +52,10 @@ function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boole
   switch (cond.operador) {
     case 'igual':       return String(valor) === refStr;
     case 'diferente':   return String(valor) !== refStr;
-    case 'maior_que':   return typeof valor === 'number' && valor > refNum;
-    case 'menor_que':   return typeof valor === 'number' && valor < refNum;
-    case 'maior_igual': return typeof valor === 'number' && valor >= refNum;
-    case 'menor_igual': return typeof valor === 'number' && valor <= refNum;
+    case 'maior_que':   return typeof valor === 'number' ? valor > refNum : String(valor) > refStr;
+    case 'menor_que':   return typeof valor === 'number' ? valor < refNum : String(valor) < refStr;
+    case 'maior_igual': return typeof valor === 'number' ? valor >= refNum : String(valor) >= refStr;
+    case 'menor_igual': return typeof valor === 'number' ? valor <= refNum : String(valor) <= refStr;
     default: return false;
   }
 }
@@ -79,9 +96,27 @@ export function aplicarAutomacoes(
         match = auto.operadorLogico === 'E' ? resultados.every(Boolean) : resultados.some(Boolean);
       }
 
-      if (match && p.status !== auto.novoStatus) {
-        totalAlteradas++;
-        return { ...p, status: auto.novoStatus, atualizadoEm: agora };
+      if (match) {
+        // Collect all applicable changes
+        const patch: Partial<Parcela> = {};
+
+        if (auto.alterarStatus !== false && p.status !== auto.novoStatus) {
+          patch.status = auto.novoStatus;
+        }
+        if (auto.acaoProrrogada === 'sim') patch.prorrogada = true;
+        else if (auto.acaoProrrogada === 'nao') patch.prorrogada = false;
+
+        if (auto.acaoDataProrrogacao) {
+          patch.dataProrrogacao = resolverAcaoData(auto.acaoDataProrrogacao, hoje, p);
+        }
+        if (auto.acaoDataLimite) {
+          patch.dataLimite = resolverAcaoData(auto.acaoDataLimite, hoje, p);
+        }
+
+        if (Object.keys(patch).length > 0) {
+          totalAlteradas++;
+          return { ...p, ...patch, atualizadoEm: agora };
+        }
       }
     }
     return p;
