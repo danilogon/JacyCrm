@@ -204,6 +204,35 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
   const [filtroMes, setFiltroMes] = useState(now.getMonth() + 1);
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroResp, setFiltroResp] = useState(usuario?.role === 'usuario' ? usuario.id : '');
+  const [filtroSemVinculo, setFiltroSemVinculo] = useState(false);
+
+  // ── Auto-vínculo em lote ──────────────────────────────────────────────────
+  type ResultadoAutoVinculo = { vinculadas: number; duplicados: string[]; naoEncontrados: string[] };
+  const [resultadoAutoVinculo, setResultadoAutoVinculo] = useState<ResultadoAutoVinculo | null>(null);
+
+  function autoVincularClientes() {
+    const porNome = new Map<string, Cliente[]>();
+    for (const c of clientes) {
+      const key = c.nome.trim();
+      if (!porNome.has(key)) porNome.set(key, []);
+      porNome.get(key)!.push(c);
+    }
+    let vinculadas = 0;
+    const duplicados = new Set<string>();
+    const naoEncontrados = new Set<string>();
+    const agora = new Date().toISOString();
+    const atualizadas = segurosNovos.map(s => {
+      if (s.clienteId) return s;
+      const nome = s.nomeCliente.trim();
+      const encontrados = porNome.get(nome) ?? [];
+      if (encontrados.length === 1) { vinculadas++; return { ...s, clienteId: encontrados[0].id, atualizadoEm: agora }; }
+      if (encontrados.length > 1) duplicados.add(nome);
+      else naoEncontrados.add(nome);
+      return s;
+    });
+    if (vinculadas > 0) setSegurosNovos(atualizadas);
+    setResultadoAutoVinculo({ vinculadas, duplicados: [...duplicados].sort(), naoEncontrados: [...naoEncontrados].sort() });
+  }
 
   const [editando, setEditando] = useState<SeguroNovo | null>(null);
   const [criando, setCriando] = useState(false);
@@ -242,10 +271,11 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
         else if (filtroStatus && s.status !== filtroStatus) return false;
         if (filtroResp && s.responsavelId !== filtroResp) return false;
         if (usuario?.role === 'usuario' && s.responsavelId !== usuario.id) return false;
+        if (filtroSemVinculo && s.clienteId) return false;
         return true;
       })
       .sort((a, b) => (a.inicioVigencia || a.criadoEm || '').localeCompare(b.inicioVigencia || b.criadoEm || ''));
-  }, [segurosNovos, filtroAno, filtroMes, filtroStatus, filtroResp, usuario]);
+  }, [segurosNovos, filtroAno, filtroMes, filtroStatus, filtroResp, filtroSemVinculo, usuario]);
 
   const usuariosVisiveis = useMemo(() =>
     usuarios.filter(u => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
@@ -869,6 +899,13 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
               </button>
             </>
           )}
+          <button
+            onClick={() => { setResultadoAutoVinculo(null); autoVincularClientes(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+            title="Vincula automaticamente seguros a clientes com nome exatamente igual"
+          >
+            <UserCheck size={14} /> Vincular Clientes
+          </button>
           <button onClick={abrirCriacao} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
             <Plus size={14} /> Novo Seguro
           </button>
@@ -895,6 +932,17 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
             {usuariosVisiveis.map(u => <option key={u.id} value={u.id}>{u.nome}</option>)}
           </select>
         )}
+        <button
+          onClick={() => setFiltroSemVinculo(v => !v)}
+          title="Filtrar apenas registros não vinculados a clientes"
+          className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm transition-colors ${
+            filtroSemVinculo
+              ? 'bg-indigo-600 text-white border-indigo-600'
+              : 'border-gray-300 text-gray-600 hover:border-indigo-400 hover:text-indigo-600'
+          }`}
+        >
+          <Link2 size={14} /> Sem vínculo
+        </button>
         <span className="ml-auto self-center text-sm text-gray-500">{filtered.length} registro(s)</span>
       </div>
 
@@ -1588,6 +1636,43 @@ export function SeguroNovos({ segurosNovos, setSegurosNovos, prospeccoes, setPro
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal resultado auto-vínculo */}
+      {resultadoAutoVinculo && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2"><UserCheck size={18} className="text-blue-600" /> Resultado — Vincular Clientes</h2>
+              <button onClick={() => setResultadoAutoVinculo(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${resultadoAutoVinculo.vinculadas > 0 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                <span className={`text-2xl font-bold ${resultadoAutoVinculo.vinculadas > 0 ? 'text-green-600' : 'text-gray-300'}`}>✓</span>
+                <div><span className="font-semibold text-gray-800">{resultadoAutoVinculo.vinculadas}</span><span className="text-gray-600"> {resultadoAutoVinculo.vinculadas === 1 ? 'registro vinculado' : 'registros vinculados'} com sucesso</span></div>
+              </div>
+              {resultadoAutoVinculo.duplicados.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-amber-700">{resultadoAutoVinculo.duplicados.length} ignorado(s) — nome duplicado no cadastro</p>
+                  <p className="text-xs text-gray-500">Há dois ou mais clientes com o mesmo nome. Faça o vínculo manualmente.</p>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5">{resultadoAutoVinculo.duplicados.map(n => <li key={n} className="px-2 py-1 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800 truncate">{n}</li>)}</ul>
+                </div>
+              )}
+              {resultadoAutoVinculo.naoEncontrados.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-gray-500">{resultadoAutoVinculo.naoEncontrados.length} não encontrado(s) no cadastro</p>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5">{resultadoAutoVinculo.naoEncontrados.map(n => <li key={n} className="px-2 py-1 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600 truncate">{n}</li>)}</ul>
+                </div>
+              )}
+              {resultadoAutoVinculo.vinculadas === 0 && resultadoAutoVinculo.duplicados.length === 0 && resultadoAutoVinculo.naoEncontrados.length === 0 && (
+                <p className="text-gray-500 text-center py-2">Todos os registros já estão vinculados a clientes.</p>
+              )}
+            </div>
+            <div className="flex justify-end p-5 border-t border-gray-200">
+              <button onClick={() => setResultadoAutoVinculo(null)} className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">Fechar</button>
             </div>
           </div>
         </div>
