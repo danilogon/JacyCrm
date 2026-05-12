@@ -693,11 +693,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Prazo ≤ 3 dias',    value: kpis.prazoUrgente,  text: 'text-red-600' },
           { label: 'Tratar',            value: kpis.tratar,        text: 'text-amber-700' },
           { label: 'Em Tratativa',      value: kpis.emTratativa,   text: 'text-blue-600' },
           { label: 'Valor em Aberto',   value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
           { label: '1ª Parcelas',       value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
+          { label: 'Prazo ≤ 3 dias',    value: kpis.prazoUrgente,  text: 'text-red-600' },
         ].map(k => (
           <div key={k.label} className={`bg-white rounded-xl border p-4 ${(k as { bell?: boolean }).bell && filtroP1 ? 'border-amber-400 bg-amber-50' : 'border-gray-200'}`}>
             <div className={`text-xs font-semibold mb-1 flex items-center gap-1 ${k.text}`}>
