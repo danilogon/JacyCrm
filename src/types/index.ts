@@ -462,7 +462,11 @@ export interface CondicaoAutomacao {
   id: string;
   campo: CampoParcela;
   operador: OperadorCondicao;
+  /** 'fixo' = valor literal; 'campo' = comparar com outro campo da parcela */
+  tipoValor?: 'fixo' | 'campo';
   valor: string;
+  /** Usado quando tipoValor === 'campo' */
+  valorCampo?: CampoParcela;
 }
 
 export interface AutomacaoParcela {

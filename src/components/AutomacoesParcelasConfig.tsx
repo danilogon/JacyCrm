@@ -32,6 +32,14 @@ const CAMPO_LABELS: Record<CampoParcela, string> = {
 
 const CAMPOS_NUMERICOS: CampoParcela[] = ['dias_apos_vencimento', 'dias_sem_import', 'valor_parcela'];
 const CAMPOS_STATUS: CampoParcela[] = ['status'];
+const CAMPOS_TEXTO: CampoParcela[] = ['seguradora', 'ramo', 'forma_pagamento'];
+
+/** Retorna os campos compatíveis para comparação campo-a-campo (excluindo o próprio campo) */
+function camposCompativeisParaReferencia(campo: CampoParcela): CampoParcela[] {
+  if (CAMPOS_NUMERICOS.includes(campo)) return CAMPOS_NUMERICOS.filter(c => c !== campo);
+  if (CAMPOS_STATUS.includes(campo)) return [];
+  return CAMPOS_TEXTO.filter(c => c !== campo);
+}
 
 function operadoresParaCampo(campo: CampoParcela): { value: OperadorCondicao; label: string }[] {
   if (CAMPOS_NUMERICOS.includes(campo)) {
@@ -136,7 +144,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   }
 
   function addCondicao() {
-    const nova: CondicaoAutomacao = { id: generateId(), campo: 'dias_apos_vencimento', operador: 'maior_que', valor: '5' };
+    const nova: CondicaoAutomacao = { id: generateId(), campo: 'dias_apos_vencimento', operador: 'maior_que', tipoValor: 'fixo', valor: '5' };
     setForm(f => ({ ...f, condicoes: [...f.condicoes, nova] }));
   }
 
@@ -156,7 +164,12 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
     if (a.tipo === 'padrao_vencimento') return `Após ${a.diasAposVencimento ?? 0} dias do vencimento`;
     if (a.tipo === 'padrao_sem_import') return `Ausente no import há ${a.diasAntesSemImport ?? 0} dias`;
     if (!a.condicoes.length) return '(sem condições)';
-    return a.condicoes.map(c => `${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${c.valor}`).join(` ${a.operadorLogico} `);
+    return a.condicoes.map(c => {
+      const lado = c.tipoValor === 'campo' && c.valorCampo
+        ? CAMPO_LABELS[c.valorCampo]
+        : c.valor;
+      return `${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${lado}`;
+    }).join(` ${a.operadorLogico} `);
   }
 
   const CardRegra = ({ a }: { a: AutomacaoParcela }) => (
@@ -361,40 +374,81 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                     {form.condicoes.length === 0 && (
                       <p className="text-sm text-gray-400 text-center py-2">Nenhuma condição adicionada ainda.</p>
                     )}
-                    {form.condicoes.map((cond, idx) => (
-                      <div key={cond.id} className="flex items-center gap-2 flex-wrap bg-gray-50 rounded-lg px-3 py-2">
-                        {idx > 0 && (
-                          <span className="text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 shrink-0">
-                            {form.operadorLogico}
-                          </span>
-                        )}
-                        <span className="text-xs text-gray-500 shrink-0">SE</span>
-                        <select value={cond.campo}
-                          onChange={e => {
-                            const campo = e.target.value as CampoParcela;
-                            const ops = operadoresParaCampo(campo);
-                            const operador = ops[0].value;
-                            const valor = campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
-                            updateCondicao(cond.id, { campo, operador, valor });
-                          }}
-                          className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          {(Object.entries(CAMPO_LABELS) as [CampoParcela, string][]).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                          ))}
-                        </select>
-                        <select value={cond.operador}
-                          onChange={e => updateCondicao(cond.id, { operador: e.target.value as OperadorCondicao })}
-                          className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                          {operadoresParaCampo(cond.campo).map(op => (
-                            <option key={op.value} value={op.value}>{op.label}</option>
-                          ))}
-                        </select>
-                        <ValorInput campo={cond.campo} valor={cond.valor} onChange={v => updateCondicao(cond.id, { valor: v })} />
-                        <button onClick={() => removeCondicao(cond.id)} className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0">
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
+                    {form.condicoes.map((cond, idx) => {
+                      const camposRef = camposCompativeisParaReferencia(cond.campo);
+                      const podeCompararcampo = camposRef.length > 0;
+                      const modoAtual = cond.tipoValor ?? 'fixo';
+                      return (
+                        <div key={cond.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {idx > 0 && (
+                              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 shrink-0">
+                                {form.operadorLogico}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500 shrink-0">SE</span>
+                            {/* Campo esquerdo */}
+                            <select value={cond.campo}
+                              onChange={e => {
+                                const campo = e.target.value as CampoParcela;
+                                const ops = operadoresParaCampo(campo);
+                                const operador = ops[0].value;
+                                const valor = campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
+                                updateCondicao(cond.id, { campo, operador, valor, tipoValor: 'fixo', valorCampo: undefined });
+                              }}
+                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              {(Object.entries(CAMPO_LABELS) as [CampoParcela, string][]).map(([k, v]) => (
+                                <option key={k} value={k}>{v}</option>
+                              ))}
+                            </select>
+                            {/* Operador */}
+                            <select value={cond.operador}
+                              onChange={e => updateCondicao(cond.id, { operador: e.target.value as OperadorCondicao })}
+                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                              {operadoresParaCampo(cond.campo).map(op => (
+                                <option key={op.value} value={op.value}>{op.label}</option>
+                              ))}
+                            </select>
+                            {/* Toggle fixo/campo — só aparece quando há campos compatíveis */}
+                            {podeCompararcampo && (
+                              <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
+                                <button type="button"
+                                  onClick={() => updateCondicao(cond.id, { tipoValor: 'fixo', valorCampo: undefined })}
+                                  className={`px-2 py-1 transition-colors ${modoAtual === 'fixo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                                  Valor
+                                </button>
+                                <button type="button"
+                                  onClick={() => updateCondicao(cond.id, { tipoValor: 'campo', valorCampo: camposRef[0] })}
+                                  className={`px-2 py-1 border-l border-gray-300 transition-colors ${modoAtual === 'campo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                                  Campo
+                                </button>
+                              </div>
+                            )}
+                            {/* Lado direito: valor fixo ou campo de referência */}
+                            {modoAtual === 'campo' && podeCompararcampo ? (
+                              <select value={cond.valorCampo ?? camposRef[0]}
+                                onChange={e => updateCondicao(cond.id, { valorCampo: e.target.value as CampoParcela })}
+                                className="flex-1 px-2 py-1 border border-blue-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {camposRef.map(c => (
+                                  <option key={c} value={c}>{CAMPO_LABELS[c]}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <ValorInput campo={cond.campo} valor={cond.valor} onChange={v => updateCondicao(cond.id, { valor: v })} />
+                            )}
+                            <button onClick={() => removeCondicao(cond.id)} className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0">
+                              <X size={13} />
+                            </button>
+                          </div>
+                          {/* Indicador visual quando modo campo */}
+                          {modoAtual === 'campo' && cond.valorCampo && (
+                            <div className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                              Comparando <strong>{CAMPO_LABELS[cond.campo]}</strong> com o valor de <strong>{CAMPO_LABELS[cond.valorCampo]}</strong> da própria parcela
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                     <button onClick={addCondicao}
                       className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 mt-1">
                       <Plus size={12} /> Adicionar condição
@@ -457,7 +511,10 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
                     {form.tipo === 'padrao_sem_import' && `Parcela ausente no import com vencimento há ${form.diasAntesSemImport ?? 0}+ dias`}
                     {form.tipo === 'personalizada' && form.condicoes.map((c, i) => (
                       <span key={c.id}>{i > 0 && <strong> {form.operadorLogico} </strong>}
-                        {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g,' ')} <strong>{c.valor || '—'}</strong>
+                        {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g,' ')}{' '}
+                        {c.tipoValor === 'campo' && c.valorCampo
+                          ? <em>{CAMPO_LABELS[c.valorCampo]}</em>
+                          : <strong>{c.valor || '—'}</strong>}
                       </span>
                     ))}
                     {form.filtroSeguradora && <span> · Seguradora: <strong>{form.filtroSeguradora}</strong></span>}

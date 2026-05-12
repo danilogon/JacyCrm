@@ -4,35 +4,41 @@ function diasEntre(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
+function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | number {
+  switch (campo) {
+    case 'dias_apos_vencimento': return diasEntre(new Date(p.vencimento + 'T00:00:00'), hoje);
+    case 'dias_sem_import':      return diasEntre(new Date(p.ultimaAtualizacao + 'T00:00:00'), hoje);
+    case 'status':               return p.status;
+    case 'seguradora':           return p.seguradora;
+    case 'ramo':                 return p.ramo ?? '';
+    case 'forma_pagamento':      return p.formaPagamento;
+    case 'valor_parcela':        return p.valorParcela;
+    default:                     return '';
+  }
+}
+
 function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
-  let valor: string | number;
-  switch (cond.campo as CampoParcela) {
-    case 'dias_apos_vencimento': {
-      const venc = new Date(p.vencimento + 'T00:00:00');
-      valor = diasEntre(venc, hoje);
-      break;
-    }
-    case 'dias_sem_import': {
-      const ultima = new Date(p.ultimaAtualizacao + 'T00:00:00');
-      valor = diasEntre(ultima, hoje);
-      break;
-    }
-    case 'status':           valor = p.status; break;
-    case 'seguradora':       valor = p.seguradora; break;
-    case 'ramo':             valor = p.ramo ?? ''; break;
-    case 'forma_pagamento':  valor = p.formaPagamento; break;
-    case 'valor_parcela':    valor = p.valorParcela; break;
-    default: return false;
+  const valor = resolverCampo(p, cond.campo, hoje);
+
+  // Resolve o lado direito: campo dinâmico ou valor literal
+  let refStr: string;
+  let refNum: number;
+  if (cond.tipoValor === 'campo' && cond.valorCampo) {
+    const ref = resolverCampo(p, cond.valorCampo, hoje);
+    refStr = String(ref);
+    refNum = Number(ref);
+  } else {
+    refStr = cond.valor;
+    refNum = Number(cond.valor);
   }
 
-  const numRef = Number(cond.valor);
   switch (cond.operador) {
-    case 'igual':       return String(valor) === cond.valor;
-    case 'diferente':   return String(valor) !== cond.valor;
-    case 'maior_que':   return typeof valor === 'number' && valor > numRef;
-    case 'menor_que':   return typeof valor === 'number' && valor < numRef;
-    case 'maior_igual': return typeof valor === 'number' && valor >= numRef;
-    case 'menor_igual': return typeof valor === 'number' && valor <= numRef;
+    case 'igual':       return String(valor) === refStr;
+    case 'diferente':   return String(valor) !== refStr;
+    case 'maior_que':   return typeof valor === 'number' && valor > refNum;
+    case 'menor_que':   return typeof valor === 'number' && valor < refNum;
+    case 'maior_igual': return typeof valor === 'number' && valor >= refNum;
+    case 'menor_igual': return typeof valor === 'number' && valor <= refNum;
     default: return false;
   }
 }
