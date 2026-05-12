@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
-  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell, ChevronRight, ChevronLeft,
+  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell, ChevronRight, ChevronLeft, UserCheck,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
@@ -195,6 +195,45 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [modalVinculo, setModalVinculo] = useState<Parcela | null>(null);
   const [buscaVinculo, setBuscaVinculo] = useState('');
   const [clienteVinculoSel, setClienteVinculoSel] = useState<Cliente | null>(null);
+
+  // ── Auto-vínculo em lote ──────────────────────────────────────────────────
+  type ResultadoAutoVinculo = { vinculadas: number; duplicados: string[]; naoEncontrados: string[] };
+  const [resultadoAutoVinculo, setResultadoAutoVinculo] = useState<ResultadoAutoVinculo | null>(null);
+
+  function autoVincularClientes() {
+    // Monta índice nome → clientes (para detectar duplicatas)
+    const porNome = new Map<string, Cliente[]>();
+    for (const c of clientes) {
+      const key = c.nome.trim();
+      if (!porNome.has(key)) porNome.set(key, []);
+      porNome.get(key)!.push(c);
+    }
+
+    let vinculadas = 0;
+    const duplicados = new Set<string>();
+    const naoEncontrados = new Set<string>();
+    const agora = new Date().toISOString();
+
+    const atualizadas = parcelas.map(p => {
+      if (p.clienteId) return p; // já vinculada — não altera
+      const nome = p.nomeCliente.trim();
+      const encontrados = porNome.get(nome) ?? [];
+      if (encontrados.length === 1) {
+        vinculadas++;
+        return { ...p, clienteId: encontrados[0].id, atualizadoEm: agora };
+      }
+      if (encontrados.length > 1) duplicados.add(nome);
+      else naoEncontrados.add(nome);
+      return p;
+    });
+
+    if (vinculadas > 0) setParcelas(atualizadas);
+    setResultadoAutoVinculo({
+      vinculadas,
+      duplicados: [...duplicados].sort(),
+      naoEncontrados: [...naoEncontrados].sort(),
+    });
+  }
 
   // ── Modal nova parcela manual ─────────────────────────────────────────────
   const formNovaParcVazio = {
@@ -656,6 +695,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             title={automacoesParcelas.filter(a => a.ativo).length === 0 ? 'Nenhuma automação ativa configurada' : 'Aplicar automações às parcelas'}
           >
             <Zap size={14} /> Processar Automações
+          </button>
+          <button
+            onClick={() => { setResultadoAutoVinculo(null); autoVincularClientes(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+            title="Vincula automaticamente parcelas a clientes com nome exatamente igual"
+          >
+            <UserCheck size={14} /> Vincular Clientes
           </button>
           <button
             onClick={() => { setModalNovaParcela(true); setFormNovaParc(formNovaParcVazio); setClienteNovaSel(null); setBuscaClienteNova(''); }}
@@ -1457,6 +1503,70 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               <button onClick={confirmarVinculo} disabled={!clienteVinculoSel}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 disabled:opacity-50">
                 <Link2 size={14} /> Confirmar Vínculo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal resultado auto-vínculo */}
+      {resultadoAutoVinculo && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between p-5 border-b border-gray-200">
+              <h2 className="font-bold text-gray-900 flex items-center gap-2">
+                <UserCheck size={18} className="text-blue-600" /> Resultado — Vincular Clientes
+              </h2>
+              <button onClick={() => setResultadoAutoVinculo(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4 text-sm">
+              {/* Vinculadas */}
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-lg ${resultadoAutoVinculo.vinculadas > 0 ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}`}>
+                <CheckCircle size={18} className={resultadoAutoVinculo.vinculadas > 0 ? 'text-green-600 shrink-0' : 'text-gray-300 shrink-0'} />
+                <div>
+                  <span className="font-semibold text-gray-800">{resultadoAutoVinculo.vinculadas}</span>
+                  <span className="text-gray-600"> {resultadoAutoVinculo.vinculadas === 1 ? 'parcela vinculada' : 'parcelas vinculadas'} com sucesso</span>
+                </div>
+              </div>
+
+              {/* Nomes duplicados no banco */}
+              {resultadoAutoVinculo.duplicados.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-amber-700 flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{resultadoAutoVinculo.duplicados.length}</span>
+                    Ignorados — nome duplicado no cadastro de clientes
+                  </p>
+                  <p className="text-xs text-gray-500">Há dois ou mais clientes com o mesmo nome. Faça o vínculo manualmente em cada parcela.</p>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5">
+                    {resultadoAutoVinculo.duplicados.map(nome => (
+                      <li key={nome} className="px-2 py-1 bg-amber-50 border border-amber-100 rounded text-xs text-amber-800 truncate">{nome}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Nomes não encontrados */}
+              {resultadoAutoVinculo.naoEncontrados.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="font-semibold text-gray-500 flex items-center gap-1.5">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold">{resultadoAutoVinculo.naoEncontrados.length}</span>
+                    Não encontrados no cadastro de clientes
+                  </p>
+                  <ul className="mt-1 max-h-32 overflow-y-auto space-y-0.5">
+                    {resultadoAutoVinculo.naoEncontrados.map(nome => (
+                      <li key={nome} className="px-2 py-1 bg-gray-50 border border-gray-100 rounded text-xs text-gray-600 truncate">{nome}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {resultadoAutoVinculo.vinculadas === 0 && resultadoAutoVinculo.duplicados.length === 0 && resultadoAutoVinculo.naoEncontrados.length === 0 && (
+                <p className="text-gray-500 text-center py-2">Todas as parcelas já estão vinculadas a clientes.</p>
+              )}
+            </div>
+            <div className="flex justify-end p-5 border-t border-gray-200">
+              <button onClick={() => setResultadoAutoVinculo(null)}
+                className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                Fechar
               </button>
             </div>
           </div>
