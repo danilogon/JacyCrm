@@ -89,41 +89,64 @@ function operadoresParaCampo(campo: CampoParcela): { value: OperadorCondicao; la
   ];
 }
 
-function ValorInput({ campo, valor, onChange }: { campo: CampoParcela; valor: string; onChange: (v: string) => void }) {
+function ValorInput({ campo, valor, onChange, seguradoras = [], ramos = [], formasPagamento = [] }: {
+  campo: CampoParcela; valor: string; onChange: (v: string) => void;
+  seguradoras?: string[]; ramos?: string[]; formasPagamento?: string[];
+}) {
+  const cls = "flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+
   if (CAMPOS_STATUS.includes(campo)) {
     return (
-      <select value={valor} onChange={e => onChange(e.target.value)}
-        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
+        <option value="">— Selecione —</option>
         {TODOS_STATUS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
       </select>
     );
   }
   if (CAMPOS_BOOLEANOS.includes(campo)) {
     return (
-      <select value={valor} onChange={e => onChange(e.target.value)}
-        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
         <option value="sim">Sim</option>
         <option value="nao">Não</option>
       </select>
     );
   }
   if (CAMPOS_DATA.includes(campo)) {
-    return (
-      <input type="date" value={valor} onChange={e => onChange(e.target.value)}
-        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-    );
+    return <input type="date" value={valor} onChange={e => onChange(e.target.value)} className={cls} />;
   }
   if (CAMPOS_NUMERICOS.includes(campo)) {
     return (
-      <input type="number" value={valor} onChange={e => onChange(e.target.value)} min="0"
-        className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      <input type="number" value={valor} onChange={e => onChange(e.target.value)} min="0" className={cls}
         placeholder={campo === 'valor_parcela' ? '0.00' : '0'} />
     );
   }
+  // Campos de lista: seguradora, ramo, forma_pagamento
+  if (campo === 'seguradora' && seguradoras.length > 0) {
+    return (
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
+        <option value="">— Selecione —</option>
+        {seguradoras.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    );
+  }
+  if (campo === 'ramo' && ramos.length > 0) {
+    return (
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
+        <option value="">— Selecione —</option>
+        {ramos.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+    );
+  }
+  if (campo === 'forma_pagamento' && formasPagamento.length > 0) {
+    return (
+      <select value={valor} onChange={e => onChange(e.target.value)} className={cls}>
+        <option value="">— Selecione —</option>
+        {formasPagamento.map(f => <option key={f} value={f}>{f}</option>)}
+      </select>
+    );
+  }
   return (
-    <input type="text" value={valor} onChange={e => onChange(e.target.value)}
-      className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      placeholder="Valor..." />
+    <input type="text" value={valor} onChange={e => onChange(e.target.value)} className={cls} placeholder="Valor..." />
   );
 }
 
@@ -546,7 +569,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                                 ))}
                               </select>
                             ) : (
-                              <ValorInput campo={cond.campo} valor={cond.valor} onChange={v => updateCondicao(cond.id, { valor: v })} />
+                              <ValorInput campo={cond.campo} valor={cond.valor} onChange={v => updateCondicao(cond.id, { valor: v })} seguradoras={seguradoras} ramos={ramos} formasPagamento={formasPagamento} />
                             )}
                             <button onClick={() => removeCondicao(cond.id)} className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0">
                               <X size={13} />
