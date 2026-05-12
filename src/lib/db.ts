@@ -296,7 +296,21 @@ export const db = {
   deleteConfigGatilhos: (ids: string[])           => deleteRows('config_gatilhos', ids),
 
   // Parcelas (Follow Up de Pagamentos)
-  upsertParcelas:           (items: Parcela[])             => upsertRows('parcelas', items as unknown as Record<string, unknown>[]),
+  // Parcelas — tolerante a colunas ausentes (ex: ramo adicionada depois)
+  upsertParcelas: async (items: Parcela[]) => {
+    try {
+      await upsertRows('parcelas', items as unknown as Record<string, unknown>[], true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('ramo') || msg.includes('schema cache')) {
+        const semRamo = items.map(({ ramo: _r, ...rest }) => rest);
+        await upsertRows('parcelas', semRamo as unknown as Record<string, unknown>[]);
+      } else {
+        alert(`Erro ao salvar dados (parcelas): ${msg}\n\nOs dados podem não ter sido salvos. Verifique a conexão ou contate o suporte.`);
+        throw e;
+      }
+    }
+  },
   deleteParcelas:           (ids: string[])                => deleteRows('parcelas', ids),
   upsertImportacoesParcelas:(items: ImportacaoParcelas[])  => upsertRows('importacoes_parcelas', items as unknown as Record<string, unknown>[]),
   deleteImportacoesParcelas:(ids: string[])                => deleteRows('importacoes_parcelas', ids),
