@@ -358,7 +358,9 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                 ? <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>
                 : null}
             {(() => {
-              const esp = (a.filtroSeguradora ? 1 : 0) + (a.filtroRamo ? 1 : 0);
+              const temSeg = a.condicoes.some(c => c.campo === 'seguradora' && c.operador === 'igual') || !!a.filtroSeguradora;
+              const temRamo = a.condicoes.some(c => c.campo === 'ramo' && c.operador === 'igual') || !!a.filtroRamo;
+              const esp = (temSeg ? 1 : 0) + (temRamo ? 1 : 0);
               const labels = ['Geral', 'Específica', 'Mais específica'];
               const colors = ['bg-gray-100 text-gray-500', 'bg-blue-50 text-blue-600', 'bg-indigo-100 text-indigo-700'];
               return <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${colors[esp]} border-transparent`}>{labels[esp]}</span>;
@@ -642,36 +644,6 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                       onChange={v => setForm(f => ({ ...f, acaoDataLimite: v }))} />
                   </div>
                 </div>
-              </div>
-
-              {/* Scope filters */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Filtro Seguradora (opcional)</label>
-                  <select value={form.filtroSeguradora} onChange={e => setForm(f => ({ ...f, filtroSeguradora: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">— Qualquer —</option>
-                    {seguradoras.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Filtro Ramo (opcional)</label>
-                  <select value={form.filtroRamo} onChange={e => setForm(f => ({ ...f, filtroRamo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">— Qualquer —</option>
-                    {ramos.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-                {formasPagamento.length > 0 && (
-                  <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Filtro Forma de Pagamento (opcional)</label>
-                    <select value={form.filtroFormaPagamento ?? ''} onChange={e => setForm(f => ({ ...f, filtroFormaPagamento: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="">— Qualquer —</option>
-                      {formasPagamento.map(fp => <option key={fp} value={fp}>{fp}</option>)}
-                    </select>
-                  </div>
-                )}
               </div>
 
               {/* Priority + Active */}

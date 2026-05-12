@@ -89,16 +89,20 @@ export function aplicarAutomacoes(
   const hoje = new Date(dataReferencia ? dataReferencia + 'T00:00:00' : Date.now());
   hoje.setHours(0, 0, 0, 0);
 
-  // Ordena por especificidade decrescente (mais filtros = roda primeiro),
-  // depois por prioridade crescente como desempate dentro do mesmo nível.
+  // Ordena por especificidade decrescente: conta quantas condições de seguradora
+  // e ramo existem (com operador 'igual') — mais específica = roda primeiro.
+  // Desempate pelo campo prioridade.
   function especificidade(a: AutomacaoParcela): number {
-    return (a.filtroSeguradora ? 1 : 0) + (a.filtroRamo ? 1 : 0);
+    const temSeguradora = a.condicoes.some(c => c.campo === 'seguradora' && c.operador === 'igual');
+    const temRamo       = a.condicoes.some(c => c.campo === 'ramo'       && c.operador === 'igual');
+    // Mantém retrocompat com filtroSeguradora/filtroRamo legados
+    return (temSeguradora || !!a.filtroSeguradora ? 1 : 0) + (temRamo || !!a.filtroRamo ? 1 : 0);
   }
   const ativas = [...automacoes]
     .filter(a => a.ativo)
     .sort((a, b) => {
-      const diff = especificidade(b) - especificidade(a); // maior especificidade primeiro
-      return diff !== 0 ? diff : a.prioridade - b.prioridade; // desempate: prioridade menor primeiro
+      const diff = especificidade(b) - especificidade(a);
+      return diff !== 0 ? diff : a.prioridade - b.prioridade;
     });
   if (!ativas.length) return { parcelas, totalAlteradas: 0 };
 
