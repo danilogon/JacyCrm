@@ -2205,25 +2205,30 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                     );
                   })()}
 
-                  <ConfirmDialog
-                    open={!!confirmDelP}
-                    title="Excluir importação de parcelas"
-                    message={confirmDelP
-                      ? `Excluir a importação "${confirmDelP.nomeArquivo}"? As ${confirmDelP.totalNovas} parcelas novas criadas por este import também serão removidas.`
-                      : ''}
-                    confirmLabel="Excluir"
-                    danger
-                    onConfirm={() => {
-                      if (!confirmDelP) return;
-                      const ids = new Set(confirmDelP.idsSalvos ?? []);
-                      if (ids.size > 0) {
-                        setParcelas(parcelas.filter(p => !ids.has(p.id)));
-                      }
-                      setImportacoesParcelas(importacoesParcelas.filter(i => i.id !== confirmDelP.id));
-                      setConfirmDelP(null);
-                    }}
-                    onCancel={() => setConfirmDelP(null)}
-                  />
+                  {confirmDelP && (() => {
+                    // Para lotes novos usa idsSalvos; para lotes antigos usa primeiraAtualizacao
+                    const idsParaRemover: Set<string> = confirmDelP.idsSalvos?.length
+                      ? new Set(confirmDelP.idsSalvos)
+                      : new Set(parcelas.filter(p => p.primeiraAtualizacao === confirmDelP.dataImport).map(p => p.id));
+                    const qtd = idsParaRemover.size;
+                    return (
+                      <ConfirmDialog
+                        open
+                        title="Excluir importação de parcelas"
+                        message={`Excluir a importação "${confirmDelP.nomeArquivo}"? ${qtd > 0 ? `As ${qtd} parcelas criadas por este import também serão removidas.` : 'Nenhuma parcela vinculada encontrada.'}`}
+                        confirmLabel="Excluir"
+                        danger
+                        onConfirm={() => {
+                          if (idsParaRemover.size > 0) {
+                            setParcelas(parcelas.filter(p => !idsParaRemover.has(p.id)));
+                          }
+                          setImportacoesParcelas(importacoesParcelas.filter(i => i.id !== confirmDelP.id));
+                          setConfirmDelP(null);
+                        }}
+                        onCancel={() => setConfirmDelP(null)}
+                      />
+                    );
+                  })()}
                 </>
               );
             })()}
