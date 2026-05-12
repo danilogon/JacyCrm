@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas } from '../types';
+import type { Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela } from '../types';
+import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
@@ -36,9 +37,11 @@ interface Props {
   setRegrasParcelas: (r: RegraParcelaNegocio[]) => void;
   importacoesParcelas: ImportacaoParcelas[];
   setImportacoesParcelas: (i: ImportacaoParcelas[]) => void;
+  automacoesParcelas: AutomacaoParcela[];
+  setAutomacoesParcelas: (a: AutomacaoParcela[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'automacoes_parcelas' | 'importacoes';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -166,7 +169,7 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
   );
 }
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -313,6 +316,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
     { key: 'campos', label: 'Campos Customizáveis' },
     { key: 'origens_prospeccao', label: 'Origem do Negócio' },
     { key: 'regras_parcelas', label: 'Regras de Parcelas' },
+    { key: 'automacoes_parcelas', label: 'Automações de Parcelas' },
     { key: 'importacoes', label: 'Importações' },
   ];
 
@@ -1674,6 +1678,15 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
             onCancel={() => setConfirmDelRegra(null)}
           />
         </div>
+      )}
+
+      {tab === 'automacoes_parcelas' && (
+        <AutomacoesParcelasConfig
+          automacoes={automacoesParcelas}
+          setAutomacoes={setAutomacoesParcelas}
+          seguradoras={seguradoras.filter(s => s.ativo).map(s => s.nome).sort()}
+          ramos={ramos.filter(r => r.ativo).map(r => r.nome).sort()}
+        />
       )}
 
       {/* Importações */}

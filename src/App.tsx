@@ -25,7 +25,7 @@ import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
-  Parcela, ImportacaoParcelas, RegraParcelaNegocio,
+  Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -121,6 +121,7 @@ function AppRoutes() {
   const [parcelas,           setParcelasState]           = useState<Parcela[]>([]);
   const [importacoesParcelas, setImportacoesParcelasState] = useState<ImportacaoParcelas[]>([]);
   const [regrasParcelas,     setRegrasParcelasState]     = useState<RegraParcelaNegocio[]>([]);
+  const [automacoesParcelas, setAutomacoesParcelasState] = useState<AutomacaoParcela[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -149,6 +150,7 @@ function AppRoutes() {
         setParcelasState(data.parcelas);
         setImportacoesParcelasState(data.importacoesParcelas);
         setRegrasParcelasState(data.regrasParcelas);
+        setAutomacoesParcelasState(data.automacoesParcelas);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -213,6 +215,8 @@ function AppRoutes() {
     makeSyncer(setImportacoesParcelasState, db.upsertImportacoesParcelas, db.deleteImportacoesParcelas), []);
   const setRegrasParcelas = useCallback(
     makeSyncer(setRegrasParcelasState, db.upsertRegrasParcelas, db.deleteRegrasParcelas), []);
+  const setAutomacoesParcelas = useCallback(
+    makeSyncer(setAutomacoesParcelasState, db.upsertAutomacoesParcelas, db.deleteAutomacoesParcelas), []);
 
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
@@ -431,6 +435,7 @@ function AppRoutes() {
             clientes={clientes}
             setClientes={setClientes}
             ramos={ramos}
+            automacoesParcelas={automacoesParcelas}
           />
         } />
 
@@ -493,6 +498,8 @@ function AppRoutes() {
               setRegrasParcelas={setRegrasParcelas}
               importacoesParcelas={importacoesParcelas}
               setImportacoesParcelas={setImportacoesParcelas}
+              automacoesParcelas={automacoesParcelas}
+              setAutomacoesParcelas={setAutomacoesParcelas}
             />
           } />
         )}

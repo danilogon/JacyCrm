@@ -15,7 +15,7 @@ import type {
   Seguradora, Ramo, ConfiguracoesMetas, MotivoPerda,
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
-  Parcela, ImportacaoParcelas, RegraParcelaNegocio,
+  Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -105,6 +105,7 @@ export async function fetchAll() {
     r_config_gatilhos,
     r_imp_parcelas,
     r_regras_parcelas,
+    r_automacoes_parcelas,
     // ── Tabelas grandes (paginadas) ──
     clientes,
     renovacoes,
@@ -129,6 +130,7 @@ export async function fetchAll() {
     supabase.from('config_gatilhos').select('*').order('criado_em', { ascending: true }),
     supabase.from('importacoes_parcelas').select('*').order('criado_em', { ascending: false }),
     supabase.from('regras_parcelas').select('*').order('criado_em', { ascending: true }),
+    supabase.from('automacoes_parcelas').select('*').order('prioridade', { ascending: true }),
     // ── Tabelas grandes (cada uma percorre todas as páginas internamente) ──
     fetchPaginated<Cliente>(
       (f, t) => supabase.from('clientes').select('*').range(f, t)),
@@ -170,6 +172,7 @@ export async function fetchAll() {
     configGatilhos: (r_config_gatilhos.data || []).map(r => rowToCamel<ConfigGatilho>(r as Record<string, unknown>)),
     importacoesParcelas: (r_imp_parcelas.data || []).map(r => rowToCamel<ImportacaoParcelas>(r as Record<string, unknown>)),
     regrasParcelas: (r_regras_parcelas.data || []).map(r => rowToCamel<RegraParcelaNegocio>(r as Record<string, unknown>)),
+    automacoesParcelas: r_automacoes_parcelas.error ? [] : (r_automacoes_parcelas.data || []).map(r => rowToCamel<AutomacaoParcela>(r as Record<string, unknown>)),
     // Tabelas grandes já convertidas pelo fetchPaginated
     clientes,
     renovacoes,
@@ -318,6 +321,22 @@ export const db = {
   // Regras de Negócio para Parcelas
   upsertRegrasParcelas: (items: RegraParcelaNegocio[]) => upsertRows('regras_parcelas', items as unknown as Record<string, unknown>[]),
   deleteRegrasParcelas: (ids: string[])                => deleteRows('regras_parcelas', ids),
+
+  // Automações de Parcelas
+  upsertAutomacoesParcelas: async (items: AutomacaoParcela[]) => {
+    try {
+      await upsertRows('automacoes_parcelas', items as unknown as Record<string, unknown>[], true);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes('automacoes_parcelas') || msg.includes('schema cache') || msg.includes('relation')) {
+        console.warn('Tabela automacoes_parcelas não encontrada. Execute o SQL de criação no Supabase.');
+      } else {
+        alert(`Erro ao salvar automações: ${msg}`);
+        throw e;
+      }
+    }
+  },
+  deleteAutomacoesParcelas: (ids: string[]) => deleteRows('automacoes_parcelas', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

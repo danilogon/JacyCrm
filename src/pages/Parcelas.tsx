@@ -1,11 +1,12 @@
 import { useState, useMemo, useRef } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
-  Link2, Paperclip, FileText, History, CheckCircle, Plus,
+  Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela } from '../types';
+import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
 
@@ -17,6 +18,7 @@ interface Props {
   clientes: Cliente[];
   setClientes: (c: Cliente[]) => void;
   ramos: Ramo[];
+  automacoesParcelas: AutomacaoParcela[];
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -135,7 +137,7 @@ function StatusBadge({ status }: { status: StatusParcela }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -174,6 +176,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   // ── Histórico de imports ──────────────────────────────────────────────────
   const [showHistorico, setShowHistorico] = useState(false);
   const [importResult, setImportResult] = useState<ImportacaoParcelas | null>(null);
+
+  // ── Automações ───────────────────────────────────────────────────────────
+  const [processando, setProcessando] = useState(false);
+  const [ultimoProcessamento, setUltimoProcessamento] = useState<{total: number; data: string} | null>(null);
+
+  function processarAutomacoes() {
+    setProcessando(true);
+    const { parcelas: novas, totalAlteradas } = aplicarAutomacoes(parcelas, automacoesParcelas);
+    if (totalAlteradas > 0) {
+      setParcelas(novas);
+    }
+    setUltimoProcessamento({ total: totalAlteradas, data: new Date().toLocaleString('pt-BR') });
+    setProcessando(false);
+  }
 
   // ── Dados derivados ───────────────────────────────────────────────────────
   const seguradoras = useMemo(() => {
@@ -482,6 +498,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             <History size={14} /> Histórico
           </button>
           <button
+            onClick={processarAutomacoes}
+            disabled={processando || automacoesParcelas.filter(a => a.ativo).length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+            title={automacoesParcelas.filter(a => a.ativo).length === 0 ? 'Nenhuma automação ativa configurada' : 'Aplicar automações às parcelas'}
+          >
+            <Zap size={14} /> Processar Automações
+          </button>
+          <button
             onClick={() => { setModalNovaParcela(true); setFormNovaParc(formNovaParcVazio); setClienteNovaSel(null); setBuscaClienteNova(''); }}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
           >
@@ -504,6 +528,21 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             {importResult.totalIgnoradas > 0 && <span className="text-amber-700"> · {importResult.totalIgnoradas} ignoradas</span>}
           </div>
           <button onClick={() => setImportResult(null)} className="p-0.5 text-blue-400 hover:text-blue-700"><X size={14} /></button>
+        </div>
+      )}
+
+      {/* Resultado do processamento de automações */}
+      {ultimoProcessamento && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <CheckCircle size={16} className="text-green-600 shrink-0 mt-0.5" />
+          <div className="flex-1 text-sm text-green-800">
+            Automações processadas em {ultimoProcessamento.data}.{' '}
+            {ultimoProcessamento.total > 0
+              ? <> <strong>{ultimoProcessamento.total}</strong> parcela{ultimoProcessamento.total !== 1 ? 's' : ''} tiveram o status atualizado.</>
+              : ' Nenhuma parcela foi alterada.'
+            }
+          </div>
+          <button onClick={() => setUltimoProcessamento(null)} className="p-0.5 text-green-400 hover:text-green-700"><X size={14} /></button>
         </div>
       )}
 

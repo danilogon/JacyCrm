@@ -439,6 +439,56 @@ export type StatusParcela =
   | 'baixada_sistema'
   | 'analise_critica';
 
+// ─── Automações de Parcelas ──────────────────────────────────────────────────
+
+export type CampoParcela =
+  | 'dias_apos_vencimento'   // (today - vencimento) in days, positive = overdue
+  | 'dias_sem_import'        // (today - ultimaAtualizacao) in days
+  | 'status'
+  | 'seguradora'
+  | 'ramo'
+  | 'forma_pagamento'
+  | 'valor_parcela';
+
+export type OperadorCondicao =
+  | 'igual'
+  | 'diferente'
+  | 'maior_que'
+  | 'menor_que'
+  | 'maior_igual'
+  | 'menor_igual';
+
+export interface CondicaoAutomacao {
+  id: string;
+  campo: CampoParcela;
+  operador: OperadorCondicao;
+  valor: string;
+}
+
+export interface AutomacaoParcela {
+  id: string;
+  nome: string;
+  ativo: boolean;
+  /** 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada' */
+  tipo: 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada';
+  /** For padrao_vencimento: trigger after this many days past due date */
+  diasAposVencimento?: number;
+  /** For padrao_sem_import: parcela hasn't appeared in import AND vencimento is at least X days before import date */
+  diasAntesSemImport?: number;
+  /** For personalizada: list of conditions */
+  condicoes: CondicaoAutomacao[];
+  operadorLogico: 'E' | 'OU';
+  /** Optional scope filters - empty string = any */
+  filtroSeguradora: string;
+  filtroRamo: string;
+  /** The action: change status to this value */
+  novoStatus: StatusParcela;
+  /** Lower number = higher priority, executed first */
+  prioridade: number;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
 export interface Parcela {
   id: string;
   /** Chave única: apolice + "_" + numeroParcela */
