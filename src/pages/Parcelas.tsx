@@ -143,6 +143,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [busca, setBusca] = useState('');
   const [filtroStatus, setFiltroStatus] = useState<StatusParcela | 'pendentes' | 'todas'>('pendentes');
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
+  const [filtroRamo, setFiltroRamo] = useState('');
   const [filtroVencDe, setFiltroVencDe] = useState('');
   const [filtroVencAte, setFiltroVencAte] = useState('');
   const [filtroPrazo, setFiltroPrazo] = useState<string[]>([]);
@@ -180,6 +181,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     return [...s].sort();
   }, [parcelas]);
 
+  const ramosNasParcelas = useMemo(() => {
+    const s = new Set(parcelas.map(p => p.ramo).filter((r): r is string => !!r));
+    return [...s].sort();
+  }, [parcelas]);
+
   const filtered = useMemo(() => {
     const q = busca.toLowerCase().trim();
     return parcelas.filter(p => {
@@ -189,6 +195,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         if (p.status !== filtroStatus) return false;
       }
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
+      if (filtroRamo && p.ramo !== filtroRamo) return false;
       if (filtroVencDe && p.vencimento < filtroVencDe) return false;
       if (filtroVencAte && p.vencimento > filtroVencAte) return false;
       if (filtroPrazo.length > 0) {
@@ -201,7 +208,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                !p.seguradora.toLowerCase().includes(q)) return false;
       return true;
     }).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroVencDe, filtroVencAte, filtroPrazo, busca]);
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, busca]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -579,6 +586,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <option value="">Todas as seguradoras</option>
           {seguradoras.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
+        {ramosNasParcelas.length > 0 && (
+          <select value={filtroRamo} onChange={e => setFiltroRamo(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todos os ramos</option>
+            {ramosNasParcelas.map(r => <option key={r} value={r}>{r}</option>)}
+          </select>
+        )}
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <span className="text-xs text-gray-400">Venc.</span>
           <DateInput value={filtroVencDe} onChange={e => setFiltroVencDe(e.target.value)}
@@ -587,8 +601,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <DateInput value={filtroVencAte} onChange={e => setFiltroVencAte(e.target.value)}
             className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36" />
         </div>
-        {(busca || filtroSeguradora || filtroVencDe || filtroVencAte || filtroPrazo.length > 0) && (
-          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); }}
+        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0) && (
+          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">
             <X size={14} />
           </button>
