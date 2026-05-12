@@ -166,6 +166,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [formStatus, setFormStatus] = useState<StatusParcela>('');
   const [formDataLimite, setFormDataLimite] = useState('');
   const [formRamo, setFormRamo] = useState('');
+  const [formFormaPagamento, setFormFormaPagamento] = useState('');
   const [formProrrogada, setFormProrrogada] = useState<boolean | undefined>(undefined);
   const [formDataProrrogacao, setFormDataProrrogacao] = useState('');
   const [novaObs, setNovaObs] = useState('');
@@ -423,6 +424,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     setFormStatus(p.status);
     setFormDataLimite(p.dataLimite ?? '');
     setFormRamo(p.ramo ?? '');
+    setFormFormaPagamento(p.formaPagamento ?? '');
     setFormProrrogada(p.prorrogada);
     setFormDataProrrogacao(p.dataProrrogacao ?? '');
     setNovaObs('');
@@ -446,6 +448,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       status: formStatus,
       dataLimite: formDataLimite || undefined,
       ramo: formRamo || undefined,
+      formaPagamento: formFormaPagamento,
       prorrogada: formProrrogada,
       dataProrrogacao: formDataProrrogacao || undefined,
       observacoes: obs,
@@ -834,7 +837,6 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               <div className="grid grid-cols-3 gap-3 bg-gray-50 rounded-lg p-4 text-sm">
                 <div><div className="text-xs text-gray-400 mb-0.5">Vencimento</div><div className="font-medium">{formatDate(editando.vencimento)}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Valor</div><div className="font-medium">R$ {editando.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div></div>
-                <div><div className="text-xs text-gray-400 mb-0.5">Forma Pagamento</div><div className="font-medium">{editando.formaPagamento || '—'}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Chave Única</div><div className="font-mono text-xs text-gray-600">{editando.chaveUnica}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">1ª Atualização</div><div className="font-medium">{formatDate(editando.primeiraAtualizacao)}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Últ. Atualização</div><div className="font-medium">{formatDate(editando.ultimaAtualizacao)}</div></div>
@@ -858,8 +860,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 })()}
               </div>
 
-              {/* Status + Ramo + Data Limite */}
-              <div className="grid grid-cols-3 gap-4">
+              {/* Status + Ramo + Forma Pagamento + Data Limite */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select value={formStatus} onChange={e => setFormStatus(e.target.value as StatusParcela)}
@@ -867,6 +869,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     {STATUSES_EDITAVEIS.map(s => (
                       <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>
+                  <select value={formFormaPagamento} onChange={e => setFormFormaPagamento(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">— Não informada —</option>
+                    {opcoesForma.map(fp => <option key={fp} value={fp}>{fp}</option>)}
                   </select>
                 </div>
                 <div>
