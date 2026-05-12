@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Edit2, Trash2, X, Save, Play, ChevronDown, ChevronUp, Zap } from 'lucide-react';
 import type { AutomacaoParcela, CondicaoAutomacao, CampoParcela, OperadorCondicao, StatusParcela } from '../types';
 import { generateId } from '../utils/formatters';
@@ -107,6 +107,33 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   const [expandedSQL, setExpandedSQL] = useState(false);
 
   const personalizadas  = automacoes.filter(a => a.tipo === 'personalizada');
+  const [filtroSegVis, setFiltroSegVis] = useState('');
+
+  // Seguradoras únicas presentes nas regras (para o filtro)
+  const seguradoarasNasRegras = useMemo(() =>
+    [...new Set(personalizadas.map(a => a.filtroSeguradora).filter(Boolean))].sort() as string[],
+    [personalizadas]
+  );
+
+  // Regras visíveis após filtro
+  const personalizadasVisiveis = filtroSegVis
+    ? personalizadas.filter(a => a.filtroSeguradora === filtroSegVis)
+    : personalizadas;
+
+  // Grupos: { label, itens }
+  const gruposRegras = useMemo(() => {
+    const map = new Map<string, AutomacaoParcela[]>();
+    personalizadasVisiveis.forEach(a => {
+      const key = a.filtroSeguradora || '__geral__';
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    });
+    const result: { label: string; chave: string; itens: AutomacaoParcela[] }[] = [];
+    // "Todas" primeiro
+    if (map.has('__geral__')) result.push({ label: 'Todas as Seguradoras', chave: '__geral__', itens: map.get('__geral__')! });
+    map.forEach((itens, key) => { if (key !== '__geral__') result.push({ label: key, chave: key, itens }); });
+    return result;
+  }, [personalizadasVisiveis]);
 
   function abrirNova() {
     setForm({ ...autoVazia(), tipo: 'personalizada' });
@@ -241,7 +268,7 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
 
       {/* Section: Custom rules */}
       <div className="bg-white rounded-xl border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <div>
             <div className="flex items-center gap-2">
               <Zap size={16} className="text-blue-600" />
@@ -254,10 +281,50 @@ CREATE POLICY "allow_all" ON automacoes_parcelas FOR ALL USING (true) WITH CHECK
             <Plus size={13} /> Nova Regra
           </button>
         </div>
-        {personalizadas.length === 0
-          ? <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra criada ainda.</p>
-          : <div className="space-y-2">{personalizadas.map(a => <CardRegra key={a.id} a={a} />)}</div>
-        }
+
+        {/* Filtro por seguradora */}
+        {seguradoarasNasRegras.length > 0 && (
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs text-gray-500 font-medium">Filtrar:</span>
+            <button onClick={() => setFiltroSegVis('')}
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${filtroSegVis === '' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+              Todas
+            </button>
+            {seguradoarasNasRegras.map(seg => (
+              <button key={seg} onClick={() => setFiltroSegVis(seg === filtroSegVis ? '' : seg)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${filtroSegVis === seg ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>
+                {seg}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {personalizadas.length === 0 ? (
+          <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra criada ainda.</p>
+        ) : gruposRegras.length === 0 ? (
+          <p className="text-sm text-gray-400 italic text-center py-4 bg-gray-50 rounded-lg">Nenhuma regra para este filtro.</p>
+        ) : (
+          <div className="space-y-4">
+            {gruposRegras.map(grupo => (
+              <div key={grupo.chave}>
+                {gruposRegras.length > 1 && (
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      grupo.chave === '__geral__'
+                        ? 'bg-gray-100 text-gray-600 border-gray-200'
+                        : 'bg-blue-50 text-blue-700 border-blue-200'
+                    }`}>{grupo.label}</span>
+                    <div className="flex-1 h-px bg-gray-100" />
+                    <span className="text-xs text-gray-400">{grupo.itens.length} regra(s)</span>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  {grupo.itens.map(a => <CardRegra key={a.id} a={a} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Modal create/edit */}

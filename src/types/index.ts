@@ -336,6 +336,12 @@ export interface ConfiguracaoEmpresa {
   logoUrl: string;
   corPrimaria: string;
   corSecundaria: string;
+  /**
+   * true (padrão) = se nenhuma parcela de uma seguradora aparecer num import,
+   * trata como erro de importação e NÃO altera parcelas dessa seguradora.
+   * false = processa baixa_sistema mesmo que a seguradora esteja totalmente ausente.
+   */
+  protegerSeguradoraSemImport?: boolean;
 }
 
 export type TipoTarefa = 'ligacao' | 'email' | 'reuniao' | 'visita' | 'outro';
@@ -529,6 +535,8 @@ export interface ImportacaoParcelas {
   dataImport: string;
   /** Seguradoras que apareceram neste import */
   seguradorasConsideradas: string[];
+  /** Quantidade de parcelas importadas por seguradora */
+  seguradorasContagem?: Record<string, number>;
   totalImportadas: number;
   totalNovas: number;
   totalAtualizadas: number;

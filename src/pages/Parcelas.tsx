@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa } from '../types';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
@@ -19,6 +19,7 @@ interface Props {
   setClientes: (c: Cliente[]) => void;
   ramos: Ramo[];
   automacoesParcelas: AutomacaoParcela[];
+  empresa: ConfiguracaoEmpresa;
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -137,7 +138,7 @@ function StatusBadge({ status }: { status: StatusParcela }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -149,6 +150,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [filtroVencDe, setFiltroVencDe] = useState('');
   const [filtroVencAte, setFiltroVencAte] = useState('');
   const [filtroPrazo, setFiltroPrazo] = useState<string[]>([]);
+  const [ordenar, setOrdenar] = useState<string>('vencimento_asc');
 
   // ── Modal de edição ───────────────────────────────────────────────────────
   const [editando, setEditando] = useState<Parcela | null>(null);
@@ -223,8 +225,25 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                !p.numeroParcela.toLowerCase().includes(q) &&
                !p.seguradora.toLowerCase().includes(q)) return false;
       return true;
-    }).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, busca]);
+    }).sort((a, b) => {
+      switch (ordenar) {
+        case 'vencimento_desc': return b.vencimento.localeCompare(a.vencimento);
+        case 'valor_asc':       return a.valorParcela - b.valorParcela;
+        case 'valor_desc':      return b.valorParcela - a.valorParcela;
+        case 'seguradora_asc':  return a.seguradora.localeCompare(b.seguradora, 'pt-BR');
+        case 'status_asc':      return a.status.localeCompare(b.status, 'pt-BR');
+        case 'prazo_asc': {
+          const pa = calcPrazo(a.dataLimite), pb = calcPrazo(b.dataLimite);
+          return (pa ?? 9999) - (pb ?? 9999);
+        }
+        case 'prazo_desc': {
+          const pa = calcPrazo(a.dataLimite), pb = calcPrazo(b.dataLimite);
+          return (pb ?? -9999) - (pa ?? -9999);
+        }
+        default: return a.vencimento.localeCompare(b.vencimento); // vencimento_asc
+      }
+    });
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, busca, ordenar]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -253,7 +272,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const dataRows = rows.slice(1); // skip header
       const chavesSeen = new Set<string>();
       const seguradorasConsideradas = new Set<string>();
+      const seguradorasContagem: Record<string, number> = {};
       const linhasIgnoradas: { linha: number; motivo: string }[] = [];
+      // true = protege seguradoras ausentes no import (padrão); false = marca baixada_sistema mesmo assim
+      const proteger = empresa.protegerSeguradoraSemImport !== false;
 
       let totalNovas = 0, totalAtualizadas = 0;
       const parcelasMap = new Map(parcelas.map(p => [p.chaveUnica, p]));
@@ -286,6 +308,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         const chave = `${apolice}_${numeroParcela}`;
         chavesSeen.add(chave);
         seguradorasConsideradas.add(seguradora);
+        seguradorasContagem[seguradora] = (seguradorasContagem[seguradora] || 0) + 1;
 
         const existing = parcelasMap.get(chave);
         if (existing) {
@@ -337,9 +360,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       parcelas.forEach(p => {
         if (chavesSeen.has(p.chaveUnica)) return; // já está na lista atualizada
         if (!seguradorasConsideradas.has(p.seguradora)) {
-          // seguradora não veio neste import → não marcar
-          updated.push(p);
-          return;
+          // Seguradora ausente do import
+          if (proteger) {
+            // Trata como erro de importação → não altera
+            updated.push(p);
+            return;
+          }
+          // Sem proteção: aplica baixada_sistema mesmo para seguradoras ausentes
         }
         // Seguradora veio no import mas esta parcela não apareceu
         const statusAtual = p.status;
@@ -362,6 +389,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         nomeArquivo: file.name,
         dataImport,
         seguradorasConsideradas: [...seguradorasConsideradas],
+        seguradorasContagem,
         totalImportadas: dataRows.length - linhasIgnoradas.length,
         totalNovas,
         totalAtualizadas,
@@ -581,10 +609,30 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   <div className="text-xs text-gray-500 mt-0.5">
                     {imp.totalNovas} novas · {imp.totalAtualizadas} atualizadas · {imp.totalBaixadas} baixadas ·{' '}
                     {imp.totalIgnoradas} ignoradas
-                    {imp.seguradorasConsideradas.length > 0 && (
-                      <span> · Seguradoras: {imp.seguradorasConsideradas.join(', ')}</span>
-                    )}
                   </div>
+                  {/* Relatório por seguradora */}
+                  {imp.seguradorasConsideradas.length > 0 && (
+                    <div className="mt-2 overflow-x-auto">
+                      <table className="w-full text-xs border border-gray-100 rounded">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="text-left px-2 py-1 font-semibold text-gray-500 border-b border-gray-100">Seguradora</th>
+                            <th className="text-right px-2 py-1 font-semibold text-gray-500 border-b border-gray-100">Parcelas importadas</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {imp.seguradorasConsideradas.sort().map(seg => (
+                            <tr key={seg} className="border-b border-gray-50 last:border-0">
+                              <td className="px-2 py-1 text-gray-700">{seg}</td>
+                              <td className="px-2 py-1 text-right text-gray-600 font-medium">
+                                {imp.seguradorasContagem?.[seg] ?? '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                   {imp.linhasIgnoradas.length > 0 && (
                     <div className="mt-1 space-y-0.5">
                       {imp.linhasIgnoradas.map((l, i) => (
@@ -640,6 +688,18 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <DateInput value={filtroVencAte} onChange={e => setFiltroVencAte(e.target.value)}
             className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-36" />
         </div>
+        {/* Ordenação */}
+        <select value={ordenar} onChange={e => setOrdenar(e.target.value)}
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="vencimento_asc">Vencimento ↑</option>
+          <option value="vencimento_desc">Vencimento ↓</option>
+          <option value="prazo_asc">Prazo ↑ (menor)</option>
+          <option value="prazo_desc">Prazo ↓ (maior)</option>
+          <option value="valor_asc">Valor ↑</option>
+          <option value="valor_desc">Valor ↓</option>
+          <option value="seguradora_asc">Seguradora A→Z</option>
+          <option value="status_asc">Status A→Z</option>
+        </select>
         {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0) && (
           <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">

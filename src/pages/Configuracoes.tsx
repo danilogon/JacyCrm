@@ -1486,6 +1486,41 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, me
       {tab === 'regras_parcelas' && (
         <div className="space-y-6">
 
+          {/* Configuração de Importação */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <h2 className="font-semibold text-gray-900 mb-1">Configuração de Importação</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              Define como o sistema trata parcelas de seguradoras que não aparecem em um novo import.
+            </p>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    Considerar para baixa parcelas de seguradora não importada?
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Não (recomendado):</strong> Se nenhuma parcela de uma seguradora aparecer num import, o sistema trata como
+                    erro de importação e não altera essas parcelas até o próximo import.<br />
+                    <strong>Sim:</strong> O sistema marca como baixada_sistema as parcelas ausentes mesmo que a seguradora inteira
+                    tenha desaparecido do import.
+                  </p>
+                </div>
+                <div className="flex rounded border border-gray-300 overflow-hidden text-sm shrink-0">
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerSeguradoraSemImport: true })}
+                    className={`px-4 py-2 transition-colors font-medium ${empresa.protegerSeguradoraSemImport !== false ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Não
+                  </button>
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerSeguradoraSemImport: false })}
+                    className={`px-4 py-2 border-l border-gray-300 transition-colors font-medium ${empresa.protegerSeguradoraSemImport === false ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Sim
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Regra Padrão */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex items-start justify-between gap-4 mb-4">
