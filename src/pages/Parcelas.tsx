@@ -292,7 +292,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     const tratar = pendentes.filter(p => p.status === 'tratar').length;
     const emTratativa = pendentes.filter(p => p.status === 'em_tratativa').length;
     const primeirasPendentes = pendentes.filter(p => isPrimeiraParc(p)).length;
-    return { pendentes: pendentes.length, tratar, emTratativa, valorAberto, primeirasPendentes };
+    const prazoUrgente = pendentes.filter(p => {
+      const prazo = calcPrazo(p.dataLimite);
+      return prazo !== null && prazo >= 0 && prazo <= 3;
+    }).length;
+    return { tratar, emTratativa, valorAberto, primeirasPendentes, prazoUrgente };
   }, [parcelas]);
 
   // ── Importação XLSX ───────────────────────────────────────────────────────
@@ -689,9 +693,9 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {[
-          { label: 'Pendentes',         value: kpis.pendentes,   text: 'text-blue-700' },
-          { label: 'Tratar',            value: kpis.tratar,      text: 'text-amber-700' },
-          { label: 'Em Tratativa',      value: kpis.emTratativa, text: 'text-blue-600' },
+          { label: 'Prazo ≤ 3 dias',    value: kpis.prazoUrgente,  text: 'text-red-600' },
+          { label: 'Tratar',            value: kpis.tratar,        text: 'text-amber-700' },
+          { label: 'Em Tratativa',      value: kpis.emTratativa,   text: 'text-blue-600' },
           { label: 'Valor em Aberto',   value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
           { label: '1ª Parcelas',       value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
         ].map(k => (
