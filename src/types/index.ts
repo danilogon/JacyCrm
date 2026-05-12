@@ -457,6 +457,8 @@ export interface Parcela {
   valorParcela: number;
   seguradora: string;
   formaPagamento: string;
+  /** Ramo do seguro (editável pelo operador) */
+  ramo?: string;
   /** Editável pelo operador */
   status: StatusParcela;
   /** Data limite para pagamento (YYYY-MM-DD), editável pelo operador */

@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo } from '../types';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
 
@@ -16,6 +16,7 @@ interface Props {
   setImportacoesParcelas: (i: ImportacaoParcelas[]) => void;
   clientes: Cliente[];
   setClientes: (c: Cliente[]) => void;
+  ramos: Ramo[];
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ function StatusBadge({ status }: { status: StatusParcela }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -150,6 +151,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [editando, setEditando] = useState<Parcela | null>(null);
   const [formStatus, setFormStatus] = useState<StatusParcela>('');
   const [formDataLimite, setFormDataLimite] = useState('');
+  const [formRamo, setFormRamo] = useState('');
   const [novaObs, setNovaObs] = useState('');
   const [novosArquivos, setNovosArquivos] = useState<ArquivoAnexo[]>([]);
 
@@ -161,7 +163,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   // ── Modal nova parcela manual ─────────────────────────────────────────────
   const formNovaParcVazio = {
     nomeCliente: '', apolice: '', numeroParcela: '',
-    vencimento: '', valorParcela: '', seguradora: '', formaPagamento: '',
+    vencimento: '', valorParcela: '', seguradora: '', formaPagamento: '', ramo: '',
   };
   const [modalNovaParcela, setModalNovaParcela] = useState(false);
   const [formNovaParc, setFormNovaParc] = useState(formNovaParcVazio);
@@ -358,6 +360,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     setEditando(p);
     setFormStatus(p.status);
     setFormDataLimite(p.dataLimite ?? '');
+    setFormRamo(p.ramo ?? '');
     setNovaObs('');
     setNovosArquivos([]);
   }
@@ -378,6 +381,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       ...editando,
       status: formStatus,
       dataLimite: formDataLimite || undefined,
+      ramo: formRamo || undefined,
       observacoes: obs,
       atualizadoEm: new Date().toISOString(),
     };
@@ -398,7 +402,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   }
 
   function criarParcelaManual() {
-    const { nomeCliente, apolice, numeroParcela, vencimento, valorParcela, seguradora, formaPagamento } = formNovaParc;
+    const { nomeCliente, apolice, numeroParcela, vencimento, valorParcela, seguradora, formaPagamento, ramo } = formNovaParc;
     if (!nomeCliente.trim() || !apolice.trim() || !numeroParcela.trim() || !vencimento) return;
 
     const chave = `${apolice.trim()}_${numeroParcela.trim()}`;
@@ -416,6 +420,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       valorParcela: parseFloat(String(valorParcela).replace(/\./g, '').replace(',', '.')) || 0,
       seguradora: seguradora.trim().toUpperCase() || 'MANUAL',
       formaPagamento: formaPagamento.trim(),
+      ramo: ramo.trim() || undefined,
       status: '',
       observacoes: [],
       criadoEm: new Date().toISOString(),
@@ -620,7 +625,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <table className="w-full text-sm min-w-[900px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {['Vencimento','Cliente','Apólice / Parcela','Valor / Forma Pgto','Seguradora','Status','Data Limite','Prazo',''].map(h => (
+                {['Vencimento','Cliente','Apólice / Parcela','Valor / Forma Pgto','Seguradora / Ramo','Status','Data Limite','Prazo',''].map(h => (
                   <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -654,7 +659,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5">{p.formaPagamento || '—'}</div>
                     </td>
-                    <td className="px-3 py-2.5 text-gray-700 whitespace-nowrap">{p.seguradora}</td>
+                    <td className="px-3 py-2.5 whitespace-nowrap">
+                      <div className="text-gray-700">{p.seguradora}</div>
+                      {p.ramo && <div className="text-xs text-gray-400 mt-0.5">{p.ramo}</div>}
+                    </td>
                     <td className="px-3 py-2.5"><StatusBadge status={p.status} /></td>
                     <td className="px-3 py-2.5 text-xs text-gray-500 whitespace-nowrap">
                       {p.dataLimite ? formatDate(p.dataLimite) : '—'}
@@ -702,6 +710,9 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 <div><div className="text-xs text-gray-400 mb-0.5">Chave Única</div><div className="font-mono text-xs text-gray-600">{editando.chaveUnica}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">1ª Atualização</div><div className="font-medium">{formatDate(editando.primeiraAtualizacao)}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Últ. Atualização</div><div className="font-medium">{formatDate(editando.ultimaAtualizacao)}</div></div>
+                {editando.ramo && (
+                  <div><div className="text-xs text-gray-400 mb-0.5">Ramo</div><div className="font-medium text-blue-700">{editando.ramo}</div></div>
+                )}
                 {editando.clienteId && (() => {
                   const cli = clientes.find(c => c.id === editando.clienteId);
                   return cli ? (
@@ -719,8 +730,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 })()}
               </div>
 
-              {/* Status + Data Limite */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Status + Ramo + Data Limite */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select value={formStatus} onChange={e => setFormStatus(e.target.value as StatusParcela)}
@@ -731,10 +742,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   </select>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ramo</label>
+                  <select value={formRamo} onChange={e => setFormRamo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">— Sem ramo —</option>
+                    {ramos.filter(r => r.ativo).map(r => (
+                      <option key={r.id} value={r.nome}>{r.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Data Limite</label>
                   <DateInput value={formDataLimite} onChange={e => setFormDataLimite(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <p className="text-xs text-gray-400 mt-1">Data máxima para pagamento desta parcela.</p>
+                  <p className="text-xs text-gray-400 mt-1">Data máxima para pagamento.</p>
                 </div>
               </div>
 
@@ -955,6 +976,21 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
+              </div>
+
+              {/* Ramo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ramo</label>
+                <select
+                  value={formNovaParc.ramo}
+                  onChange={e => setFormNovaParc(f => ({ ...f, ramo: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— Sem ramo —</option>
+                  {ramos.filter(r => r.ativo).map(r => (
+                    <option key={r.id} value={r.nome}>{r.nome}</option>
+                  ))}
+                </select>
               </div>
 
               <p className="text-xs text-gray-400">

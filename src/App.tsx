@@ -430,6 +430,7 @@ function AppRoutes() {
             setImportacoesParcelas={setImportacoesParcelas}
             clientes={clientes}
             setClientes={setClientes}
+            ramos={ramos}
           />
         } />
 
