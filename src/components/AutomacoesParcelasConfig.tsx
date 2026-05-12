@@ -357,7 +357,13 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               : a.acaoDataLimite
                 ? <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded border border-purple-200">Data Limite: {a.acaoDataLimite}</span>
                 : null}
-            {a.prioridade > 0 && <span className="ml-1 text-gray-400">· Prio {a.prioridade}</span>}
+            {(() => {
+              const esp = (a.filtroSeguradora ? 1 : 0) + (a.filtroRamo ? 1 : 0);
+              const labels = ['Geral', 'Específica', 'Mais específica'];
+              const colors = ['bg-gray-100 text-gray-500', 'bg-blue-50 text-blue-600', 'bg-indigo-100 text-indigo-700'];
+              return <span className={`px-1.5 py-0.5 rounded border text-xs font-medium ${colors[esp]} border-transparent`}>{labels[esp]}</span>;
+            })()}
+            {a.prioridade > 0 && <span className="text-gray-400">· desempate {a.prioridade}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
@@ -671,10 +677,11 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               {/* Priority + Active */}
               <div className="flex items-center gap-4">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Prioridade (0 = mais alta)</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Desempate (0 = primeiro)</label>
                   <input type="number" min="0" value={form.prioridade}
                     onChange={e => setForm(f => ({ ...f, prioridade: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <p className="text-xs text-gray-400 mt-1">O sistema já ordena automaticamente: mais filtros = roda primeiro. Este número só desempata automações com o mesmo nível de filtros.</p>
                 </div>
                 <div className="flex items-center gap-2 pt-5">
                   <input type="checkbox" id="ativo-auto" checked={form.ativo}

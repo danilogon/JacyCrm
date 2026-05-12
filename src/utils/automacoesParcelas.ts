@@ -89,7 +89,17 @@ export function aplicarAutomacoes(
   const hoje = new Date(dataReferencia ? dataReferencia + 'T00:00:00' : Date.now());
   hoje.setHours(0, 0, 0, 0);
 
-  const ativas = [...automacoes].filter(a => a.ativo).sort((a, b) => a.prioridade - b.prioridade);
+  // Ordena por especificidade decrescente (mais filtros = roda primeiro),
+  // depois por prioridade crescente como desempate dentro do mesmo nível.
+  function especificidade(a: AutomacaoParcela): number {
+    return (a.filtroSeguradora ? 1 : 0) + (a.filtroRamo ? 1 : 0);
+  }
+  const ativas = [...automacoes]
+    .filter(a => a.ativo)
+    .sort((a, b) => {
+      const diff = especificidade(b) - especificidade(a); // maior especificidade primeiro
+      return diff !== 0 ? diff : a.prioridade - b.prioridade; // desempate: prioridade menor primeiro
+    });
   if (!ativas.length) return { parcelas, totalAlteradas: 0 };
 
   let totalAlteradas = 0;
