@@ -184,6 +184,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [formDataLimite, setFormDataLimite] = useState('');
   const [formRamo, setFormRamo] = useState('');
   const [formFormaPagamento, setFormFormaPagamento] = useState('');
+  const [formValorParcela, setFormValorParcela] = useState('');
   const [formProrrogada, setFormProrrogada] = useState<boolean | undefined>(undefined);
   const [formDataProrrogacao, setFormDataProrrogacao] = useState('');
   const [novaObs, setNovaObs] = useState('');
@@ -482,6 +483,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   function abrirEdicao(p: Parcela) {
     setEditando(p);
     setFormStatus(p.status);
+    setFormValorParcela(p.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
     setFormDataLimite(p.dataLimite ?? '');
     setFormRamo(p.ramo ?? '');
     setFormFormaPagamento(p.formaPagamento ?? '');
@@ -496,9 +498,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     const agora = new Date().toISOString();
 
     // Detectar mudanças para o log
+    const novoValor = parseFloat(formValorParcela.replace(/\./g, '').replace(',', '.')) || 0;
     const mudancas: LogParcela['mudancas'] = [];
     if (editando.status !== formStatus) {
       mudancas!.push({ campo: 'Status', de: STATUS_PARCELA_LABELS[editando.status as string] ?? editando.status, para: STATUS_PARCELA_LABELS[formStatus] ?? formStatus });
+    }
+    if (editando.valorParcela !== novoValor) {
+      mudancas!.push({ campo: 'Valor', de: `R$ ${editando.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, para: `R$ ${novoValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` });
     }
     if ((editando.dataLimite ?? '') !== formDataLimite) {
       mudancas!.push({ campo: 'Data Limite', de: editando.dataLimite ?? '—', para: formDataLimite || '—' });
@@ -543,6 +549,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     const updated: Parcela = {
       ...editando,
       status: formStatus,
+      valorParcela: novoValor,
       dataLimite: formDataLimite || undefined,
       ramo: formRamo || undefined,
       formaPagamento: formFormaPagamento,
@@ -993,7 +1000,18 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               {/* Infos da parcela */}
               <div className="grid grid-cols-3 gap-3 bg-gray-50 rounded-lg p-4 text-sm">
                 <div><div className="text-xs text-gray-400 mb-0.5">Vencimento</div><div className="font-medium">{formatDate(editando.vencimento)}</div></div>
-                <div><div className="text-xs text-gray-400 mb-0.5">Valor</div><div className="font-medium">R$ {editando.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div></div>
+                <div>
+                  <div className="text-xs text-gray-400 mb-0.5">Valor (R$)</div>
+                  <input
+                    value={formValorParcela}
+                    onChange={e => setFormValorParcela(e.target.value)}
+                    onBlur={e => {
+                      const n = parseFloat(e.target.value.replace(/\./g, '').replace(',', '.')) || 0;
+                      setFormValorParcela(n.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+                    }}
+                    className="w-full font-medium bg-white border border-gray-200 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Chave Única</div><div className="font-mono text-xs text-gray-600">{editando.chaveUnica}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">1ª Atualização</div><div className="font-medium">{formatDate(editando.primeiraAtualizacao)}</div></div>
                 <div><div className="text-xs text-gray-400 mb-0.5">Últ. Atualização</div><div className="font-medium">{formatDate(editando.ultimaAtualizacao)}</div></div>
