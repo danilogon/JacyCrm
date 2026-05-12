@@ -102,7 +102,10 @@ export function aplicarAutomacoes(
 
       let match = false;
 
-      if (auto.tipo === 'padrao_vencimento') {
+      if (auto.tipo === 'ao_criar') {
+        // Dispara quando a parcela está com status inicial 'importada' (recém-criada)
+        match = (p.status as string) === 'importada';
+      } else if (auto.tipo === 'padrao_vencimento') {
         const venc = new Date(p.vencimento + 'T00:00:00');
         const dias = diasEntre(venc, hoje);
         match = dias >= (auto.diasAposVencimento ?? 0);

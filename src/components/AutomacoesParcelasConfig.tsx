@@ -208,7 +208,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   const [form, setForm] = useState(autoVazia());
   const [confirmDel, setConfirmDel] = useState<string | null>(null);
 
-  const personalizadas  = automacoes.filter(a => a.tipo === 'personalizada');
+  const personalizadas  = automacoes.filter(a => a.tipo === 'personalizada' || a.tipo === 'ao_criar');
   const [filtroSegVis, setFiltroSegVis] = useState('');
 
   // Seguradoras únicas presentes nas regras (para o filtro)
@@ -285,6 +285,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   }
 
   function resumoCondicoes(a: AutomacaoParcela): string {
+    if (a.tipo === 'ao_criar') return 'Disparada ao importar nova parcela';
     if (a.tipo === 'padrao_vencimento') return `Após ${a.diasAposVencimento ?? 0} dias do vencimento`;
     if (a.tipo === 'padrao_sem_import') return `Ausente no import há ${a.diasAntesSemImport ?? 0} dias`;
     if (!a.condicoes.length) return '(sem condições)';
@@ -302,6 +303,11 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium text-gray-800 text-sm">{a.nome}</span>
+            {a.tipo === 'ao_criar' && (
+              <span className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-emerald-100 text-emerald-700 border border-emerald-200">
+                Ao Criar
+              </span>
+            )}
             {(a.filtroSeguradora || a.filtroRamo) && (
               <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
                 {[a.filtroSeguradora, a.filtroRamo].filter(Boolean).join(' · ')}
@@ -423,16 +429,47 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Tipo de gatilho */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Gatilho</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { tipo: 'personalizada', titulo: 'Condições personalizadas', sub: 'SE campo operador valor ENTÃO ação' },
+                    { tipo: 'ao_criar',      titulo: 'Ao criar novo negócio',    sub: 'Executa ao importar uma parcela nova' },
+                  ] as const).map(({ tipo, titulo, sub }) => (
+                    <button key={tipo} type="button"
+                      onClick={() => setForm(f => ({ ...f, tipo, condicoes: [] }))}
+                      className={`text-left px-3 py-2.5 border rounded-lg text-sm transition-colors ${
+                        form.tipo === tipo
+                          ? tipo === 'ao_criar'
+                            ? 'bg-emerald-600 text-white border-emerald-600'
+                            : 'bg-blue-700 text-white border-blue-700'
+                          : 'border-gray-300 text-gray-700 hover:border-blue-400'
+                      }`}>
+                      <div className="font-medium">{titulo}</div>
+                      <div className={`text-xs mt-0.5 ${form.tipo === tipo ? 'opacity-80' : 'text-gray-400'}`}>{sub}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Nome */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nome <span className="text-red-500">*</span></label>
                 <input value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-                  placeholder="Ex.: Parcela vencida há 30 dias → Em Tratamento"
+                  placeholder={form.tipo === 'ao_criar' ? 'Ex.: Definir status Tratar ao importar' : 'Ex.: Parcela vencida há 30 dias → Em Tratamento'}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
+              {/* Conditions builder — oculto para ao_criar */}
+              {form.tipo === 'ao_criar' && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-800">
+                  Esta automação é disparada automaticamente toda vez que uma nova parcela é importada (status <strong>Importada</strong>). Não é necessário definir condições — configure apenas as ações abaixo.
+                </div>
+              )}
+
               {/* Conditions builder */}
-              {(
+              {form.tipo !== 'ao_criar' && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b border-gray-200">
                     <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Condições (SE...)</span>
@@ -625,7 +662,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               </div>
 
               {/* Preview */}
-              {form.condicoes.length > 0 && (
+              {form.tipo !== 'ao_criar' && form.condicoes.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
                   <p className="font-semibold mb-1">Resumo da regra:</p>
                   <p>

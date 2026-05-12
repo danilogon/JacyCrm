@@ -503,8 +503,8 @@ export interface AutomacaoParcela {
   id: string;
   nome: string;
   ativo: boolean;
-  /** 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada' */
-  tipo: 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada';
+  /** 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada' | 'ao_criar' */
+  tipo: 'padrao_vencimento' | 'padrao_sem_import' | 'personalizada' | 'ao_criar';
   /** For padrao_vencimento: trigger after this many days past due date */
   diasAposVencimento?: number;
   /** For padrao_sem_import: parcela hasn't appeared in import AND vencimento is at least X days before import date */
