@@ -487,6 +487,7 @@ export type CampoParcela =
   | 'forma_pagamento'
   | 'valor_parcela'
   | 'prorrogada'             // boolean: parcela desconsiderada pela seguradora na prorrogação
+  | 'primeira_parcela'       // boolean: true se numeroParcela == '1'
   | 'data_prorrogacao'       // YYYY-MM-DD: data da prorrogação
   | 'vencimento'             // YYYY-MM-DD: data de vencimento da parcela
   | 'ultima_atualizacao'     // YYYY-MM-DD: data do último import em que a parcela apareceu

@@ -28,6 +28,7 @@ function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | nu
     case 'forma_pagamento':      return p.formaPagamento;
     case 'valor_parcela':        return p.valorParcela;
     case 'prorrogada':           return p.prorrogada ?? false;
+    case 'primeira_parcela':     return p.numeroParcela.trim().replace(/^0+/, '') === '1';
     case 'data_prorrogacao':     return p.dataProrrogacao ?? '';
     case 'vencimento':           return p.vencimento;
     case 'ultima_atualizacao':   return p.ultimaAtualizacao;
