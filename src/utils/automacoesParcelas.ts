@@ -92,13 +92,17 @@ function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date, ul
     refNum = Number(cond.valor);
   }
 
+  // Comparações de texto são case-insensitive (ex: "ZURICH" === "Zurich")
+  const valorStr  = String(valor).toLowerCase();
+  const refStrLow = refStr.toLowerCase();
+
   switch (cond.operador) {
-    case 'igual':       return String(valor) === refStr;
-    case 'diferente':   return String(valor) !== refStr;
-    case 'maior_que':   return typeof valor === 'number' ? valor > refNum : String(valor) > refStr;
-    case 'menor_que':   return typeof valor === 'number' ? valor < refNum : String(valor) < refStr;
-    case 'maior_igual': return typeof valor === 'number' ? valor >= refNum : String(valor) >= refStr;
-    case 'menor_igual': return typeof valor === 'number' ? valor <= refNum : String(valor) <= refStr;
+    case 'igual':       return typeof valor === 'number' ? valor === refNum : valorStr === refStrLow;
+    case 'diferente':   return typeof valor === 'number' ? valor !== refNum : valorStr !== refStrLow;
+    case 'maior_que':   return typeof valor === 'number' ? valor > refNum  : valorStr > refStrLow;
+    case 'menor_que':   return typeof valor === 'number' ? valor < refNum  : valorStr < refStrLow;
+    case 'maior_igual': return typeof valor === 'number' ? valor >= refNum : valorStr >= refStrLow;
+    case 'menor_igual': return typeof valor === 'number' ? valor <= refNum : valorStr <= refStrLow;
     default: return false;
   }
 }
@@ -142,8 +146,8 @@ export function aplicarAutomacoes(
 
   const resultado = parcelas.map(p => {
     for (const auto of ativas) {
-      if (auto.filtroSeguradora && p.seguradora !== auto.filtroSeguradora) continue;
-      if (auto.filtroRamo && p.ramo !== auto.filtroRamo) continue;
+      if (auto.filtroSeguradora && p.seguradora.toLowerCase() !== auto.filtroSeguradora.toLowerCase()) continue;
+      if (auto.filtroRamo && (p.ramo ?? '').toLowerCase() !== auto.filtroRamo.toLowerCase()) continue;
 
       let match = false;
 
