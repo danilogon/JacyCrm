@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
+import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
@@ -403,12 +403,6 @@ export function Assinaturas({ clientes }: Props) {
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
-                          {env.linkAssinatura && (
-                            <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                              <ExternalLink size={12} /> Painel
-                            </a>
-                          )}
                           {env.status === 'assinado' && (
                             <button
                               onClick={() => abrirDocumentoAssinado(env)}
