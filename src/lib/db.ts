@@ -359,13 +359,13 @@ export const db = {
         return;
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
+        // Coluna ausente — remove e retenta (verificado antes do "tabela inexistente")
+        const match = msg.match(/Could not find the '(\w+)' column/);
         // Tabela inexistente — orienta o usuário a rodar o SQL
-        if (msg.includes('relation') && msg.includes('automacoes_parcelas')) {
+        if (!match && msg.includes('does not exist') && msg.includes('automacoes_parcelas')) {
           alert('A tabela de automações não existe no banco. Execute o SQL de criação no painel do Supabase e recarregue a página.');
           throw e;
         }
-        // Coluna ausente — remove e retenta
-        const match = msg.match(/Could not find the '(\w+)' column/);
         if (match) {
           const col = match[1];
           const colCamel = toCamel(col);
