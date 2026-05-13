@@ -514,11 +514,17 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           updated.push(p);
           return;
         }
-        // Determina novo status: se passou da data limite → analise_critica
-        let novoStatus: StatusParcela = statusAusente as StatusParcela;
-        if (p.dataLimite && dataImport > p.dataLimite) {
-          novoStatus = 'analise_critica';
+        // Sem data limite cadastrada → não altera (não é possível confirmar a baixa)
+        if (!p.dataLimite) {
+          updated.push(p);
+          return;
         }
+        // Determina novo status com base na data limite:
+        // import < data limite → baixa automática (seguradora baixou dentro do prazo)
+        // import >= data limite → análise crítica (prazo ultrapassado)
+        const novoStatus: StatusParcela = dataImport < p.dataLimite
+          ? (statusAusente as StatusParcela)
+          : 'analise_critica';
         const agoraImp = new Date().toISOString();
         const logBaixa: LogParcela = {
           id: generateId(),
