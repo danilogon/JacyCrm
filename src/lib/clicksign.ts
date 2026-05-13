@@ -66,13 +66,16 @@ export async function buscarStatusEnvelope(
 
 export async function cancelarEnvelope(
   token: string,
-  envelopeId: string,
+  documentKey: string,
 ): Promise<{ ok: boolean; erro?: string }> {
   try {
-    const r = await callProxy(token, `envelopes/${envelopeId}`, 'PATCH', {
-      data: { type: 'envelopes', id: envelopeId, attributes: { status: 'canceled' } },
+    const res = await fetch('/api/clicksign-cancel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, documentKey }),
     });
-    if (!r.ok) return { ok: false, erro: JSON.stringify(r.data).slice(0, 200) };
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, erro: data.error ?? `Erro ${res.status}` };
     return { ok: true };
   } catch (err) {
     return { ok: false, erro: String(err) };

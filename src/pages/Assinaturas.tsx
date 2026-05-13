@@ -291,7 +291,27 @@ export function Assinaturas({ clientes, origens }: Props) {
   async function confirmarCancelamento(env: EnvelopeAssinatura) {
     setCancelandoId(env.id);
     setConfirmCancelId(null);
-    const resultado = await cancelarEnvelope(config.token, env.envelopeIdClicksign);
+
+    // A API v1 exige o documentKey — busca se ainda não estiver salvo
+    let documentKey = env.documentIdClicksign;
+    if (!documentKey) {
+      documentKey = (await buscarDocumentId(config.token, env.envelopeIdClicksign)) ?? undefined;
+      if (documentKey) {
+        setEnvelopes(prev => prev.map(e =>
+          e.id === env.id ? { ...e, documentIdClicksign: documentKey } : e
+        ));
+      }
+    }
+
+    if (!documentKey) {
+      setCancelandoId(null);
+      setEnvelopes(prev => prev.map(e =>
+        e.id === env.id ? { ...e, status: 'cancelado' } : e
+      ));
+      return;
+    }
+
+    const resultado = await cancelarEnvelope(config.token, documentKey);
     setCancelandoId(null);
     if (resultado.ok) {
       setEnvelopes(prev => prev.map(e =>
