@@ -112,10 +112,15 @@ export function Login() {
         setFase('verificacao');
         setReenvioSeg(60);
         setTimeout(() => inputsRef.current[0]?.focus(), 100);
-      } catch {
+      } catch (err) {
         // Falha no envio do código — encerra sessão para não deixar autenticado sem 2FA
         await supabase.auth.signOut();
-        setErro('Não foi possível enviar o código. Verifique a configuração do EmailJS.');
+        const msg = err instanceof Error ? err.message : '';
+        setErro(
+          msg.includes('não configuradas')
+            ? 'Erro no servidor: credenciais de e-mail não configuradas. Contate o administrador.'
+            : 'Não foi possível enviar o código de verificação. Tente novamente ou contate o suporte.'
+        );
       }
       setLoading(false);
       return;
