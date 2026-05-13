@@ -150,44 +150,41 @@ export function aplicarAutomacoes(
   const agora = new Date().toISOString();
 
   const resultado = parcelas.map(p => {
+    // Estado acumulado: cada automação vê o resultado das anteriores
+    let current: Parcela = p;
+    const logEntries: LogParcela[] = [];
+
     for (const auto of ativas) {
-      if (auto.filtroSeguradora && p.seguradora.toLowerCase() !== auto.filtroSeguradora.toLowerCase()) continue;
-      if (auto.filtroRamo && (p.ramo ?? '').toLowerCase() !== auto.filtroRamo.toLowerCase()) continue;
+      // Filtros avaliados contra o estado atual
+      if (auto.filtroSeguradora && current.seguradora.toLowerCase() !== auto.filtroSeguradora.toLowerCase()) continue;
+      if (auto.filtroRamo && (current.ramo ?? '').toLowerCase() !== auto.filtroRamo.toLowerCase()) continue;
 
       let match = false;
 
       if (auto.tipo === 'ao_criar') {
-        // Dispara quando a parcela está com status inicial 'importada' (recém-criada)
-        // Condições adicionais (seguradora, ramo, etc.) são avaliadas se existirem
-        match = (p.status as string) === 'importada';
+        match = (current.status as string) === 'importada';
         if (match && auto.condicoes.length > 0) {
-          let condMatch = avaliarCondicao(p, auto.condicoes[0], hoje, ultimaImportData);
+          let condMatch = avaliarCondicao(current, auto.condicoes[0], hoje, ultimaImportData);
           for (let i = 1; i < auto.condicoes.length; i++) {
             const op = auto.condicoes[i - 1].operadorProximo ?? auto.operadorLogico ?? 'E';
-            const r  = avaliarCondicao(p, auto.condicoes[i], hoje, ultimaImportData);
+            const r  = avaliarCondicao(current, auto.condicoes[i], hoje, ultimaImportData);
             if (op === 'E') condMatch = condMatch && r;
             else            condMatch = condMatch || r;
           }
           match = condMatch;
         }
       } else if (auto.tipo === 'padrao_vencimento') {
-        const venc = new Date(p.vencimento + 'T00:00:00');
-        const dias = diasEntre(venc, hoje);
-        match = dias >= (auto.diasAposVencimento ?? 0);
+        const venc = new Date(current.vencimento + 'T00:00:00');
+        match = diasEntre(venc, hoje) >= (auto.diasAposVencimento ?? 0);
       } else if (auto.tipo === 'padrao_sem_import') {
-        const venc = new Date(p.vencimento + 'T00:00:00');
-        const diasVenc = diasEntre(venc, hoje);
-        const naoApareceu = p.status === 'baixada_sistema';
-        match = naoApareceu && diasVenc >= (auto.diasAntesSemImport ?? 0);
+        const venc = new Date(current.vencimento + 'T00:00:00');
+        match = current.status === 'baixada_sistema' && diasEntre(venc, hoje) >= (auto.diasAntesSemImport ?? 0);
       } else {
         if (auto.condicoes.length === 0) continue;
-        // Avaliação da esquerda para direita com operador por condição (mistura de E/OU)
-        // Cada condição tem operadorProximo que conecta à próxima.
-        // Fallback: usa auto.operadorLogico global para retrocompatibilidade.
-        let matchResult = avaliarCondicao(p, auto.condicoes[0], hoje, ultimaImportData);
+        let matchResult = avaliarCondicao(current, auto.condicoes[0], hoje, ultimaImportData);
         for (let i = 1; i < auto.condicoes.length; i++) {
           const op = auto.condicoes[i - 1].operadorProximo ?? auto.operadorLogico ?? 'E';
-          const condResult = avaliarCondicao(p, auto.condicoes[i], hoje, ultimaImportData);
+          const condResult = avaliarCondicao(current, auto.condicoes[i], hoje, ultimaImportData);
           if (op === 'E') matchResult = matchResult && condResult;
           else matchResult = matchResult || condResult;
         }
@@ -195,44 +192,44 @@ export function aplicarAutomacoes(
       }
 
       if (match) {
-        // Collect all applicable changes
         const patch: Partial<Parcela> = {};
 
-        if (auto.alterarStatus !== false && p.status !== auto.novoStatus) {
+        if (auto.alterarStatus !== false && current.status !== auto.novoStatus) {
           patch.status = auto.novoStatus;
         }
         if (auto.acaoProrrogada === 'sim') patch.prorrogada = true;
         else if (auto.acaoProrrogada === 'nao') patch.prorrogada = false;
-
-        if (auto.acaoDataProrrogacao) {
-          patch.dataProrrogacao = resolverAcaoData(auto.acaoDataProrrogacao, hoje, p);
-        }
-        if (auto.acaoDataLimite) {
-          patch.dataLimite = resolverAcaoData(auto.acaoDataLimite, hoje, p);
-        }
+        if (auto.acaoDataProrrogacao) patch.dataProrrogacao = resolverAcaoData(auto.acaoDataProrrogacao, hoje, current);
+        if (auto.acaoDataLimite)      patch.dataLimite      = resolverAcaoData(auto.acaoDataLimite, hoje, current);
 
         if (Object.keys(patch).length > 0) {
-          totalAlteradas++;
           const mudancas = Object.entries(patch).map(([campo, para]) => ({
             campo: CAMPO_LABEL[campo] ?? campo,
-            de: String((p as unknown as Record<string, unknown>)[campo] ?? '—'),
+            de: String((current as unknown as Record<string, unknown>)[campo] ?? '—'),
             para: String(para ?? '—'),
           }));
-          const logEntry: LogParcela = {
+          logEntries.push({
             id: uid(),
             data: agora,
             autor: 'Sistema',
             tipo: 'automacao',
             descricao: `Automação "${auto.nome}" aplicada`,
             mudancas,
-          };
-          return {
-            ...p, ...patch,
-            logs: [...(p.logs ?? []), logEntry],
-            atualizadoEm: agora,
-          };
+          });
+          // Atualiza estado para que a próxima automação veja as mudanças
+          current = { ...current, ...patch };
         }
       }
+    }
+
+    // Retorna parcela com todas as mudanças acumuladas
+    if (logEntries.length > 0) {
+      totalAlteradas++;
+      return {
+        ...current,
+        logs: [...(p.logs ?? []), ...logEntries],
+        atualizadoEm: agora,
+      };
     }
     return p;
   });
