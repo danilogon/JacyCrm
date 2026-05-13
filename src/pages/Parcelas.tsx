@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Upload, Search, X, Save, Edit2,
   Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell, ChevronRight, ChevronLeft, UserCheck,
@@ -255,15 +255,27 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [processando, setProcessando] = useState(false);
   const [ultimoProcessamento, setUltimoProcessamento] = useState<{total: number; data: string} | null>(null);
 
-  function processarAutomacoes() {
+  function processarAutomacoes(parcelasBase = parcelas) {
     setProcessando(true);
-    const { parcelas: novas, totalAlteradas } = aplicarAutomacoes(parcelas, automacoesParcelas);
-    if (totalAlteradas > 0) {
-      setParcelas(novas);
-    }
+    const { parcelas: novas, totalAlteradas } = aplicarAutomacoes(parcelasBase, automacoesParcelas);
+    if (totalAlteradas > 0) setParcelas(novas);
     setUltimoProcessamento({ total: totalAlteradas, data: new Date().toLocaleString('pt-BR') });
     setProcessando(false);
+    return novas;
   }
+
+  // ── Execução automática diária ────────────────────────────────────────────
+  const STORAGE_KEY = 'parcelas_automacoes_ultima_execucao';
+  useEffect(() => {
+    if (!automacoesParcelas.some(a => a.ativo)) return;
+    if (!parcelas.length) return;
+    const hoje = new Date().toISOString().slice(0, 10);
+    const ultimaExecucao = localStorage.getItem(STORAGE_KEY);
+    if (ultimaExecucao === hoje) return; // já rodou hoje
+    processarAutomacoes();
+    localStorage.setItem(STORAGE_KEY, hoje);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // roda só na montagem do componente
 
   // ── Dados derivados ───────────────────────────────────────────────────────
   const seguradoras = useMemo(() => {
@@ -514,7 +526,16 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         criadoEm: new Date().toISOString(),
       };
 
-      setParcelas(updated);
+      // Aplica automações imediatamente após o import
+      const ativas = automacoesParcelas.filter(a => a.ativo);
+      let parcelasFinais = updated;
+      if (ativas.length > 0) {
+        const { parcelas: comAuto } = aplicarAutomacoes(updated, automacoesParcelas);
+        parcelasFinais = comAuto;
+      }
+      setParcelas(parcelasFinais);
+      // Marca execução de hoje no localStorage para não duplicar na montagem
+      localStorage.setItem('parcelas_automacoes_ultima_execucao', new Date().toISOString().slice(0, 10));
       setImportacoesParcelas([lote, ...importacoesParcelas]);
       setImportResult(lote);
     };
