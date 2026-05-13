@@ -1789,9 +1789,17 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                         value: 'baixada_sistema',
                         label: 'Baixa Automática (padrão)',
                         desc: (
-                          <>
-                            A lógica de baixa funciona assim: a cada import, o sistema identifica quais seguradoras vieram na planilha. Para cada parcela dessas seguradoras que <strong>apareceu</strong> no arquivo, os dados são atualizados e o status permanece inalterado — a parcela ainda está em aberto na carteira de cobrança da seguradora. Para cada parcela dessas seguradoras que <strong>não apareceu</strong> no arquivo, o sistema entende que a seguradora já a baixou (confirmou o recebimento) e aplica o status <strong>"Baixa Automática"</strong>. Parcelas já pagas, canceladas ou em análise crítica nunca são alteradas.
-                          </>
+                          <div className="space-y-2">
+                            <p>A cada import, o sistema identifica quais seguradoras vieram na planilha e verifica cada parcela:</p>
+                            <p>• Parcela <strong>apareceu</strong> no arquivo → dados atualizados, status permanece inalterado (ainda em aberto na carteira de cobrança).</p>
+                            <p>• Parcela <strong>não apareceu</strong> no arquivo → o sistema avalia a Data Limite de pagamento cadastrada:</p>
+                            <div className="mt-1 ml-3 space-y-1 border-l-2 border-gray-200 pl-3">
+                              <p>• <strong>Sem Data Limite cadastrada</strong> → não altera (não é possível confirmar se a baixa é válida).</p>
+                              <p>• <strong>Data do import anterior à Data Limite</strong> → <span className="font-medium text-purple-700">Baixa Automática</span> (seguradora confirmou o recebimento dentro do prazo).</p>
+                              <p>• <strong>Data do import igual ou posterior à Data Limite</strong> → <span className="font-medium text-orange-700">Análise Crítica</span> (prazo ultrapassado sem confirmação de pagamento).</p>
+                            </div>
+                            <p className="text-gray-400">Parcelas já pagas, canceladas, em análise crítica ou com baixa automática nunca são sobrescritas.</p>
+                          </div>
                         ),
                       },
                       {
