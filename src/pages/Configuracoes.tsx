@@ -178,21 +178,23 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
 // ─── Config Assinaturas Eletrônicas ─────────────────────────────────────────
 
 function ConfigAssinaturas() {
-  const [config, setConfig] = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', ativo: false });
+  const [config, setConfig] = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', ativo: false });
   const [modelos, setModelos] = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
 
   const [tokenVisivel, setTokenVisivel] = useState(false);
-  const [formToken, setFormToken] = useState(config.token);
-  const [tokenSalvo, setTokenSalvo] = useState(false);
+  const [formToken, setFormToken]       = useState(config.token);
+  const [formEmail, setFormEmail]       = useState(config.emailPadrao ?? '');
+  const [formNome, setFormNome]         = useState(config.nomePadrao ?? '');
+  const [configSalvo, setConfigSalvo]   = useState(false);
 
   const [modalModelo, setModalModelo] = useState<ModeloAssinatura | 'novo' | null>(null);
   const [formModelo, setFormModelo] = useState({ nome: '', descricao: '', mensagem: '' });
   const [confirmDelModelo, setConfirmDelModelo] = useState<string | null>(null);
 
-  function salvarToken() {
-    setConfig({ ...config, token: formToken.trim() });
-    setTokenSalvo(true);
-    setTimeout(() => setTokenSalvo(false), 2500);
+  function salvarConfig() {
+    setConfig({ ...config, token: formToken.trim(), emailPadrao: formEmail.trim(), nomePadrao: formNome.trim() });
+    setConfigSalvo(true);
+    setTimeout(() => setConfigSalvo(false), 2500);
   }
 
   function abrirNovoModelo() {
@@ -218,52 +220,76 @@ function ConfigAssinaturas() {
 
   return (
     <div className="space-y-6">
-      {/* Token */}
+      {/* Credenciais ClickSign */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl space-y-4">
         <div>
           <h2 className="font-semibold text-gray-800 mb-0.5">Integração ClickSign</h2>
-          <p className="text-sm text-gray-500">Configure o Access Token gerado no painel do ClickSign (Configurações → API).</p>
+          <p className="text-sm text-gray-500">Configure o Access Token e as informações do remetente padrão (usadas nos envios).</p>
         </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Access Token</label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <input
-                type={tokenVisivel ? 'text' : 'password'}
-                value={formToken}
-                onChange={e => setFormToken(e.target.value)}
-                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => setTokenVisivel(v => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              >
-                {tokenVisivel ? <EyeOff size={15} /> : <Eye size={15} />}
-              </button>
-            </div>
+          <div className="relative">
+            <input
+              type={tokenVisivel ? 'text' : 'password'}
+              value={formToken}
+              onChange={e => setFormToken(e.target.value)}
+              placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+              className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
             <button
-              onClick={salvarToken}
-              className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 whitespace-nowrap"
+              type="button"
+              onClick={() => setTokenVisivel(v => !v)}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
-              Salvar
+              {tokenVisivel ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          {tokenSalvo && <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check size={12} /> Token salvo com sucesso.</p>}
         </div>
-        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
-          <span className="text-sm text-gray-700">Integração ativa</span>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Nome padrão do remetente</label>
+            <input
+              value={formNome}
+              onChange={e => setFormNome(e.target.value)}
+              placeholder="Ex: Segura Mais Corretora"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">E-mail padrão do remetente</label>
+            <input
+              type="email"
+              value={formEmail}
+              onChange={e => setFormEmail(e.target.value)}
+              placeholder="assinaturas@empresa.com.br"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-gray-700">Integração ativa</span>
+            <button
+              onClick={() => setConfig(c => ({ ...c, ativo: !c.ativo }))}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.ativo ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${config.ativo ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
+            <span className={`text-xs font-medium ${config.ativo ? 'text-green-600' : 'text-gray-400'}`}>
+              {config.ativo ? 'Ativa' : 'Inativa'}
+            </span>
+          </div>
           <button
-            onClick={() => setConfig(c => ({ ...c, ativo: !c.ativo }))}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.ativo ? 'bg-blue-600' : 'bg-gray-300'}`}
+            onClick={salvarConfig}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800"
           >
-            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${config.ativo ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            <Save size={14} /> Salvar configurações
           </button>
-          <span className={`text-xs font-medium ${config.ativo ? 'text-green-600' : 'text-gray-400'}`}>
-            {config.ativo ? 'Ativa' : 'Inativa'}
-          </span>
         </div>
+        {configSalvo && <p className="text-xs text-green-600 flex items-center gap-1"><Check size={12} /> Configurações salvas com sucesso.</p>}
       </div>
 
       {/* Modelos de mensagem */}

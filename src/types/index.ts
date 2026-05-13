@@ -4,6 +4,8 @@ export type Role = 'admin' | 'gestor' | 'usuario';
 
 export interface ConfigClickSign {
   token: string;
+  emailPadrao: string;
+  nomePadrao: string;
   ativo: boolean;
 }
 
