@@ -136,6 +136,11 @@ export function aplicarAutomacoes(
   const ativas = [...automacoes]
     .filter(a => a.ativo)
     .sort((a, b) => {
+      // 1º: "ao_criar" sempre antes de todos os outros tipos
+      const aoCriarA = a.tipo === 'ao_criar' ? 0 : 1;
+      const aoCriarB = b.tipo === 'ao_criar' ? 0 : 1;
+      if (aoCriarA !== aoCriarB) return aoCriarA - aoCriarB;
+      // 2º: dentro do mesmo grupo, mais específica primeiro
       const diff = especificidade(b) - especificidade(a);
       return diff !== 0 ? diff : a.prioridade - b.prioridade;
     });
