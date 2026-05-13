@@ -259,9 +259,12 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
       map.get(key)!.push(a);
     });
     const result: { label: string; chave: string; itens: AutomacaoParcela[] }[] = [];
-    // "Todas" primeiro
-    if (map.has('__geral__')) result.push({ label: 'Todas as Seguradoras', chave: '__geral__', itens: map.get('__geral__')! });
-    map.forEach((itens, key) => { if (key !== '__geral__') result.push({ label: key, chave: key, itens }); });
+    // "Todas" primeiro, depois grupos por seguradora em ordem alfabética
+    if (map.has('__geral__')) result.push({ label: 'Todas as Seguradoras', chave: '__geral__', itens: map.get('__geral__')!.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) });
+    [...map.entries()]
+      .filter(([key]) => key !== '__geral__')
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .forEach(([key, itens]) => result.push({ label: key, chave: key, itens: itens.slice().sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')) }));
     return result;
   }, [personalizadasVisiveis]);
 
