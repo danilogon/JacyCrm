@@ -243,6 +243,9 @@ ALTER TABLE renovacoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE seguros_novos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE prospeccoes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tarefas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE automacoes_parcelas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE regras_parcelas ENABLE ROW LEVEL SECURITY;
+ALTER TABLE importacoes_parcelas ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "acesso_total" ON tipos_usuario FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "acesso_total" ON usuarios FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -257,6 +260,9 @@ CREATE POLICY "acesso_total" ON renovacoes FOR ALL TO anon USING (true) WITH CHE
 CREATE POLICY "acesso_total" ON seguros_novos FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "acesso_total" ON prospeccoes FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "acesso_total" ON tarefas FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total" ON automacoes_parcelas FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total" ON regras_parcelas FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "acesso_total" ON importacoes_parcelas FOR ALL TO anon USING (true) WITH CHECK (true);
 
 -- ─── DADOS INICIAIS ───────────────────────────────────────────
 
