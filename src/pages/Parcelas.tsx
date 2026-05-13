@@ -181,6 +181,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [filtroSemVinculo, setFiltroSemVinculo] = useState(false);
   const [filtroSeguradora, setFiltroSeguradora] = useState('');
   const [filtroRamo, setFiltroRamo] = useState('');
+  const [filtroFormaPagamento, setFiltroFormaPagamento] = useState('');
   const [filtroVencDe, setFiltroVencDe] = useState('');
   const [filtroVencAte, setFiltroVencAte] = useState('');
   const [filtroPrazo, setFiltroPrazo] = useState<string[]>([]);
@@ -306,6 +307,11 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     return [...s].sort();
   }, [parcelas]);
 
+  const formasPagamentoNasParcelas = useMemo(() => {
+    const s = new Set(parcelas.map(p => p.formaPagamento).filter(Boolean));
+    return [...s].sort();
+  }, [parcelas]);
+
   // Primeira parcela: numeroParcela === '1' ou '01' (ignora zeros à esquerda)
   const isPrimeiraParc = (p: Parcela) => p.numeroParcela.trim().replace(/^0+/, '') === '1';
 
@@ -322,6 +328,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       }
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroRamo && p.ramo !== filtroRamo) return false;
+      if (filtroFormaPagamento && p.formaPagamento !== filtroFormaPagamento) return false;
       if (filtroP1) {
         if (!isPrimeiraParc(p)) return false;
         const s = p.status as string;
@@ -358,7 +365,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         default: return a.vencimento.localeCompare(b.vencimento); // vencimento_asc
       }
     });
-  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroVencDe, filtroVencAte, filtroPrazo, filtroP1, filtroSemVinculo, busca, ordenar]);
+  }, [parcelas, filtroStatus, filtroSeguradora, filtroRamo, filtroFormaPagamento, filtroVencDe, filtroVencAte, filtroPrazo, filtroP1, filtroSemVinculo, busca, ordenar]);
 
   // KPIs
   const kpis = useMemo(() => {
@@ -964,6 +971,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             {ramosNasParcelas.map(r => <option key={r} value={r}>{r}</option>)}
           </select>
         )}
+        {formasPagamentoNasParcelas.length > 0 && (
+          <select value={filtroFormaPagamento} onChange={e => setFiltroFormaPagamento(e.target.value)}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Todas as formas de pgto</option>
+            {formasPagamentoNasParcelas.map(f => <option key={f} value={f}>{f}</option>)}
+          </select>
+        )}
         <div className="flex items-center gap-1 text-sm text-gray-600">
           <span className="text-xs text-gray-400">Venc.</span>
           <DateInput value={filtroVencDe} onChange={e => setFiltroVencDe(e.target.value)}
@@ -1008,8 +1022,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         >
           <Link2 size={14} /> Sem vínculo
         </button>
-        {(busca || filtroSeguradora || filtroRamo || filtroVencDe || filtroVencAte || filtroPrazo.length > 0 || filtroP1 || filtroSemVinculo) && (
-          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); setFiltroP1(false); setFiltroSemVinculo(false); }}
+        {(busca || filtroSeguradora || filtroRamo || filtroFormaPagamento || filtroVencDe || filtroVencAte || filtroPrazo.length > 0 || filtroP1 || filtroSemVinculo) && (
+          <button onClick={() => { setBusca(''); setFiltroSeguradora(''); setFiltroRamo(''); setFiltroFormaPagamento(''); setFiltroVencDe(''); setFiltroVencAte(''); setFiltroPrazo([]); setFiltroP1(false); setFiltroSemVinculo(false); }}
             className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg" title="Limpar filtros">
             <X size={14} />
           </button>
