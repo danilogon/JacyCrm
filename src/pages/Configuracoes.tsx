@@ -1884,16 +1884,6 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                 </div>
               </div>
 
-              {/* 5. Info: regras fixas de data limite */}
-              <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-lg p-4 text-xs text-amber-800">
-                <span className="text-amber-500 mt-0.5">ℹ️</span>
-                <div className="space-y-1">
-                  <p><strong>Regras fixas baseadas na Data Limite de pagamento:</strong></p>
-                  <p>• <strong>Sem Data Limite cadastrada:</strong> a parcela nunca recebe baixa automática — o sistema não consegue confirmar se o prazo foi respeitado.</p>
-                  <p>• <strong>Data do import anterior à Data Limite:</strong> a parcela recebe <strong>Baixa Automática</strong> — a seguradora baixou dentro do prazo.</p>
-                  <p>• <strong>Data do import igual ou posterior à Data Limite:</strong> a parcela vai para <strong>Análise Crítica</strong> — o prazo foi ultrapassado sem confirmação de pagamento.</p>
-                </div>
-              </div>
 
             </div>
           </div>
