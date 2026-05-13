@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Circle, Calendar, Clock, ExternalLink, Filter, Plus, X, Save, Bell } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { Tarefa, TipoTarefa, Usuario, Cliente } from '../types';
+import type { Tarefa, TipoTarefa, Usuario, Cliente, Parcela, Renovacao, SeguroNovo, Prospeccao } from '../types';
 import { TIPO_LABELS, TipoIcon } from '../components/TarefasPanel';
 import { generateId } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
@@ -13,6 +13,10 @@ interface Props {
   setTarefas: (t: Tarefa[]) => void;
   usuarios: Usuario[];
   clientes: Cliente[];
+  parcelas?: Parcela[];
+  renovacoes?: Renovacao[];
+  segurosNovos?: SeguroNovo[];
+  prospeccoes?: Prospeccao[];
 }
 
 const TIPO_CORES: Record<string, string> = {
@@ -46,8 +50,11 @@ const ORIGEM_PATHS: Record<string, string> = {
   parcela:     '/parcelas',
 };
 
+type OrigemTipoForm = 'geral' | 'parcela' | 'seguro_novo' | 'renovacao' | 'prospeccao';
+
 const formVazio = (responsavelId: string) => ({
   tipo: 'ligacao' as TipoTarefa,
+  origemTipo: 'geral' as OrigemTipoForm,
   descricao: '',
   dataAgendada: new Date().toISOString().split('T')[0],
   horaAgendada: '',
@@ -125,7 +132,7 @@ function grupoCor(dateStr: string): { header: string; card: string } {
   return { header: 'text-gray-600 bg-gray-50 border-gray-200', card: 'border-gray-100 bg-white' };
 }
 
-export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
+export function Tarefas({ tarefas, setTarefas, usuarios, clientes, parcelas = [], renovacoes = [], segurosNovos = [], prospeccoes = [] }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin  = usuario?.role === 'admin';
@@ -134,6 +141,7 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
   const [filtroResp, setFiltroResp] = useState(
     usuario?.role === 'usuario' ? usuario.id : ''
   );
+  const [filtroOrigem, setFiltroOrigem] = useState('');
   const [mostrarConcluidas, setMostrarConcluidas] = useState(false);
   const [criando, setCriando] = useState(false);
   const [form, setForm] = useState(formVazio(usuario?.id ?? ''));
@@ -147,9 +155,10 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
       if (!mostrarConcluidas && t.status === 'concluida') return false;
       if (filtroResp && t.responsavelId !== filtroResp) return false;
       if (usuario?.role === 'usuario' && t.responsavelId !== usuario.id) return false;
+      if (filtroOrigem && t.origemTipo !== filtroOrigem) return false;
       return true;
     });
-  }, [tarefas, filtroResp, mostrarConcluidas, usuario]);
+  }, [tarefas, filtroResp, filtroOrigem, mostrarConcluidas, usuario]);
 
   // Agrupa por data
   const grupos = useMemo(() => {
@@ -209,7 +218,7 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
       dataAgendada: form.dataAgendada,
       horaAgendada: form.horaAgendada || undefined,
       responsavelId: form.responsavelId,
-      origemTipo: 'geral',
+      origemTipo: form.origemTipo,
       origemId: undefined,
       nomeCliente: form.nomeCliente.trim() || undefined,
       clienteId: form.clienteId || undefined,
@@ -258,6 +267,26 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
             ))}
           </select>
         )}
+        {/* Filtro por tipo de negócio */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {([
+            { value: '', label: 'Todos' },
+            { value: 'parcela',     label: 'Parcelas' },
+            { value: 'seguro_novo', label: 'Seguros Novos' },
+            { value: 'renovacao',   label: 'Renovações' },
+            { value: 'prospeccao',  label: 'Prospecções' },
+            { value: 'geral',       label: 'Outros' },
+          ] as const).map(op => (
+            <button key={op.value} onClick={() => setFiltroOrigem(op.value)}
+              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                filtroOrigem === op.value
+                  ? 'bg-blue-700 text-white border-blue-700'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'
+              }`}>
+              {op.label}
+            </button>
+          ))}
+        </div>
         <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
           <input
             type="checkbox"
@@ -400,10 +429,34 @@ export function Tarefas({ tarefas, setTarefas, usuarios, clientes }: Props) {
             </div>
 
             <div className="p-5 space-y-4">
+              {/* Tipo de negócio */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de negócio</label>
+                <div className="flex flex-wrap gap-2">
+                  {([
+                    { value: 'geral',       label: 'Outros / Geral',  cls: 'bg-gray-100 text-gray-600 border-gray-300' },
+                    { value: 'parcela',     label: 'Parcela',         cls: 'bg-purple-50 text-purple-700 border-purple-300' },
+                    { value: 'seguro_novo', label: 'Seguro Novo',     cls: 'bg-blue-50 text-blue-700 border-blue-300' },
+                    { value: 'renovacao',   label: 'Renovação',       cls: 'bg-amber-50 text-amber-700 border-amber-300' },
+                    { value: 'prospeccao',  label: 'Prospecção',      cls: 'bg-teal-50 text-teal-700 border-teal-300' },
+                  ] as const).map(op => (
+                    <button key={op.value} type="button"
+                      onClick={() => setForm(f => ({ ...f, origemTipo: op.value }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                        form.origemTipo === op.value
+                          ? 'ring-2 ring-blue-500 ' + op.cls
+                          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                      }`}>
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Tipo + Data + Hora */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de atividade</label>
                   <select
                     value={form.tipo}
                     onChange={e => setForm(f => ({ ...f, tipo: e.target.value as TipoTarefa }))}

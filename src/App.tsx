@@ -416,6 +416,10 @@ function AppRoutes() {
             setTarefas={setTarefas}
             usuarios={usuarios}
             clientes={clientes}
+            parcelas={parcelas}
+            renovacoes={renovacoes}
+            segurosNovos={segurosNovos}
+            prospeccoes={prospeccoes}
           />
         } />
 
