@@ -42,9 +42,13 @@ export async function buscarStatusEnvelope(
 ): Promise<'enviado' | 'assinado' | 'cancelado' | 'expirado' | null> {
   const STATUS_MAP: Record<string, 'enviado' | 'assinado' | 'cancelado' | 'expirado'> = {
     completed: 'assinado',
+    closed:    'assinado',   // v1/v2 e algumas respostas v3 usam "closed"
+    signed:    'assinado',
     canceled:  'cancelado',
+    cancelled: 'cancelado',
     expired:   'expirado',
     running:   'enviado',
+    draft:     'enviado',
   };
   try {
     const r = await callProxy(token, `envelopes/${envelopeId}`);
@@ -52,7 +56,10 @@ export async function buscarStatusEnvelope(
     const status: string =
       r.data?.data?.attributes?.status ??
       r.data?.data?.status ??
+      r.data?.status ??
       '';
+    // Log temporário para diagnóstico — remove após confirmar o valor correto
+    console.log(`[ClickSign] envelope=${envelopeId} status_api="${status}"`);
     return STATUS_MAP[status] ?? null;
   } catch {
     return null;
