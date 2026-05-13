@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw } from 'lucide-react';
+import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw, User } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { enviarDocumentoParaAssinatura } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
-import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope } from '../types';
+import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente } from '../types';
+
+interface Props {
+  clientes: Cliente[];
+}
 
 const STATUS_LABEL: Record<StatusEnvelope, string> = {
   enviado:   'Aguardando Assinatura',
@@ -31,50 +35,24 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-export function Assinaturas() {
+export function Assinaturas({ clientes }: Props) {
   const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
   const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
   const [envelopes, setEnvelopes] = useLocalStorage<EnvelopeAssinatura[]>('clicksign_envelopes', []);
 
-  const [modalAberto, setModalAberto]   = useState(false);
-  const [enviando, setEnviando]         = useState(false);
-  const [erro, setErro]                 = useState<string | null>(null);
-  const [busca, setBusca]               = useState('');
+  const [modalAberto, setModalAberto]     = useState(false);
+  const [enviando, setEnviando]           = useState(false);
+  const [erro, setErro]                   = useState<string | null>(null);
+  const [busca, setBusca]                 = useState('');
   const [sincronizando, setSincronizando] = useState(false);
-  const [ultimaSync, setUltimaSync]     = useState<string | null>(null);
+  const [ultimaSync, setUltimaSync]       = useState<string | null>(null);
 
-  async function sincronizarStatus() {
-    if (envelopes.length === 0) return;
-    setSincronizando(true);
-    try {
-      const ids = envelopes.map(e => e.envelopeIdClicksign).filter(Boolean);
-      const { data } = await supabase
-        .from('clicksign_eventos')
-        .select('envelope_id_clicksign, status_local, recebido_em')
-        .in('envelope_id_clicksign', ids)
-        .not('status_local', 'is', null)
-        .order('recebido_em', { ascending: false });
-
-      if (data && data.length > 0) {
-        // Para cada envelope, pega o evento mais recente (já vem ordenado desc)
-        const maiorStatus: Record<string, StatusEnvelope> = {};
-        for (const ev of data) {
-          if (!maiorStatus[ev.envelope_id_clicksign]) {
-            maiorStatus[ev.envelope_id_clicksign] = ev.status_local as StatusEnvelope;
-          }
-        }
-        setEnvelopes(prev => prev.map(e => {
-          const novoStatus = maiorStatus[e.envelopeIdClicksign];
-          return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
-        }));
-      }
-      setUltimaSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
-    } finally {
-      setSincronizando(false);
-    }
-  }
-
-  useEffect(() => { sincronizarStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Busca de cliente no modal
+  const [buscaCliente, setBuscaCliente]         = useState('');
+  const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
+  const [dropdownAberto, setDropdownAberto]     = useState(false);
+  const buscaRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [form, setForm] = useState({
     nomeSignatario:  '',
@@ -87,10 +65,50 @@ export function Assinaturas() {
 
   const tokenOk = config.ativo && config.token.trim().length > 0;
 
+  // Fecha dropdown ao clicar fora
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownAberto(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const clientesFiltrados = buscaCliente.trim().length >= 1
+    ? clientes.filter(c =>
+        c.nome.toLowerCase().includes(buscaCliente.toLowerCase()) ||
+        c.email.toLowerCase().includes(buscaCliente.toLowerCase()) ||
+        c.cpfCnpj.includes(buscaCliente)
+      ).slice(0, 8)
+    : [];
+
+  function selecionarCliente(cliente: Cliente) {
+    setClienteSelecionado(cliente);
+    setBuscaCliente(cliente.nome);
+    setDropdownAberto(false);
+    setForm(f => ({
+      ...f,
+      nomeSignatario:  cliente.nome,
+      emailSignatario: cliente.email,
+    }));
+  }
+
+  function limparCliente() {
+    setClienteSelecionado(null);
+    setBuscaCliente('');
+    setForm(f => ({ ...f, nomeSignatario: '', emailSignatario: '' }));
+    setTimeout(() => buscaRef.current?.focus(), 50);
+  }
+
   function abrirModal() {
     setForm({ nomeSignatario: '', emailSignatario: '', modeloId: modelos[0]?.id ?? '', mensagemCustom: '' });
     setArquivo(null);
     setErro(null);
+    setClienteSelecionado(null);
+    setBuscaCliente('');
+    setDropdownAberto(false);
     setModalAberto(true);
   }
 
@@ -112,6 +130,38 @@ export function Assinaturas() {
         .replace(/\{\{nome\}\}/g, form.nomeSignatario)
         .replace(/\{\{email\}\}/g, form.emailSignatario)
     : form.mensagemCustom;
+
+  async function sincronizarStatus() {
+    if (envelopes.length === 0) return;
+    setSincronizando(true);
+    try {
+      const ids = envelopes.map(e => e.envelopeIdClicksign).filter(Boolean);
+      const { data } = await supabase
+        .from('clicksign_eventos')
+        .select('envelope_id_clicksign, status_local, recebido_em')
+        .in('envelope_id_clicksign', ids)
+        .not('status_local', 'is', null)
+        .order('recebido_em', { ascending: false });
+
+      if (data && data.length > 0) {
+        const maiorStatus: Record<string, StatusEnvelope> = {};
+        for (const ev of data) {
+          if (!maiorStatus[ev.envelope_id_clicksign]) {
+            maiorStatus[ev.envelope_id_clicksign] = ev.status_local as StatusEnvelope;
+          }
+        }
+        setEnvelopes(prev => prev.map(e => {
+          const novoStatus = maiorStatus[e.envelopeIdClicksign];
+          return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
+        }));
+      }
+      setUltimaSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
+  useEffect(() => { sincronizarStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function enviar() {
     if (!arquivo) { setErro('Selecione um arquivo PDF.'); return; }
@@ -148,6 +198,7 @@ export function Assinaturas() {
       status:              'enviado',
       linkAssinatura:      resultado.linkAssinatura,
       avisoEnvio:          resultado.erro,
+      clienteId:           clienteSelecionado?.id,
       responsavelId:       '',
       criadoEm:            new Date().toISOString(),
     };
@@ -231,49 +282,56 @@ export function Assinaturas() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {envelopesFiltrados.map(env => (
-                <tr key={env.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium text-gray-800 max-w-[220px] truncate" title={env.nomeDocumento}>
-                    {env.nomeDocumento}
-                    {env.avisoEnvio && (
-                      <span title={env.avisoEnvio}>
-                        <AlertTriangle size={13} className="inline ml-1 text-amber-400" />
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="font-medium text-gray-800">{env.nomeSignatario}</div>
-                    <div className="text-xs text-gray-400">{env.emailSignatario}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[env.status]}`}>
-                      {STATUS_ICON[env.status]}
-                      {STATUS_LABEL[env.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(env.criadoEm)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      {env.linkAssinatura && (
-                        <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                          <ExternalLink size={12} /> Painel
-                        </a>
+              {envelopesFiltrados.map(env => {
+                const cliente = clientes.find(c => c.id === env.clienteId);
+                return (
+                  <tr key={env.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium text-gray-800 max-w-[220px] truncate" title={env.nomeDocumento}>
+                      {env.nomeDocumento}
+                      {env.avisoEnvio && (
+                        <span title={env.avisoEnvio}>
+                          <AlertTriangle size={13} className="inline ml-1 text-amber-400" />
+                        </span>
                       )}
-                      <select
-                        value={env.status}
-                        onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
-                        className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                      >
-                        <option value="enviado">Aguardando</option>
-                        <option value="assinado">Assinado</option>
-                        <option value="cancelado">Cancelado</option>
-                        <option value="expirado">Expirado</option>
-                      </select>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-800 flex items-center gap-1">
+                        {cliente && <User size={12} className="text-blue-400 shrink-0" />}
+                        {env.nomeSignatario}
+                      </div>
+                      <div className="text-xs text-gray-400">{env.emailSignatario}</div>
+                      {cliente && <div className="text-xs text-blue-500 mt-0.5">Cliente vinculado</div>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[env.status]}`}>
+                        {STATUS_ICON[env.status]}
+                        {STATUS_LABEL[env.status]}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(env.criadoEm)}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {env.linkAssinatura && (
+                          <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                            <ExternalLink size={12} /> Painel
+                          </a>
+                        )}
+                        <select
+                          value={env.status}
+                          onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
+                          className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                        >
+                          <option value="enviado">Aguardando</option>
+                          <option value="assinado">Assinado</option>
+                          <option value="cancelado">Cancelado</option>
+                          <option value="expirado">Expirado</option>
+                        </select>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -291,6 +349,69 @@ export function Assinaturas() {
             </div>
 
             <div className="p-5 space-y-4">
+
+              {/* Busca de cliente */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cliente <span className="text-gray-400 font-normal">(opcional — preenche nome e e-mail automaticamente)</span>
+                </label>
+                <div className="relative" ref={dropdownRef}>
+                  {clienteSelecionado ? (
+                    <div className="flex items-center gap-2 px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg">
+                      <User size={15} className="text-blue-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-blue-800 truncate">{clienteSelecionado.nome}</div>
+                        <div className="text-xs text-blue-500 truncate">{clienteSelecionado.email}</div>
+                      </div>
+                      <button
+                        onClick={limparCliente}
+                        className="text-blue-400 hover:text-blue-600 shrink-0"
+                        title="Remover cliente"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          ref={buscaRef}
+                          value={buscaCliente}
+                          onChange={e => { setBuscaCliente(e.target.value); setDropdownAberto(true); }}
+                          onFocus={() => buscaCliente.trim() && setDropdownAberto(true)}
+                          placeholder="Buscar cliente por nome, e-mail ou CPF/CNPJ…"
+                          className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {dropdownAberto && clientesFiltrados.length > 0 && (
+                        <div className="absolute z-10 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
+                          {clientesFiltrados.map(c => (
+                            <button
+                              key={c.id}
+                              onMouseDown={() => selecionarCliente(c)}
+                              className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-gray-50 last:border-0"
+                            >
+                              <div className="text-sm font-medium text-gray-800">{c.nome}</div>
+                              <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
+                                <span>{c.email || <span className="italic text-gray-300">sem e-mail</span>}</span>
+                                <span className="text-gray-200">·</span>
+                                <span>{c.cpfCnpj}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {dropdownAberto && buscaCliente.trim().length >= 1 && clientesFiltrados.length === 0 && (
+                        <div className="absolute z-10 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-3 text-sm text-gray-400 text-center">
+                          Nenhum cliente encontrado
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
               {/* Upload PDF */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Documento PDF</label>
@@ -310,7 +431,7 @@ export function Assinaturas() {
                 </button>
               </div>
 
-              {/* Signatário */}
+              {/* Nome e e-mail do signatário */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatário</label>
@@ -355,7 +476,7 @@ export function Assinaturas() {
                     )}
                   </div>
                 ) : null}
-                {(!form.modeloId) && (
+                {!form.modeloId && (
                   <textarea
                     value={form.mensagemCustom}
                     onChange={e => setForm(f => ({ ...f, mensagemCustom: e.target.value }))}
