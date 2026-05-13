@@ -358,6 +358,11 @@ export interface ConfiguracaoEmpresa {
    * false (padrão) = 'desconsiderada' pode ser substituída pela regra de baixada.
    */
   protegerDesconsideradaImport?: boolean;
+  /**
+   * true = primeira parcela (nº == '1') é protegida e NÃO recebe baixa automática no import.
+   * false (padrão) = regra de baixada se aplica normalmente à primeira parcela também.
+   */
+  protegerPrimeiraParcelaImport?: boolean;
 }
 
 export type TipoTarefa = 'ligacao' | 'email' | 'reuniao' | 'visita' | 'outro';

@@ -1851,7 +1851,32 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                 </div>
               </div>
 
-              {/* 4. Info: analise_critica por data limite */}
+              {/* 4. Proteger primeira parcela */}
+              <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    Desconsiderar a regra de baixada para a 1ª parcela?
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Sim:</strong> A primeira parcela de cada apólice não recebe baixa automática — ela permanece com o status atual mesmo que não apareça no import. Útil quando a 1ª parcela costuma ser paga diretamente e não aparece na carteira de cobrança da seguradora.<br />
+                    <strong>Não (padrão):</strong> A regra de baixada se aplica normalmente à primeira parcela também.
+                  </p>
+                </div>
+                <div className="flex rounded border border-gray-300 overflow-hidden text-sm shrink-0">
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerPrimeiraParcelaImport: true })}
+                    className={`px-4 py-2 transition-colors font-medium ${empresa.protegerPrimeiraParcelaImport === true ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Sim
+                  </button>
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerPrimeiraParcelaImport: false })}
+                    className={`px-4 py-2 border-l border-gray-300 transition-colors font-medium ${empresa.protegerPrimeiraParcelaImport !== true ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Não
+                  </button>
+                </div>
+              </div>
+
+              {/* 5. Info: analise_critica por data limite */}
               <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-lg p-4 text-xs text-amber-800">
                 <span className="text-amber-500 mt-0.5">ℹ️</span>
                 <span>

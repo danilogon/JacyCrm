@@ -477,8 +477,9 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       // Marcar baixadas: parcelas das seguradoras consideradas que NÃO apareceram
       // Configurações da empresa determinam o comportamento
       // Garante retrocompat: valor legado 'desconsiderada' cai em 'baixada_sistema'
-      const statusAusente = (empresa.statusAusenteImport === 'nao_alterar') ? 'nao_alterar' : 'baixada_sistema';
-      const protegerDesc  = empresa.protegerDesconsideradaImport === true;
+      const statusAusente        = (empresa.statusAusenteImport === 'nao_alterar') ? 'nao_alterar' : 'baixada_sistema';
+      const protegerDesc         = empresa.protegerDesconsideradaImport === true;
+      const protegerPrimeiraParc = empresa.protegerPrimeiraParcelaImport === true;
       let totalBaixadas = 0;
       parcelas.forEach(p => {
         if (chavesSeen.has(p.chaveUnica)) return; // já está na lista atualizada
@@ -499,6 +500,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         // Seguradora veio no import mas esta parcela não apareceu
         const statusAtualStr = p.status as string;
         // Statuses que nunca são sobrescritos pela regra de baixada
+        const isPrimeira = p.numeroParcela.trim().replace(/^0+/, '') === '1';
         const protegido =
           statusAtualStr === 'paga' ||
           statusAtualStr === 'seguro_cancelado' ||
@@ -506,7 +508,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           statusAtualStr === 'analise_critica' ||
           statusAtualStr === 'baixada' ||
           statusAtualStr === 'cancelado' ||
-          (protegerDesc && statusAtualStr === 'desconsiderada');
+          (protegerDesc && statusAtualStr === 'desconsiderada') ||
+          (protegerPrimeiraParc && isPrimeira);
         if (protegido) {
           updated.push(p);
           return;
