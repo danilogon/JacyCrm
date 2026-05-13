@@ -27,6 +27,7 @@ const ORIGEM_LABELS: Record<string, string> = {
   seguro_novo: 'Seguro Novo',
   renovacao:   'Renovação',
   prospeccao:  'Prospecção',
+  parcela:     'Parcela',
   geral:       'Geral',
 };
 
@@ -34,6 +35,7 @@ const ORIGEM_CORES: Record<string, string> = {
   seguro_novo: 'bg-blue-50 text-blue-600 border-blue-200',
   renovacao:   'bg-amber-50 text-amber-700 border-amber-200',
   prospeccao:  'bg-teal-50 text-teal-700 border-teal-200',
+  parcela:     'bg-purple-50 text-purple-700 border-purple-200',
   geral:       'bg-gray-100 text-gray-600 border-gray-200',
 };
 
@@ -41,6 +43,7 @@ const ORIGEM_PATHS: Record<string, string> = {
   seguro_novo: '/seguros-novos',
   renovacao:   '/renovacoes',
   prospeccao:  '/prospeccao',
+  parcela:     '/parcelas',
 };
 
 const formVazio = (responsavelId: string) => ({

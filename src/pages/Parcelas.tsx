@@ -4,6 +4,7 @@ import {
   Link2, Paperclip, FileText, History, CheckCircle, Plus, Zap, Bell, ChevronRight, ChevronLeft, UserCheck,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela, Tarefa } from '../types';
 import { TarefasPanel } from '../components/TarefasPanel';
@@ -163,6 +164,8 @@ function StatusBadge({ status }: { status: string }) {
 
 export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true, tarefas, setTarefas }: Props) {
   const { usuario } = useAuth();
+  const location = useLocation();
+  const navigateParcelas = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
   // ── Opções de forma de pagamento (padrão + gerenciadas) ──────────────────
@@ -279,6 +282,17 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     localStorage.setItem(STORAGE_KEY, hoje);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // roda só na montagem do componente
+
+  // Abre card de parcela quando navegado a partir de Tarefas (state.openId)
+  useEffect(() => {
+    const openId = (location.state as { openId?: string } | null)?.openId;
+    if (openId) {
+      const p = parcelas.find(x => x.id === openId);
+      if (p) abrirEdicao(p);
+      navigateParcelas('/parcelas', { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Dados derivados ───────────────────────────────────────────────────────
   const seguradoras = useMemo(() => {
