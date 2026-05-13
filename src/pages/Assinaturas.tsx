@@ -512,23 +512,12 @@ export function Assinaturas({ clientes, origens }: Props) {
                         {env.emailSignatario}
                       </td>
 
-                      {/* Origem — select inline */}
-                      <td className="px-4 py-3">
-                        <select
-                          value={env.origemId ?? ''}
-                          onChange={e => setEnvelopes(prev => prev.map(en =>
-                            en.id === env.id ? { ...en, origemId: e.target.value || undefined } : en
-                          ))}
-                          className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 bg-white focus:outline-none focus:ring-1 focus:ring-blue-400 max-w-[140px]"
-                        >
-                          <option value="">— Selecionar —</option>
-                          {origensAtivas.map(o => (
-                            <option key={o.id} value={o.id}>{o.nome}</option>
-                          ))}
-                        </select>
-                        {origem && (
-                          <div className="text-[10px] text-blue-500 mt-0.5">{origem.nome}</div>
-                        )}
+                      {/* Origem — somente leitura */}
+                      <td className="px-4 py-3 text-xs text-gray-600">
+                        {origem
+                          ? <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full">{origem.nome}</span>
+                          : <span className="text-gray-300">—</span>
+                        }
                       </td>
 
                       {/* Enviado em */}
