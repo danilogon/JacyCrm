@@ -1742,36 +1742,110 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
           {/* Configuração de Importação */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h2 className="font-semibold text-gray-900 mb-1">Configuração de Importação</h2>
+            <h2 className="font-semibold text-gray-900 mb-1">Regras de Baixada no Import</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Define como o sistema trata parcelas de seguradoras que não aparecem em um novo import.
+              Define como o sistema trata parcelas que não aparecem em um novo import de planilha.
             </p>
             <div className="flex flex-col gap-3">
+
+              {/* 1. Proteção de seguradora ausente */}
               <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
                 <div>
                   <p className="text-sm font-medium text-gray-800 mb-1">
-                    Considerar para baixa parcelas de seguradora não importada?
+                    Proteger parcelas de seguradora não importada?
                   </p>
                   <p className="text-xs text-gray-500">
-                    <strong>Não (recomendado):</strong> Se nenhuma parcela de uma seguradora aparecer num import, o sistema trata como
-                    erro de importação e não altera essas parcelas até o próximo import.<br />
-                    <strong>Sim:</strong> O sistema marca como baixada_sistema as parcelas ausentes mesmo que a seguradora inteira
-                    tenha desaparecido do import.
+                    <strong>Sim (recomendado):</strong> Se nenhuma parcela de uma seguradora aparecer no import, o sistema trata como
+                    erro de importação e não altera essas parcelas.<br />
+                    <strong>Não:</strong> Aplica a regra de baixada mesmo que a seguradora inteira tenha desaparecido do import.
                   </p>
                 </div>
                 <div className="flex rounded border border-gray-300 overflow-hidden text-sm shrink-0">
                   <button
                     onClick={() => setEmpresa({ ...empresa, protegerSeguradoraSemImport: true })}
                     className={`px-4 py-2 transition-colors font-medium ${empresa.protegerSeguradoraSemImport !== false ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                    Não
+                    Sim
                   </button>
                   <button
                     onClick={() => setEmpresa({ ...empresa, protegerSeguradoraSemImport: false })}
                     className={`px-4 py-2 border-l border-gray-300 transition-colors font-medium ${empresa.protegerSeguradoraSemImport === false ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                    Sim
+                    Não
                   </button>
                 </div>
               </div>
+
+              {/* 2. Status a aplicar nas parcelas ausentes */}
+              <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    Status a aplicar nas parcelas ausentes do import
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Quando a seguradora aparece na planilha mas uma parcela específica não é encontrada,
+                    o sistema aplica este status automaticamente.
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {([
+                      { value: 'baixada_sistema', label: 'Baixa Automática', desc: 'Parcela marcada como baixada pelo sistema (padrão).' },
+                      { value: 'desconsiderada',  label: 'Desconsiderada',   desc: 'Parcela marcada como desconsiderada.' },
+                      { value: 'nao_alterar',     label: 'Não alterar',      desc: 'Nenhum status é alterado — registro do import apenas.' },
+                    ] as const).map(opt => {
+                      const sel = (empresa.statusAusenteImport ?? 'baixada_sistema') === opt.value;
+                      return (
+                        <label key={opt.value} className={`flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${sel ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white hover:bg-gray-50'}`}>
+                          <input
+                            type="radio"
+                            name="statusAusenteImport"
+                            value={opt.value}
+                            checked={sel}
+                            onChange={() => setEmpresa({ ...empresa, statusAusenteImport: opt.value })}
+                            className="mt-0.5 accent-blue-700"
+                          />
+                          <div>
+                            <span className={`text-sm font-medium ${sel ? 'text-blue-800' : 'text-gray-800'}`}>{opt.label}</span>
+                            <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Proteger desconsideradas */}
+              <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
+                <div>
+                  <p className="text-sm font-medium text-gray-800 mb-1">
+                    Proteger parcelas com status "Desconsiderada"?
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    <strong>Sim:</strong> Parcelas desconsideradas manualmente não são sobrescritas pela regra de baixada no import.<br />
+                    <strong>Não (padrão):</strong> A regra de baixada pode alterar parcelas desconsideradas normalmente.
+                  </p>
+                </div>
+                <div className="flex rounded border border-gray-300 overflow-hidden text-sm shrink-0">
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerDesconsideradaImport: true })}
+                    className={`px-4 py-2 transition-colors font-medium ${empresa.protegerDesconsideradaImport === true ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Sim
+                  </button>
+                  <button
+                    onClick={() => setEmpresa({ ...empresa, protegerDesconsideradaImport: false })}
+                    className={`px-4 py-2 border-l border-gray-300 transition-colors font-medium ${empresa.protegerDesconsideradaImport !== true ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                    Não
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. Info: analise_critica por data limite */}
+              <div className="flex items-start gap-3 bg-amber-50 border border-amber-100 rounded-lg p-4 text-xs text-amber-800">
+                <span className="text-amber-500 mt-0.5">ℹ️</span>
+                <span>
+                  <strong>Regra fixa:</strong> Se uma parcela possui Data Limite definida e esta já ultrapassou a data do import,
+                  o status aplicado será sempre <strong>Análise Crítica</strong>, independente da configuração acima.
+                </span>
+              </div>
+
             </div>
           </div>
 

@@ -346,6 +346,18 @@ export interface ConfiguracaoEmpresa {
    * false = processa baixa_sistema mesmo que a seguradora esteja totalmente ausente.
    */
   protegerSeguradoraSemImport?: boolean;
+  /**
+   * Status a aplicar nas parcelas ausentes de um import (quando a seguradora apareceu
+   * mas a parcela específica não foi encontrada na planilha).
+   * 'baixada_sistema' (padrão) | 'desconsiderada' | 'nao_alterar'
+   */
+  statusAusenteImport?: 'baixada_sistema' | 'desconsiderada' | 'nao_alterar';
+  /**
+   * true = parcelas com status 'desconsiderada' são protegidas e NÃO são sobrescritas
+   * pela regra de baixada no import.
+   * false (padrão) = 'desconsiderada' pode ser substituída pela regra de baixada.
+   */
+  protegerDesconsideradaImport?: boolean;
 }
 
 export type TipoTarefa = 'ligacao' | 'email' | 'reuniao' | 'visita' | 'outro';

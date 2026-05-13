@@ -474,7 +474,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         }
       });
 
-      // Marcar baixadas sistema: parcelas das seguradoras consideradas que NÃO apareceram
+      // Marcar baixadas: parcelas das seguradoras consideradas que NÃO apareceram
+      // Configurações da empresa determinam o comportamento
+      const statusAusente = empresa.statusAusenteImport ?? 'baixada_sistema';
+      const protegerDesc  = empresa.protegerDesconsideradaImport === true;
       let totalBaixadas = 0;
       parcelas.forEach(p => {
         if (chavesSeen.has(p.chaveUnica)) return; // já está na lista atualizada
@@ -485,19 +488,30 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             updated.push(p);
             return;
           }
-          // Sem proteção: aplica baixada_sistema mesmo para seguradoras ausentes
+          // Sem proteção: aplica regra de baixada mesmo para seguradoras ausentes
         }
-        // Seguradora veio no import mas esta parcela não apareceu
-        const statusAtual = p.status;
-        // Se já está baixada/cancelada/análise crítica, só verificar data limite (inclui legado)
-        const statusAtualStr = statusAtual as string;
-        if (statusAtualStr === 'paga' || statusAtualStr === 'seguro_cancelado' || statusAtualStr === 'baixada_sistema' ||
-            statusAtualStr === 'baixada' || statusAtualStr === 'cancelado') {
+        // Regra configurada como "não alterar" → preserva sempre
+        if (statusAusente === 'nao_alterar') {
           updated.push(p);
           return;
         }
-        // Verificar se passou da data limite → análise crítica
-        let novoStatus: StatusParcela = 'baixada_sistema';
+        // Seguradora veio no import mas esta parcela não apareceu
+        const statusAtualStr = p.status as string;
+        // Statuses que nunca são sobrescritos pela regra de baixada
+        const protegido =
+          statusAtualStr === 'paga' ||
+          statusAtualStr === 'seguro_cancelado' ||
+          statusAtualStr === 'baixada_sistema' ||
+          statusAtualStr === 'analise_critica' ||
+          statusAtualStr === 'baixada' ||
+          statusAtualStr === 'cancelado' ||
+          (protegerDesc && statusAtualStr === 'desconsiderada');
+        if (protegido) {
+          updated.push(p);
+          return;
+        }
+        // Determina novo status: se passou da data limite → analise_critica
+        let novoStatus: StatusParcela = statusAusente as StatusParcela;
         if (p.dataLimite && dataImport > p.dataLimite) {
           novoStatus = 'analise_critica';
         }
