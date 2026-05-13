@@ -78,12 +78,13 @@ export async function testarConexao(token: string): Promise<{ ok: boolean; erro?
 export async function baixarDocumentoAssinado(
   token: string,
   envelopeId: string,
+  documentKey?: string,
 ): Promise<{ ok: boolean; blobUrl?: string; erro?: string }> {
   try {
     const res = await fetch('/api/clicksign-download', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, envelopeId }),
+      body: JSON.stringify({ token, envelopeId, documentKey }),
     });
 
     const data = await res.json().catch(() => ({}));

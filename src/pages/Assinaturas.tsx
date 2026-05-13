@@ -216,7 +216,7 @@ export function Assinaturas({ clientes }: Props) {
   async function abrirDocumentoAssinado(env: EnvelopeAssinatura) {
     setBaixando(env.id);
     setErroDownload(null);
-    const resultado = await baixarDocumentoAssinado(config.token, env.envelopeIdClicksign);
+    const resultado = await baixarDocumentoAssinado(config.token, env.envelopeIdClicksign, env.documentIdClicksign);
     setBaixando(null);
     if (!resultado.ok) {
       setErroDownload({ id: env.id, msg: resultado.erro ?? 'Erro ao baixar documento.' });

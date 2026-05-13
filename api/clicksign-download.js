@@ -1,23 +1,18 @@
 /**
- * Retorna a URL de download do documento assinado via ClickSign API v3.
+ * Download do documento assinado via ClickSign.
  *
- * ClickSign pode responder com:
- * - 302 redirect para URL S3 pré-assinado
- * - 200 JSON com atributo de URL
- * - 200 binário PDF direto
+ * Estratégia principal: API v1 GET /api/v1/documents/{key}?access_token={token}
+ * retorna JSON com metadados incluindo link de download do PDF assinado.
+ *
+ * Fallback: API v3 com captura de redirect 302 para URL S3.
  */
 
-const BASE = 'https://app.clicksign.com/api/v3';
+const BASE_V1 = 'https://app.clicksign.com/api/v1';
+const BASE_V3 = 'https://app.clicksign.com/api/v3';
 
-async function csGet(token, path, followRedirect = false) {
-  return fetch(`${BASE}/${path}`, {
-    method: 'GET',
-    redirect: followRedirect ? 'follow' : 'manual',
-    headers: {
-      Authorization: token,
-      Accept: 'application/pdf, application/octet-stream, application/json, */*',
-    },
-  });
+function rawToken(token) {
+  // Remove prefixo "Bearer " se presente — v1 usa access_token como query param
+  return token.replace(/^Bearer\s+/i, '').trim();
 }
 
 export default async function handler(req, res) {
@@ -26,28 +21,63 @@ export default async function handler(req, res) {
     return;
   }
 
-  const { token, envelopeId } = req.body ?? {};
+  const { token, envelopeId, documentKey } = req.body ?? {};
   if (!token || !envelopeId) {
     res.status(400).json({ error: 'token e envelopeId são obrigatórios' });
     return;
   }
 
-  const diagnostico = [];
+  const at = rawToken(token);
 
+  // ── Estratégia 1: API v1 GET /api/v1/documents/{key} ──────────────────────
+  if (documentKey) {
+    try {
+      const v1Res = await fetch(`${BASE_V1}/documents/${documentKey}?access_token=${at}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+
+      if (v1Res.ok) {
+        const j = await v1Res.json().catch(() => null);
+        // ClickSign v1 retorna o link em diferentes campos dependendo da versão
+        const url =
+          j?.document?.downloads?.signed_file_url ??
+          j?.document?.download_link ??
+          j?.document?.file_url ??
+          j?.document?.signed_file_url ??
+          j?.download_link ??
+          null;
+
+        if (url) {
+          res.status(200).json({ url });
+          return;
+        }
+
+        // Se o JSON não tem URL direto, loga as chaves para diagnóstico
+        console.log('[clicksign-download] v1 JSON sem url conhecido:', JSON.stringify(j).slice(0, 500));
+      } else {
+        const txt = await v1Res.text().catch(() => '');
+        console.log(`[clicksign-download] v1 status=${v1Res.status} body=${txt.slice(0, 200)}`);
+      }
+    } catch (err) {
+      console.error('[clicksign-download] v1 erro:', err);
+    }
+  }
+
+  // ── Estratégia 2: API v3 com redirect manual (captura URL S3) ────────────
   try {
-    // 1. Busca ID do primeiro documento do envelope
-    const docsR = await csGet(token, `envelopes/${envelopeId}/documents`, true);
-    let docId = null;
-    if (docsR.ok) {
-      const j = await docsR.json().catch(() => null);
-      docId = j?.data?.[0]?.id ?? null;
-      diagnostico.push(`docs status=${docsR.status} docId=${docId}`);
-    } else {
-      const txt = await docsR.text().catch(() => '');
-      diagnostico.push(`docs status=${docsR.status} body=${txt.slice(0, 200)}`);
+    // Busca ID do documento se não veio como documentKey
+    let docId = documentKey ?? null;
+    if (!docId) {
+      const docsRes = await fetch(`${BASE_V3}/envelopes/${envelopeId}/documents`, {
+        headers: { Authorization: token, Accept: 'application/json' },
+      });
+      if (docsRes.ok) {
+        const j = await docsRes.json().catch(() => null);
+        docId = j?.data?.[0]?.id ?? null;
+      }
     }
 
-    // 2. Tenta capturar redirect ou URL de download
     const paths = docId
       ? [
           `envelopes/${envelopeId}/documents/${docId}/download`,
@@ -56,22 +86,27 @@ export default async function handler(req, res) {
       : [`envelopes/${envelopeId}/download`];
 
     for (const path of paths) {
-      // Tenta sem seguir redirect (captura Location header)
-      const r = await csGet(token, path, false);
-      const ct = r.headers.get('content-type') ?? '';
-      const location = r.headers.get('location') ?? r.headers.get('Location') ?? null;
-      diagnostico.push(`path=${path} status=${r.status} ct=${ct} location=${location?.slice(0, 80) ?? 'null'}`);
+      // Tenta sem seguir redirect para capturar Location header (URL S3)
+      const r = await fetch(`${BASE_V3}/${path}`, {
+        method: 'GET',
+        redirect: 'manual',
+        headers: {
+          Authorization: token,
+          Accept: 'application/pdf, application/octet-stream, application/json, */*',
+        },
+      });
 
-      // Redirect → Location é o URL S3 pré-assinado
       if (r.status === 301 || r.status === 302 || r.status === 307 || r.status === 308) {
+        const location = r.headers.get('location') ?? r.headers.get('Location');
         if (location) {
           res.status(200).json({ url: location });
           return;
         }
       }
 
-      // Resposta 200 direta
       if (r.status >= 200 && r.status < 300) {
+        const ct = r.headers.get('content-type') ?? '';
+
         if (ct.includes('pdf') || ct.includes('octet-stream')) {
           const buf = Buffer.from(await r.arrayBuffer());
           res.setHeader('Content-Type', 'application/pdf');
@@ -89,58 +124,19 @@ export default async function handler(req, res) {
             j?.url ??
             j?.download_url ??
             null;
-          diagnostico.push(`json keys=${JSON.stringify(Object.keys(j?.data?.attributes ?? j ?? {})).slice(0, 200)}`);
           if (url) {
             res.status(200).json({ url });
             return;
           }
-        }
-
-        // Tenta seguindo redirect (caso redirect manual não tenha funcionado)
-        const r2 = await csGet(token, path, true);
-        const ct2 = r2.headers.get('content-type') ?? '';
-        const finalUrl = r2.url;
-        diagnostico.push(`follow status=${r2.status} finalUrl=${finalUrl?.slice(0, 80)}`);
-
-        if (r2.ok && (ct2.includes('pdf') || ct2.includes('octet-stream'))) {
-          const buf = Buffer.from(await r2.arrayBuffer());
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', 'inline; filename="documento-assinado.pdf"');
-          res.send(buf);
-          return;
-        }
-
-        if (r2.ok && ct2.includes('json')) {
-          const j2 = await r2.json().catch(() => null);
-          const url2 =
-            j2?.data?.attributes?.url ??
-            j2?.data?.attributes?.download_url ??
-            j2?.data?.attributes?.file_url ??
-            j2?.url ??
-            j2?.download_url ??
-            null;
-          if (url2) {
-            res.status(200).json({ url: url2 });
-            return;
-          }
-          // Se chegou aqui com follow, o finalUrl já é o destino final (S3)
-          if (finalUrl && finalUrl !== `${BASE}/${path}`) {
-            res.status(200).json({ url: finalUrl });
-            return;
-          }
+          console.log('[clicksign-download] v3 JSON sem url:', JSON.stringify(j).slice(0, 400));
         }
       }
     }
-
-    // Nenhuma estratégia funcionou — devolve diagnóstico
-    console.error('[clicksign-download] Falha. Diagnóstico:', diagnostico);
-    res.status(502).json({
-      error: 'Não foi possível obter o link de download. Verifique se o documento está assinado no ClickSign.',
-      diagnostico,
-    });
-
   } catch (err) {
-    console.error('[clicksign-download] Erro:', err);
-    res.status(500).json({ error: String(err), diagnostico });
+    console.error('[clicksign-download] v3 erro:', err);
   }
+
+  res.status(502).json({
+    error: 'Não foi possível obter o link de download. Verifique se o documento está assinado no ClickSign.',
+  });
 }
