@@ -1,26 +1,22 @@
 /**
- * Retorna a URL de download do documento assinado no ClickSign.
- * O frontend abre essa URL diretamente no navegador.
+ * Retorna a URL de download do documento assinado via ClickSign API v3.
  *
- * Estratégias em ordem:
- *  1. GET /envelopes/{id}/documents → atributo url/download_url do documento
- *  2. GET /envelopes/{id} → atributo download_url do envelope
- *  3. Monta URL pública do ClickSign com access_token na query string
+ * ClickSign responde ao endpoint de download com um redirect 302 para um
+ * URL S3 pré-assinado. Capturamos esse URL sem seguir o redirect e
+ * devolvemos ao frontend, que abre o PDF diretamente no navegador.
  */
 
 const BASE = 'https://app.clicksign.com/api/v3';
 
-async function csGet(token, path) {
-  const res = await fetch(`${BASE}/${path}`, {
+async function csGet(token, path, followRedirect = false) {
+  return fetch(`${BASE}/${path}`, {
+    method: 'GET',
+    redirect: followRedirect ? 'follow' : 'manual',
     headers: {
       Authorization: token,
-      Accept: 'application/vnd.api+json, application/json, */*',
+      Accept: 'application/pdf, application/octet-stream, application/json, */*',
     },
   });
-  const text = await res.text();
-  let json = null;
-  try { json = JSON.parse(text); } catch { /* não é JSON */ }
-  return { ok: res.status >= 200 && res.status < 300, status: res.status, json };
 }
 
 export default async function handler(req, res) {
@@ -36,51 +32,70 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Lista documentos do envelope para pegar URL do arquivo
-    const docsRes = await csGet(token, `envelopes/${envelopeId}/documents`);
-    if (docsRes.ok && docsRes.json) {
-      const docs = docsRes.json?.data ?? [];
-      const doc = Array.isArray(docs) ? docs[0] : null;
-      const attrs = doc?.attributes ?? {};
+    // 1. Busca ID do primeiro documento do envelope
+    const docsR = await csGet(token, `envelopes/${envelopeId}/documents`, true);
+    let docId = null;
+    if (docsR.ok) {
+      const j = await docsR.json().catch(() => null);
+      docId = j?.data?.[0]?.id ?? null;
+    }
 
-      const url =
-        attrs.download_url ??
-        attrs.url ??
-        attrs.file_url ??
-        null;
+    // 2. Tenta capturar redirect 302 do endpoint de download
+    // Ordem: documento específico → envelope genérico
+    const paths = docId
+      ? [
+          `envelopes/${envelopeId}/documents/${docId}/download`,
+          `envelopes/${envelopeId}/download`,
+        ]
+      : [`envelopes/${envelopeId}/download`];
 
-      if (url) {
-        res.status(200).json({ url });
-        return;
-      }
+    for (const path of paths) {
+      const r = await csGet(token, path, false); // sem seguir redirect
 
-      // Tenta baixar via endpoint de download do documento
-      if (doc?.id) {
-        const dlRes = await csGet(token, `envelopes/${envelopeId}/documents/${doc.id}/download`);
-        if (dlRes.ok && dlRes.json) {
-          const dlUrl =
-            dlRes.json?.data?.attributes?.url ??
-            dlRes.json?.url ??
-            null;
-          if (dlUrl) { res.status(200).json({ url: dlUrl }); return; }
+      // Redirect → Location é o URL S3 pré-assinado
+      if (r.status === 301 || r.status === 302 || r.status === 307 || r.status === 308) {
+        const location = r.headers.get('location') ?? r.headers.get('Location');
+        if (location) {
+          res.status(200).json({ url: location });
+          return;
         }
-        // Se retornou texto/PDF diretamente pelo status, monta URL pública
+      }
+
+      // Resposta direta com PDF ou JSON contendo URL
+      if (r.status >= 200 && r.status < 300) {
+        const ct = r.headers.get('content-type') ?? '';
+
+        if (ct.includes('pdf') || ct.includes('octet-stream')) {
+          // Arquivo retornado diretamente — faz proxy do binário
+          const buf = Buffer.from(await r.arrayBuffer());
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', 'inline; filename="documento-assinado.pdf"');
+          res.send(buf);
+          return;
+        }
+
+        if (ct.includes('json')) {
+          const j = await r.json().catch(() => null);
+          const url =
+            j?.data?.attributes?.url ??
+            j?.data?.attributes?.download_url ??
+            j?.url ??
+            j?.download_url ??
+            null;
+          if (url) {
+            res.status(200).json({ url });
+            return;
+          }
+          // Loga o JSON para diagnóstico e continua para o próximo path
+          console.log('[clicksign-download] JSON sem url:', JSON.stringify(j).slice(0, 400));
+        }
       }
     }
 
-    // 2. Tenta obter download_url do envelope
-    const envRes = await csGet(token, `envelopes/${envelopeId}`);
-    if (envRes.ok && envRes.json) {
-      const envUrl =
-        envRes.json?.data?.attributes?.download_url ??
-        envRes.json?.data?.attributes?.file_url ??
-        null;
-      if (envUrl) { res.status(200).json({ url: envUrl }); return; }
-    }
-
-    // 3. Fallback: URL pública com access_token (funciona para tokens válidos)
-    const fallbackUrl = `${BASE}/envelopes/${envelopeId}/download?access_token=${token}`;
-    res.status(200).json({ url: fallbackUrl });
+    // 3. Nenhuma estratégia funcionou — devolve erro informativo
+    res.status(502).json({
+      error: 'Não foi possível obter o link de download. Verifique se o documento está assinado no ClickSign.',
+    });
 
   } catch (err) {
     console.error('[clicksign-download] Erro:', err);
