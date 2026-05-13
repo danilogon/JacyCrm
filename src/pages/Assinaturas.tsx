@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId } from '../lib/clicksign';
+import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId, buscarStatusEnvelope } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
 import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente } from '../types';
@@ -145,12 +145,28 @@ export function Assinaturas({ clientes }: Props) {
     if (envelopes.length === 0) return;
     setSincronizando(true);
     try {
-      // Passo 1: popular documentIdClicksign nos envelopes que ainda não têm.
-      // O ID do documento v3 = chave v1 usada pelo webhook — sem ele não há match.
-      const semDocId = envelopes.filter(
-        e => !e.documentIdClicksign && e.status !== 'assinado'
-      );
-      let envelopesAtualizados = envelopes;
+      const pendentes = envelopes.filter(e => e.status !== 'assinado' && e.status !== 'cancelado' && e.status !== 'expirado');
+
+      // Passo 1 (primário): consulta o status diretamente na API do ClickSign.
+      // Elimina qualquer problema de mismatch de chaves do webhook.
+      if (pendentes.length > 0 && config.token) {
+        const atualizacoes: Record<string, StatusEnvelope> = {};
+        await Promise.all(
+          pendentes.map(async e => {
+            const status = await buscarStatusEnvelope(config.token, e.envelopeIdClicksign);
+            if (status && status !== e.status) atualizacoes[e.id] = status;
+          })
+        );
+        if (Object.keys(atualizacoes).length > 0) {
+          setEnvelopes(prev => prev.map(e =>
+            atualizacoes[e.id] ? { ...e, status: atualizacoes[e.id] } : e
+          ));
+        }
+      }
+
+      // Passo 2 (complementar): popular documentIdClicksign nos que ainda não têm,
+      // para que o webhook também consiga fazer o match no futuro.
+      const semDocId = pendentes.filter(e => !e.documentIdClicksign);
       if (semDocId.length > 0 && config.token) {
         const novoDocIds: Record<string, string> = {};
         await Promise.all(
@@ -160,15 +176,13 @@ export function Assinaturas({ clientes }: Props) {
           })
         );
         if (Object.keys(novoDocIds).length > 0) {
-          envelopesAtualizados = envelopes.map(e =>
+          setEnvelopes(prev => prev.map(e =>
             novoDocIds[e.id] ? { ...e, documentIdClicksign: novoDocIds[e.id] } : e
-          );
-          setEnvelopes(envelopesAtualizados);
+          ));
         }
       }
 
-      // Passo 2: buscar TODOS os eventos recentes do Supabase (sem filtro de ID)
-      // para garantir que encontramos mesmo quando o ID do webhook diverge.
+      // Passo 3 (fallback): eventos do Supabase para envelopes que a API não retornou.
       const { data } = await supabase
         .from('clicksign_eventos')
         .select('envelope_id_clicksign, status_local, recebido_em')
@@ -184,6 +198,7 @@ export function Assinaturas({ clientes }: Props) {
           }
         }
         setEnvelopes(prev => prev.map(e => {
+          if (e.status === 'assinado' || e.status === 'cancelado' || e.status === 'expirado') return e;
           const novoStatus =
             maiorStatus[e.envelopeIdClicksign] ??
             (e.documentIdClicksign ? maiorStatus[e.documentIdClicksign] : undefined);

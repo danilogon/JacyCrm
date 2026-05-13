@@ -32,6 +32,33 @@ export async function buscarDocumentId(
   }
 }
 
+/**
+ * Consulta o status atual de um envelope diretamente na API do ClickSign.
+ * Retorna o status local mapeado ou null se não reconhecido/erro.
+ */
+export async function buscarStatusEnvelope(
+  token: string,
+  envelopeId: string,
+): Promise<'enviado' | 'assinado' | 'cancelado' | 'expirado' | null> {
+  const STATUS_MAP: Record<string, 'enviado' | 'assinado' | 'cancelado' | 'expirado'> = {
+    completed: 'assinado',
+    canceled:  'cancelado',
+    expired:   'expirado',
+    running:   'enviado',
+  };
+  try {
+    const r = await callProxy(token, `envelopes/${envelopeId}`);
+    if (!r.ok) return null;
+    const status: string =
+      r.data?.data?.attributes?.status ??
+      r.data?.data?.status ??
+      '';
+    return STATUS_MAP[status] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function testarConexao(token: string): Promise<{ ok: boolean; erro?: string }> {
   try {
     const r = await callProxy(token, 'envelopes?page[size]=1');
