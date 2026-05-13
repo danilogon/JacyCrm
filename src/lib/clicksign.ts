@@ -64,6 +64,21 @@ export async function buscarStatusEnvelope(
   }
 }
 
+export async function cancelarEnvelope(
+  token: string,
+  envelopeId: string,
+): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const r = await callProxy(token, `envelopes/${envelopeId}`, 'PATCH', {
+      data: { type: 'envelopes', id: envelopeId, attributes: { status: 'canceled' } },
+    });
+    if (!r.ok) return { ok: false, erro: JSON.stringify(r.data).slice(0, 200) };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, erro: String(err) };
+  }
+}
+
 export async function testarConexao(token: string): Promise<{ ok: boolean; erro?: string }> {
   try {
     const r = await callProxy(token, 'envelopes?page[size]=1');

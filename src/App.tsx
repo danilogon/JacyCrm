@@ -528,7 +528,7 @@ function AppRoutes() {
         )}
 
         {(usuario.role === 'admin' || usuario.role === 'gestor') && (
-          <Route path="/assinaturas" element={<Assinaturas clientes={clientes} />} />
+          <Route path="/assinaturas" element={<Assinaturas clientes={clientes} origens={origensProspeccao} />} />
         )}
 
         {usuario.role === 'admin' && (
