@@ -320,9 +320,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     return parcelas.filter(p => {
       if (filtroStatus === 'pendentes') {
         const s = p.status as string;
-        // Novos + legado: excluir concluídos
+        // Excluir concluídos e não-acionáveis
         if (s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
-            s === 'baixada' || s === 'cancelado') return false;
+            s === 'baixada' || s === 'cancelado' ||
+            s === 'importada' || s === 'desconsiderada') return false;
       } else if (filtroStatus !== 'todas') {
         if (p.status !== filtroStatus) return false;
       }
@@ -371,7 +372,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const kpis = useMemo(() => {
     const isConcluido = (s: string) =>
       s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
-      s === 'baixada' || s === 'cancelado'; // legado
+      s === 'baixada' || s === 'cancelado' ||
+      s === 'importada' || s === 'desconsiderada';
     const pendentes = parcelas.filter(p => !isConcluido(p.status as string));
     const valorAberto = pendentes.reduce((s, p) => s + p.valorParcela, 0);
     const tratar = pendentes.filter(p => p.status === 'tratar').length;
