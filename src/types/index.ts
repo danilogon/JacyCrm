@@ -24,6 +24,7 @@ export interface EnvelopeAssinatura {
   id: string;
   envelopeIdClicksign: string;
   documentIdClicksign?: string; // ID do documento v3 / chave v1 para matching do webhook
+  documentoStorageUrl?: string; // URL permanente no Supabase Storage após assinatura
   nomeDocumento: string;
   nomeSignatario: string;
   emailSignatario: string;

@@ -104,6 +104,27 @@ export async function baixarDocumentoAssinado(
   }
 }
 
+export async function arquivarDocumento(
+  token: string,
+  envelopeId: string,
+  documentKey?: string,
+  nomeDocumento?: string,
+): Promise<{ ok: boolean; url?: string; erro?: string }> {
+  try {
+    const res = await fetch('/api/clicksign-archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, envelopeId, documentKey, nomeDocumento }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, erro: data.error ?? `Erro ${res.status}` };
+    if (data.url) return { ok: true, url: data.url };
+    return { ok: false, erro: 'Sem URL retornada pelo servidor.' };
+  } catch (err) {
+    return { ok: false, erro: String(err) };
+  }
+}
+
 export interface ClickSignResult {
   ok: boolean;
   envelopeId?: string;

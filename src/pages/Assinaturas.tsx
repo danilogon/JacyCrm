@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId, buscarStatusEnvelope } from '../lib/clicksign';
+import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId, buscarStatusEnvelope, arquivarDocumento } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
 import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente } from '../types';
@@ -141,6 +141,23 @@ export function Assinaturas({ clientes }: Props) {
         .replace(/\{\{email\}\}/g, form.emailSignatario)
     : form.mensagemCustom;
 
+  async function arquivarSeNecessario(lista: EnvelopeAssinatura[]) {
+    if (!config.token || lista.length === 0) return;
+    for (const env of lista) {
+      const resultado = await arquivarDocumento(
+        config.token,
+        env.envelopeIdClicksign,
+        env.documentIdClicksign,
+        env.nomeDocumento,
+      );
+      if (resultado.ok && resultado.url) {
+        setEnvelopes(prev => prev.map(e =>
+          e.id === env.id ? { ...e, documentoStorageUrl: resultado.url } : e
+        ));
+      }
+    }
+  }
+
   async function sincronizarStatus() {
     if (envelopes.length === 0) return;
     setSincronizando(true);
@@ -148,12 +165,14 @@ export function Assinaturas({ clientes }: Props) {
       const pendentes = envelopes.filter(e => e.status !== 'assinado' && e.status !== 'cancelado' && e.status !== 'expirado');
 
       // Passo 1 (primário): consulta o status diretamente na API do ClickSign.
+      const recemAssinados: EnvelopeAssinatura[] = [];
       if (pendentes.length > 0 && config.token) {
         const atualizacoes: Record<string, StatusEnvelope> = {};
         await Promise.all(
           pendentes.map(async e => {
             const status = await buscarStatusEnvelope(config.token, e.envelopeIdClicksign);
             if (status && status !== e.status) atualizacoes[e.id] = status;
+            if (status === 'assinado') recemAssinados.push(e);
           })
         );
         if (Object.keys(atualizacoes).length > 0) {
@@ -163,8 +182,7 @@ export function Assinaturas({ clientes }: Props) {
         }
       }
 
-      // Passo 2 (complementar): popular documentIdClicksign nos que ainda não têm,
-      // para que o webhook também consiga fazer o match no futuro.
+      // Passo 2 (complementar): popular documentIdClicksign nos que ainda não têm.
       const semDocId = pendentes.filter(e => !e.documentIdClicksign);
       if (semDocId.length > 0 && config.token) {
         const novoDocIds: Record<string, string> = {};
@@ -196,14 +214,27 @@ export function Assinaturas({ clientes }: Props) {
             maiorStatus[ev.envelope_id_clicksign] = ev.status_local as StatusEnvelope;
           }
         }
+        const recemAssinadosSup: EnvelopeAssinatura[] = [];
         setEnvelopes(prev => prev.map(e => {
           if (e.status === 'assinado' || e.status === 'cancelado' || e.status === 'expirado') return e;
           const novoStatus =
             maiorStatus[e.envelopeIdClicksign] ??
             (e.documentIdClicksign ? maiorStatus[e.documentIdClicksign] : undefined);
+          if (novoStatus === 'assinado') recemAssinadosSup.push(e);
           return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
         }));
+        // Arquivar os detectados pelo Supabase
+        await arquivarSeNecessario(recemAssinadosSup);
       }
+
+      // Passo 4: arquivar documentos já assinados que ainda não têm URL salva.
+      const assinadosSemUrl = envelopes.filter(
+        e => e.status === 'assinado' && !e.documentoStorageUrl
+      );
+      await arquivarSeNecessario(assinadosSemUrl);
+
+      // Arquivar os recém-assinados detectados na API (passo 1)
+      await arquivarSeNecessario(recemAssinados);
 
       setUltimaSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     } finally {
@@ -214,15 +245,34 @@ export function Assinaturas({ clientes }: Props) {
   useEffect(() => { sincronizarStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function abrirDocumentoAssinado(env: EnvelopeAssinatura) {
+    // Se já temos URL no Storage, abre direto sem chamar o ClickSign
+    if (env.documentoStorageUrl) {
+      window.open(env.documentoStorageUrl, '_blank');
+      return;
+    }
+
     setBaixando(env.id);
     setErroDownload(null);
+
     const resultado = await baixarDocumentoAssinado(config.token, env.envelopeIdClicksign, env.documentIdClicksign);
     setBaixando(null);
+
     if (!resultado.ok) {
       setErroDownload({ id: env.id, msg: resultado.erro ?? 'Erro ao baixar documento.' });
       return;
     }
+
     window.open(resultado.blobUrl!, '_blank');
+
+    // Aproveita e arquiva em segundo plano para futuras aberturas
+    arquivarDocumento(config.token, env.envelopeIdClicksign, env.documentIdClicksign, env.nomeDocumento)
+      .then(r => {
+        if (r.ok && r.url) {
+          setEnvelopes(prev => prev.map(e =>
+            e.id === env.id ? { ...e, documentoStorageUrl: r.url } : e
+          ));
+        }
+      });
   }
 
   async function enviar() {
