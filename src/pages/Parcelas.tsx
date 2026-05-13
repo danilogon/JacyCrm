@@ -5,7 +5,8 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela, Tarefa } from '../types';
+import { TarefasPanel } from '../components/TarefasPanel';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
@@ -24,6 +25,8 @@ interface Props {
   empresa: ConfiguracaoEmpresa;
   formasPagamento: FormaPagamento[];
   podeImportarParcelas?: boolean;
+  tarefas: Tarefa[];
+  setTarefas: (t: Tarefa[]) => void;
 }
 
 // ─── Status ──────────────────────────────────────────────────────────────────
@@ -158,7 +161,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true, tarefas, setTarefas }: Props) {
   const { usuario } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -304,7 +307,12 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       }
       if (filtroSeguradora && p.seguradora !== filtroSeguradora) return false;
       if (filtroRamo && p.ramo !== filtroRamo) return false;
-      if (filtroP1 && !isPrimeiraParc(p)) return false;
+      if (filtroP1) {
+        if (!isPrimeiraParc(p)) return false;
+        const s = p.status as string;
+        if (s === 'paga' || s === 'seguro_cancelado' || s === 'baixada_sistema' ||
+            s === 'desconsiderada' || s === 'baixada' || s === 'cancelado') return false;
+      }
       if (filtroSemVinculo && p.clienteId) return false;
       if (filtroVencDe && p.vencimento < filtroVencDe) return false;
       if (filtroVencAte && p.vencimento > filtroVencAte) return false;
@@ -1210,6 +1218,19 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 </div>
               </div>
 
+              {/* Tarefas */}
+              <div className="border-t border-gray-100 pt-4">
+                <div className="text-sm font-semibold text-gray-700 mb-3">Tarefas / Agenda</div>
+                <TarefasPanel
+                  origemTipo="parcela"
+                  origemId={editando.id}
+                  nomeCliente={editando.nomeCliente}
+                  responsavelId={usuario?.id ?? ''}
+                  tarefas={tarefas}
+                  setTarefas={setTarefas}
+                />
+              </div>
+
               {/* Log de atividades */}
               {(editando.logs ?? []).length > 0 && (
                 <div className="border-t border-gray-100 pt-4">
@@ -1422,12 +1443,14 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora</label>
-                  <input
-                    type="text" value={formNovaParc.seguradora}
+                  <select
+                    value={formNovaParc.seguradora}
                     onChange={e => setFormNovaParc(f => ({ ...f, seguradora: e.target.value }))}
-                    placeholder="Nome da seguradora"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  >
+                    <option value="">— Selecione —</option>
+                    {seguradoras.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Forma de Pagamento</label>

@@ -447,6 +447,8 @@ function AppRoutes() {
               empresa={empresa}
               formasPagamento={formasPagamento}
               podeImportarParcelas={podeImportarParcelas}
+              tarefas={tarefas}
+              setTarefas={setTarefas}
             />
           } />
         )}

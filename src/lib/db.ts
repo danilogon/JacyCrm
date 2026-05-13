@@ -350,15 +350,29 @@ export const db = {
   upsertRegrasParcelas: (items: RegraParcelaNegocio[]) => upsertRows('regras_parcelas', items as unknown as Record<string, unknown>[]),
   deleteRegrasParcelas: (ids: string[])                => deleteRows('regras_parcelas', ids),
 
-  // Automações de Parcelas
+  // Automações de Parcelas — auto-retry removendo colunas ausentes no banco
   upsertAutomacoesParcelas: async (items: AutomacaoParcela[]) => {
-    try {
-      await upsertRows('automacoes_parcelas', items as unknown as Record<string, unknown>[], true);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes('automacoes_parcelas') || msg.includes('schema cache') || msg.includes('relation')) {
-        console.warn('Tabela automacoes_parcelas não encontrada. Execute o SQL de criação no Supabase.');
-      } else {
+    let rows = items as unknown as Record<string, unknown>[];
+    for (let tentativa = 0; tentativa <= 10; tentativa++) {
+      try {
+        await upsertRows('automacoes_parcelas', rows, true);
+        return;
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        // Tabela inexistente — orienta o usuário a rodar o SQL
+        if (msg.includes('relation') && msg.includes('automacoes_parcelas')) {
+          alert('A tabela de automações não existe no banco. Execute o SQL de criação no painel do Supabase e recarregue a página.');
+          throw e;
+        }
+        // Coluna ausente — remove e retenta
+        const match = msg.match(/Could not find the '(\w+)' column/);
+        if (match) {
+          const col = match[1];
+          const colCamel = toCamel(col);
+          rows = rows.map(r => { const c = { ...r }; delete c[colCamel]; delete c[col]; return c; });
+          console.warn(`[db] coluna '${col}' ausente em automacoes_parcelas — removida. Execute a migração SQL.`);
+          continue;
+        }
         alert(`Erro ao salvar automações: ${msg}`);
         throw e;
       }

@@ -358,7 +358,7 @@ export interface Tarefa {
   dataAgendada: string;    // YYYY-MM-DD
   horaAgendada?: string;   // HH:MM, opcional
   responsavelId: string;
-  origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao' | 'geral';
+  origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao' | 'parcela' | 'geral';
   origemId?: string;       // undefined quando origemTipo === 'geral'
   nomeCliente?: string;    // opcional para tarefas avulsas
   clienteId?: string;

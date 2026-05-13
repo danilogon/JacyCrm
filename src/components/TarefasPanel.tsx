@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { DateInput } from './DateInput';
 
 interface Props {
-  origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao';
+  origemTipo: 'seguro_novo' | 'renovacao' | 'prospeccao' | 'parcela';
   origemId: string | null; // null quando ainda não foi salvo (criando)
   nomeCliente: string;
   responsavelId: string;
