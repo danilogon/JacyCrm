@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw, User } from 'lucide-react';
+import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { enviarDocumentoParaAssinatura } from '../lib/clicksign';
+import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
 import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente } from '../types';
@@ -46,6 +46,8 @@ export function Assinaturas({ clientes }: Props) {
   const [busca, setBusca]                 = useState('');
   const [sincronizando, setSincronizando] = useState(false);
   const [ultimaSync, setUltimaSync]       = useState<string | null>(null);
+  const [baixando, setBaixando]           = useState<string | null>(null); // envelopeId em download
+  const [erroDownload, setErroDownload]   = useState<{ id: string; msg: string } | null>(null);
 
   // Busca de cliente no modal
   const [buscaCliente, setBuscaCliente]         = useState('');
@@ -162,6 +164,18 @@ export function Assinaturas({ clientes }: Props) {
   }
 
   useEffect(() => { sincronizarStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function abrirDocumentoAssinado(env: EnvelopeAssinatura) {
+    setBaixando(env.id);
+    setErroDownload(null);
+    const resultado = await baixarDocumentoAssinado(config.token, env.envelopeIdClicksign);
+    setBaixando(null);
+    if (!resultado.ok) {
+      setErroDownload({ id: env.id, msg: resultado.erro ?? 'Erro ao baixar documento.' });
+      return;
+    }
+    window.open(resultado.blobUrl!, '_blank');
+  }
 
   async function enviar() {
     if (!arquivo) { setErro('Selecione um arquivo PDF.'); return; }
@@ -310,23 +324,40 @@ export function Assinaturas({ clientes }: Props) {
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(env.criadoEm)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {env.linkAssinatura && (
-                          <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
-                            <ExternalLink size={12} /> Painel
-                          </a>
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          {env.linkAssinatura && (
+                            <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                              <ExternalLink size={12} /> Painel
+                            </a>
+                          )}
+                          {env.status === 'assinado' && (
+                            <button
+                              onClick={() => abrirDocumentoAssinado(env)}
+                              disabled={baixando === env.id}
+                              title="Abrir documento assinado"
+                              className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium disabled:opacity-50"
+                            >
+                              {baixando === env.id
+                                ? <><Loader2 size={12} className="animate-spin" /> Baixando…</>
+                                : <><FileDown size={12} /> Documento</>}
+                            </button>
+                          )}
+                          <select
+                            value={env.status}
+                            onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
+                            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                          >
+                            <option value="enviado">Aguardando</option>
+                            <option value="assinado">Assinado</option>
+                            <option value="cancelado">Cancelado</option>
+                            <option value="expirado">Expirado</option>
+                          </select>
+                        </div>
+                        {erroDownload?.id === env.id && (
+                          <p className="text-xs text-red-600">{erroDownload.msg}</p>
                         )}
-                        <select
-                          value={env.status}
-                          onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
-                          className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                        >
-                          <option value="enviado">Aguardando</option>
-                          <option value="assinado">Assinado</option>
-                          <option value="cancelado">Cancelado</option>
-                          <option value="expirado">Expirado</option>
-                        </select>
                       </div>
                     </td>
                   </tr>

@@ -25,6 +25,30 @@ export async function testarConexao(token: string): Promise<{ ok: boolean; erro?
   }
 }
 
+export async function baixarDocumentoAssinado(
+  token: string,
+  envelopeId: string,
+): Promise<{ ok: boolean; blobUrl?: string; erro?: string }> {
+  try {
+    const res = await fetch('/api/clicksign-download', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, envelopeId }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, erro: data.error ?? `Erro ${res.status}` };
+    }
+
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    return { ok: true, blobUrl };
+  } catch (err) {
+    return { ok: false, erro: `Não foi possível baixar o documento: ${String(err)}` };
+  }
+}
+
 export interface ClickSignResult {
   ok: boolean;
   envelopeId?: string;
