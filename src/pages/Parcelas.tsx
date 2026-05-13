@@ -720,7 +720,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             <History size={14} /> Histórico
           </button>
           <button
-            onClick={processarAutomacoes}
+            onClick={() => processarAutomacoes()}
             disabled={processando || automacoesParcelas.filter(a => a.ativo).length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
             title={automacoesParcelas.filter(a => a.ativo).length === 0 ? 'Nenhuma automação ativa configurada' : 'Aplicar automações às parcelas'}
