@@ -721,17 +721,42 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                     )}
                   </div>
                   {/* Prorrogada */}
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <label className="text-sm text-gray-700 shrink-0">Parcela desconsiderada na prorrogação:</label>
-                    <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
-                      {([['', 'Não alterar'], ['sim', 'Sim'], ['nao', 'Não']] as const).map(([v, l]) => (
-                        <button key={v} type="button"
-                          onClick={() => setForm(f => ({ ...f, acaoProrrogada: v }))}
-                          className={`px-2.5 py-1.5 border-l first:border-l-0 border-gray-300 transition-colors ${(form.acaoProrrogada ?? '') === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
-                          {l}
-                        </button>
-                      ))}
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <label className="text-sm text-gray-700 shrink-0">Parcela desconsiderada na prorrogação:</label>
+                      <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
+                        {([['', 'Não alterar'], ['sim', 'Sim'], ['nao', 'Não']] as const).map(([v, l]) => (
+                          <button key={v} type="button"
+                            onClick={() => setForm(f => ({ ...f, acaoProrrogada: v }))}
+                            className={`px-2.5 py-1.5 border-l first:border-l-0 border-gray-300 transition-colors ${(form.acaoProrrogada ?? '') === v ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                    {(form.acaoProrrogada === 'sim' || form.acaoProrrogada === 'nao') && (
+                      <div className={`text-xs rounded-lg px-3 py-2 border ${form.acaoProrrogada === 'sim' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                        {form.acaoProrrogada === 'sim' ? (
+                          <>
+                            <p className="font-semibold mb-1">Marcada como desconsiderada — o que isso significa:</p>
+                            <ul className="space-y-1 list-disc list-inside">
+                              <li>Se a parcela <strong>sumir da planilha de import</strong>, o sistema <strong>não dará baixa automática</strong> — ela permanece em aberto.</li>
+                              <li>Se a parcela <strong>reaparecer na planilha com nova data de vencimento</strong>, o sistema <strong>não cria uma nova parcela</strong> e <strong>mantém a data original</strong>, registrando apenas um log do reaparecimento.</li>
+                              <li>A baixa só ocorrerá se outra regra de automação for configurada para isso (ex: "Dias sem import ≥ 8").</li>
+                            </ul>
+                          </>
+                        ) : (
+                          <>
+                            <p className="font-semibold mb-1">Removida a marcação de desconsiderada — o que isso significa:</p>
+                            <ul className="space-y-1 list-disc list-inside">
+                              <li>A parcela volta ao comportamento padrão de import.</li>
+                              <li>Se <strong>sumir da planilha</strong>, receberá <strong>baixa automática</strong> normalmente (conforme configuração da empresa).</li>
+                              <li>Se <strong>reaparecer com nova data</strong>, a data de vencimento será atualizada.</li>
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* Data Prorrogação + Data Limite */}
                   <div className="grid grid-cols-2 gap-3">
