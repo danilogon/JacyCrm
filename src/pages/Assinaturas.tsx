@@ -63,7 +63,7 @@ export function Assinaturas({ clientes }: Props) {
   const [arquivo, setArquivo] = useState<{ nome: string; base64: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const tokenOk = config.ativo && config.token.trim().length > 0;
+  const tokenOk = config.token.trim().length > 0;
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
