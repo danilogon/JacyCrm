@@ -33,6 +33,11 @@ function toCamel(s: string) {
   return s.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
 }
 
+// Campos cujo nome snake_case não faz round-trip perfeito com toCamel
+const CAMEL_OVERRIDES: Record<string, string> = {
+  exigir_2fa: 'exigir2FA',
+};
+
 /** Busca o perfil do usuário logado na tabela `usuarios` via auth_uid. */
 async function fetchPerfil(): Promise<Usuario | null> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -46,10 +51,10 @@ async function fetchPerfil(): Promise<Usuario | null> {
 
   if (error || !data) return null;
 
-  // snake_case → camelCase
+  // snake_case → camelCase (com overrides para siglas como exigir_2fa → exigir2FA)
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(data as Record<string, unknown>)) {
-    out[toCamel(k)] = (data as Record<string, unknown>)[k];
+    out[CAMEL_OVERRIDES[k] ?? toCamel(k)] = (data as Record<string, unknown>)[k];
   }
   return out as unknown as Usuario;
 }
