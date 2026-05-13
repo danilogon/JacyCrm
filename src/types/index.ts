@@ -23,6 +23,7 @@ export type StatusEnvelope = 'enviado' | 'assinado' | 'cancelado' | 'expirado';
 export interface EnvelopeAssinatura {
   id: string;
   envelopeIdClicksign: string;
+  documentIdClicksign?: string; // ID do documento v3 / chave v1 para matching do webhook
   nomeDocumento: string;
   nomeSignatario: string;
   emailSignatario: string;

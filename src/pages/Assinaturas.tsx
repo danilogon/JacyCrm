@@ -137,7 +137,11 @@ export function Assinaturas({ clientes }: Props) {
     if (envelopes.length === 0) return;
     setSincronizando(true);
     try {
-      const ids = envelopes.map(e => e.envelopeIdClicksign).filter(Boolean);
+      // Coleta todos os IDs possíveis: envelope v3 + document v1 (para webhooks legados)
+      const ids = envelopes.flatMap(e =>
+        [e.envelopeIdClicksign, e.documentIdClicksign].filter(Boolean) as string[]
+      );
+
       const { data } = await supabase
         .from('clicksign_eventos')
         .select('envelope_id_clicksign, status_local, recebido_em')
@@ -146,6 +150,7 @@ export function Assinaturas({ clientes }: Props) {
         .order('recebido_em', { ascending: false });
 
       if (data && data.length > 0) {
+        // Mapa de qualquer ID (envelope ou document) → status mais recente
         const maiorStatus: Record<string, StatusEnvelope> = {};
         for (const ev of data) {
           if (!maiorStatus[ev.envelope_id_clicksign]) {
@@ -153,7 +158,9 @@ export function Assinaturas({ clientes }: Props) {
           }
         }
         setEnvelopes(prev => prev.map(e => {
-          const novoStatus = maiorStatus[e.envelopeIdClicksign];
+          const novoStatus =
+            maiorStatus[e.envelopeIdClicksign] ??
+            (e.documentIdClicksign ? maiorStatus[e.documentIdClicksign] : undefined);
           return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
         }));
       }
@@ -203,18 +210,19 @@ export function Assinaturas({ clientes }: Props) {
     }
 
     const novoEnvelope: EnvelopeAssinatura = {
-      id:                  generateId(),
-      envelopeIdClicksign: resultado.envelopeId!,
-      nomeDocumento:       arquivo.nome,
-      nomeSignatario:      form.nomeSignatario.trim(),
-      emailSignatario:     form.emailSignatario.trim(),
-      modeloId:            form.modeloId || undefined,
-      status:              'enviado',
-      linkAssinatura:      resultado.linkAssinatura,
-      avisoEnvio:          resultado.erro,
-      clienteId:           clienteSelecionado?.id,
-      responsavelId:       '',
-      criadoEm:            new Date().toISOString(),
+      id:                   generateId(),
+      envelopeIdClicksign:  resultado.envelopeId!,
+      documentIdClicksign:  resultado.documentId,
+      nomeDocumento:        arquivo.nome,
+      nomeSignatario:       form.nomeSignatario.trim(),
+      emailSignatario:      form.emailSignatario.trim(),
+      modeloId:             form.modeloId || undefined,
+      status:               'enviado',
+      linkAssinatura:       resultado.linkAssinatura,
+      avisoEnvio:           resultado.erro,
+      clienteId:            clienteSelecionado?.id,
+      responsavelId:        '',
+      criadoEm:             new Date().toISOString(),
     };
 
     setEnvelopes(prev => [novoEnvelope, ...prev]);

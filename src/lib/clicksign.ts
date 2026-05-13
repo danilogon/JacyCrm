@@ -52,6 +52,7 @@ export async function baixarDocumentoAssinado(
 export interface ClickSignResult {
   ok: boolean;
   envelopeId?: string;
+  documentId?: string; // ID do documento v3 (= chave v1 para matching do webhook)
   linkAssinatura?: string;
   erro?: string;
 }
@@ -127,6 +128,7 @@ export async function enviarDocumentoParaAssinatura(params: {
     return {
       ok: true,
       envelopeId,
+      documentId: docId,
       linkAssinatura: `https://app.clicksign.com/envelopes/${envelopeId}`,
     };
   } catch (err) {

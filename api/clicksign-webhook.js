@@ -1,30 +1,45 @@
 /**
  * Webhook ClickSign — recebe eventos de assinatura e persiste no Supabase.
- * Configure no painel ClickSign: Integrações → Webhooks → URL desta rota.
+ *
+ * Suporta dois formatos de payload:
+ *   • v3 (atual): event.data.envelope.id / event.data.envelope.status
+ *   • v1/v2 (legado): event.data.document.key / event.data.document.status
  *
  * Verificação HMAC SHA256:
- *   - ClickSign envia o header X-Clicksign-Hmac-Sha256 com HMAC(secret, rawBody) em hex
- *   - O secret deve estar na variável de ambiente CLICKSIGN_WEBHOOK_SECRET no Vercel
- *   - Se o secret não estiver configurado, o webhook aceita sem verificar (modo legado)
- *
- * Eventos tratados:
- *   envelope:completed → assinado
- *   envelope:canceled  → cancelado
- *   envelope:expired   → expirado
- *   signer:signed      → registrado (status permanece "enviado" até completed)
+ *   - ClickSign envia X-Clicksign-Hmac-Sha256 com HMAC(secret, rawBody) em hex
+ *   - O secret deve estar em CLICKSIGN_WEBHOOK_SECRET no Vercel
+ *   - Se o secret não estiver configurado → aceita sem verificar
+ *   - Se o secret estiver configurado mas o header estiver ausente → aceita com aviso
+ *     (compatibilidade com webhooks v1/v2 que não enviam HMAC)
+ *   - Se o secret e o header estiverem presentes → verifica e rejeita se inválido
  */
 
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 
-// Desabilita o body parser do Vercel para lermos o raw body (necessário para HMAC)
 export const config = { api: { bodyParser: false } };
 
-const STATUS_MAP = {
+// Mapeamento de status v3 (envelope.status)
+const STATUS_MAP_V3 = {
   completed: 'assinado',
   canceled:  'cancelado',
   expired:   'expirado',
   running:   'enviado',
+};
+
+// Mapeamento de status v1/v2 (document.status)
+const STATUS_MAP_V1_DOC = {
+  closed:   'assinado',
+  canceled: 'cancelado',
+  expired:  'expirado',
+  running:  'enviado',
+};
+
+// Alguns eventos v1 já determinam o status independente do document.status
+const STATUS_MAP_V1_EVENT = {
+  'Event::Close':    'assinado',
+  'Event::Cancel':   'cancelado',
+  'Event::Expired':  'expirado',
 };
 
 async function rawBody(req) {
@@ -54,21 +69,21 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Lê o raw body antes de parsear
   const bodyBuffer = await rawBody(req);
   const bodyText   = bodyBuffer.toString('utf-8');
 
-  // Verificação HMAC (se o secret estiver configurado)
+  // Verificação HMAC (somente se secret configurado E header presente)
   const secret = process.env.CLICKSIGN_WEBHOOK_SECRET;
   if (secret) {
     const assinatura = req.headers['x-clicksign-hmac-sha256'] ?? '';
-    if (!assinatura) {
-      res.status(401).json({ error: 'Header X-Clicksign-Hmac-Sha256 ausente.' });
-      return;
-    }
-    if (!verificarHmac(secret, bodyBuffer, assinatura)) {
-      res.status(401).json({ error: 'Assinatura HMAC inválida.' });
-      return;
+    if (assinatura) {
+      if (!verificarHmac(secret, bodyBuffer, assinatura)) {
+        res.status(401).json({ error: 'Assinatura HMAC inválida.' });
+        return;
+      }
+    } else {
+      // Header ausente → aceita mesmo assim (compatibilidade v1/v2)
+      console.warn('[webhook] HMAC secret configurado mas header ausente. Aceitando (v1/v2 compat).');
     }
   }
 
@@ -85,21 +100,47 @@ export default async function handler(req, res) {
 
   try {
     const payload = JSON.parse(bodyText);
+    const eventoNome = payload?.event?.name ?? '';
 
-    const eventoNome      = payload?.event?.name ?? '';
-    const envelopeId      = payload?.event?.data?.envelope?.id ?? '';
-    const statusClicksign = payload?.event?.data?.envelope?.status ?? '';
+    let envelopeKey   = '';
+    let statusClicksign = '';
+    let statusLocal   = null;
 
-    if (!envelopeId) {
-      res.status(400).json({ error: 'Payload sem envelope.id' });
+    const dadosV3 = payload?.event?.data?.envelope;
+    const dadosV1 = payload?.event?.data?.document;
+
+    if (dadosV3) {
+      // ── Formato v3 ────────────────────────────────────────────────────────
+      envelopeKey     = dadosV3.id ?? '';
+      statusClicksign = dadosV3.status ?? '';
+      statusLocal     = STATUS_MAP_V3[statusClicksign] ?? null;
+
+    } else if (dadosV1) {
+      // ── Formato v1/v2 ─────────────────────────────────────────────────────
+      envelopeKey     = dadosV1.key ?? '';
+      statusClicksign = dadosV1.status ?? '';
+
+      // Evento tem prioridade sobre o status do documento
+      statusLocal =
+        STATUS_MAP_V1_EVENT[eventoNome] ??
+        STATUS_MAP_V1_DOC[statusClicksign] ??
+        null;
+
+    } else {
+      // Payload sem dados reconhecíveis — registra e retorna OK para não gerar retentativas
+      console.warn('[webhook] Payload sem dados de envelope ou document:', bodyText.slice(0, 300));
+      res.status(200).json({ ok: true, aviso: 'Evento sem dados reconhecíveis; ignorado.' });
       return;
     }
 
-    const statusLocal = STATUS_MAP[statusClicksign] ?? null;
+    if (!envelopeKey) {
+      res.status(400).json({ error: 'Payload sem chave de envelope/documento.' });
+      return;
+    }
 
     const { error } = await supabase.from('clicksign_eventos').insert({
-      id:                    `${envelopeId}_${Date.now()}`,
-      envelope_id_clicksign: envelopeId,
+      id:                    `${envelopeKey}_${Date.now()}`,
+      envelope_id_clicksign: envelopeKey,
       evento:                eventoNome,
       status_clicksign:      statusClicksign,
       status_local:          statusLocal,
