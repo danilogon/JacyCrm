@@ -274,8 +274,32 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ─── 13. Tabela CLICKSIGN_EVENTOS (webhook) ───────────────────
+-- Recebe os retornos do webhook ClickSign via /api/clicksign-webhook.
+-- O frontend lê daqui para sincronizar o status dos envelopes.
+
+CREATE TABLE IF NOT EXISTS clicksign_eventos (
+  id                    TEXT PRIMARY KEY,
+  envelope_id_clicksign TEXT NOT NULL,
+  evento                TEXT NOT NULL,
+  status_clicksign      TEXT NOT NULL,
+  status_local          TEXT,
+  payload               JSONB,
+  recebido_em           TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_clicksign_eventos_envelope
+  ON clicksign_eventos (envelope_id_clicksign);
+
+ALTER TABLE clicksign_eventos ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'clicksign_eventos' AND policyname = 'acesso_total'
+  ) THEN
+    CREATE POLICY "acesso_total" ON clicksign_eventos FOR ALL TO anon USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
 -- =============================================================
 --  FIM DA MIGRAÇÃO
---  O módulo ClickSign (Assinaturas Eletrônicas) não precisa
---  de tabelas no banco — usa localStorage no browser.
 -- =============================================================

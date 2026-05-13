@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react';
-import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { enviarDocumentoParaAssinatura } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
+import { supabase } from '../lib/supabase';
 import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope } from '../types';
 
 const STATUS_LABEL: Record<StatusEnvelope, string> = {
@@ -35,10 +36,45 @@ export function Assinaturas() {
   const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
   const [envelopes, setEnvelopes] = useLocalStorage<EnvelopeAssinatura[]>('clicksign_envelopes', []);
 
-  const [modalAberto, setModalAberto] = useState(false);
-  const [enviando, setEnviando]       = useState(false);
-  const [erro, setErro]               = useState<string | null>(null);
-  const [busca, setBusca]             = useState('');
+  const [modalAberto, setModalAberto]   = useState(false);
+  const [enviando, setEnviando]         = useState(false);
+  const [erro, setErro]                 = useState<string | null>(null);
+  const [busca, setBusca]               = useState('');
+  const [sincronizando, setSincronizando] = useState(false);
+  const [ultimaSync, setUltimaSync]     = useState<string | null>(null);
+
+  async function sincronizarStatus() {
+    if (envelopes.length === 0) return;
+    setSincronizando(true);
+    try {
+      const ids = envelopes.map(e => e.envelopeIdClicksign).filter(Boolean);
+      const { data } = await supabase
+        .from('clicksign_eventos')
+        .select('envelope_id_clicksign, status_local, recebido_em')
+        .in('envelope_id_clicksign', ids)
+        .not('status_local', 'is', null)
+        .order('recebido_em', { ascending: false });
+
+      if (data && data.length > 0) {
+        // Para cada envelope, pega o evento mais recente (já vem ordenado desc)
+        const maiorStatus: Record<string, StatusEnvelope> = {};
+        for (const ev of data) {
+          if (!maiorStatus[ev.envelope_id_clicksign]) {
+            maiorStatus[ev.envelope_id_clicksign] = ev.status_local as StatusEnvelope;
+          }
+        }
+        setEnvelopes(prev => prev.map(e => {
+          const novoStatus = maiorStatus[e.envelopeIdClicksign];
+          return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
+        }));
+      }
+      setUltimaSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+    } finally {
+      setSincronizando(false);
+    }
+  }
+
+  useEffect(() => { sincronizarStatus(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [form, setForm] = useState({
     nomeSignatario:  '',
@@ -134,14 +170,25 @@ export function Assinaturas() {
           <FileSignature size={22} className="text-blue-700" />
           <h1 className="text-xl font-bold text-gray-900">Assinaturas Eletrônicas</h1>
         </div>
-        <button
-          onClick={abrirModal}
-          disabled={!tokenOk}
-          title={!tokenOk ? 'Configure o token do ClickSign em Configurações → Assinaturas' : ''}
-          className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Plus size={15} /> Enviar Documento
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={sincronizarStatus}
+            disabled={sincronizando}
+            title={ultimaSync ? `Última sync: ${ultimaSync}` : 'Sincronizar status via webhook'}
+            className="flex items-center gap-1.5 px-3 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <RefreshCw size={14} className={sincronizando ? 'animate-spin' : ''} />
+            {ultimaSync ? `Sync ${ultimaSync}` : 'Sincronizar'}
+          </button>
+          <button
+            onClick={abrirModal}
+            disabled={!tokenOk}
+            title={!tokenOk ? 'Configure o token do ClickSign em Configurações → Assinaturas' : ''}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Plus size={15} /> Enviar Documento
+          </button>
+        </div>
       </div>
 
       {/* Aviso sem token */}
