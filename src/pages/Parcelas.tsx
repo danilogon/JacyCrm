@@ -261,9 +261,10 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [processando, setProcessando] = useState(false);
   const [ultimoProcessamento, setUltimoProcessamento] = useState<{total: number; data: string} | null>(null);
 
-  function processarAutomacoes(parcelasBase = parcelas) {
+  function processarAutomacoes(parcelasBase = parcelas, ultimaImportData?: string) {
     setProcessando(true);
-    const { parcelas: novas, totalAlteradas } = aplicarAutomacoes(parcelasBase, automacoesParcelas);
+    const dataImport = ultimaImportData ?? importacoesParcelas[0]?.dataImport;
+    const { parcelas: novas, totalAlteradas } = aplicarAutomacoes(parcelasBase, automacoesParcelas, undefined, dataImport);
     if (totalAlteradas > 0) setParcelas(novas);
     setUltimoProcessamento({ total: totalAlteradas, data: new Date().toLocaleString('pt-BR') });
     setProcessando(false);
@@ -576,7 +577,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const ativas = automacoesParcelas.filter(a => a.ativo);
       let parcelasFinais = updated;
       if (ativas.length > 0) {
-        const { parcelas: comAuto } = aplicarAutomacoes(updated, automacoesParcelas);
+        const { parcelas: comAuto } = aplicarAutomacoes(updated, automacoesParcelas, dataImport, dataImport);
         parcelasFinais = comAuto;
       }
       setParcelas(parcelasFinais);

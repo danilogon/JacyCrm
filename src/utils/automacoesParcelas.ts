@@ -18,22 +18,25 @@ const CAMPOS_DATA_SET = new Set<CampoParcela>([
   'vencimento', 'ultima_atualizacao', 'data_limite', 'data_prorrogacao',
 ]);
 
-function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | number | boolean {
+function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date, ultimaImportData?: string): string | number | boolean {
   switch (campo) {
-    case 'dias_apos_vencimento': return diasEntre(new Date(p.vencimento + 'T00:00:00'), hoje);
-    case 'dias_sem_import':      return diasEntre(new Date(p.ultimaAtualizacao + 'T00:00:00'), hoje);
-    case 'status':               return p.status;
-    case 'seguradora':           return p.seguradora;
-    case 'ramo':                 return p.ramo ?? '';
-    case 'forma_pagamento':      return p.formaPagamento;
-    case 'valor_parcela':        return p.valorParcela;
-    case 'prorrogada':           return p.prorrogada ?? false;
-    case 'primeira_parcela':     return p.numeroParcela.trim().replace(/^0+/, '') === '1';
-    case 'data_prorrogacao':     return p.dataProrrogacao ?? '';
-    case 'vencimento':           return p.vencimento;
-    case 'ultima_atualizacao':   return p.ultimaAtualizacao;
-    case 'data_limite':          return p.dataLimite ?? '';
-    default:                     return '';
+    case 'dias_apos_vencimento':  return diasEntre(new Date(p.vencimento + 'T00:00:00'), hoje);
+    case 'dias_sem_import':       return diasEntre(new Date(p.ultimaAtualizacao + 'T00:00:00'), hoje);
+    case 'status':                return p.status;
+    case 'seguradora':            return p.seguradora;
+    case 'ramo':                  return p.ramo ?? '';
+    case 'forma_pagamento':       return p.formaPagamento;
+    case 'valor_parcela':         return p.valorParcela;
+    case 'prorrogada':            return p.prorrogada ?? false;
+    case 'primeira_parcela':      return p.numeroParcela.trim().replace(/^0+/, '') === '1';
+    case 'data_prorrogacao':      return p.dataProrrogacao ?? '';
+    case 'vencimento':            return p.vencimento;
+    case 'ultima_atualizacao':    return p.ultimaAtualizacao;
+    case 'data_limite':           return p.dataLimite ?? '';
+    case 'consta_ultimo_import':
+      // true se a parcela apareceu no import mais recente
+      return ultimaImportData ? p.ultimaAtualizacao === ultimaImportData : false;
+    default:                      return '';
   }
 }
 
@@ -55,14 +58,16 @@ function resolverAcaoData(valor: string, hoje: Date, p: Parcela): string {
   return valor; // data fixa YYYY-MM-DD
 }
 
-function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
-  const valor = resolverCampo(p, cond.campo, hoje);
+const CAMPOS_BOOLEANOS_SET = new Set<CampoParcela>(['prorrogada', 'primeira_parcela', 'consta_ultimo_import']);
+
+function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date, ultimaImportData?: string): boolean {
+  const valor = resolverCampo(p, cond.campo, hoje, ultimaImportData);
 
   // Booleano: compara 'sim'/'nao' com o valor booleano
-  if (cond.campo === 'prorrogada') {
+  if (CAMPOS_BOOLEANOS_SET.has(cond.campo)) {
     const boolValor = valor === true;
     const boolRef = cond.tipoValor === 'campo' && cond.valorCampo
-      ? resolverCampo(p, cond.valorCampo, hoje) === true
+      ? resolverCampo(p, cond.valorCampo, hoje, ultimaImportData) === true
       : cond.valor === 'sim';
     return cond.operador === 'igual' ? boolValor === boolRef : boolValor !== boolRef;
   }
@@ -71,7 +76,7 @@ function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date): b
   let refStr: string;
   let refNum: number;
   if (cond.tipoValor === 'campo' && cond.valorCampo) {
-    const ref = resolverCampo(p, cond.valorCampo, hoje);
+    const ref = resolverCampo(p, cond.valorCampo, hoje, ultimaImportData);
     refStr = String(ref);
     refNum = Number(ref);
     // Aplica diasOffset quando ambos os campos são datas
@@ -98,8 +103,8 @@ function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date): b
   }
 }
 
-function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
-  const resultado = avaliarCondicaoBase(p, cond, hoje);
+function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date, ultimaImportData?: string): boolean {
+  const resultado = avaliarCondicaoBase(p, cond, hoje, ultimaImportData);
   return cond.negado ? !resultado : resultado;
 }
 
@@ -107,6 +112,7 @@ export function aplicarAutomacoes(
   parcelas: Parcela[],
   automacoes: AutomacaoParcela[],
   dataReferencia?: string,
+  ultimaImportData?: string,
 ): { parcelas: Parcela[]; totalAlteradas: number } {
   const hoje = new Date(dataReferencia ? dataReferencia + 'T00:00:00' : Date.now());
   hoje.setHours(0, 0, 0, 0);
@@ -158,10 +164,10 @@ export function aplicarAutomacoes(
         // Avaliação da esquerda para direita com operador por condição (mistura de E/OU)
         // Cada condição tem operadorProximo que conecta à próxima.
         // Fallback: usa auto.operadorLogico global para retrocompatibilidade.
-        let matchResult = avaliarCondicao(p, auto.condicoes[0], hoje);
+        let matchResult = avaliarCondicao(p, auto.condicoes[0], hoje, ultimaImportData);
         for (let i = 1; i < auto.condicoes.length; i++) {
           const op = auto.condicoes[i - 1].operadorProximo ?? auto.operadorLogico ?? 'E';
-          const condResult = avaliarCondicao(p, auto.condicoes[i], hoje);
+          const condResult = avaliarCondicao(p, auto.condicoes[i], hoje, ultimaImportData);
           if (op === 'E') matchResult = matchResult && condResult;
           else matchResult = matchResult || condResult;
         }

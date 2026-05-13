@@ -496,7 +496,8 @@ export type CampoParcela =
   | 'data_prorrogacao'       // YYYY-MM-DD: data da prorrogação
   | 'vencimento'             // YYYY-MM-DD: data de vencimento da parcela
   | 'ultima_atualizacao'     // YYYY-MM-DD: data do último import em que a parcela apareceu
-  | 'data_limite';           // YYYY-MM-DD: data limite para pagamento
+  | 'data_limite'            // YYYY-MM-DD: data limite para pagamento
+  | 'consta_ultimo_import';  // boolean: true se a parcela apareceu no import mais recente
 
 /** Formas de pagamento gerenciadas (similar a Ramo/Seguradora) */
 export interface FormaPagamento {

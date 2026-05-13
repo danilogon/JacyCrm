@@ -30,6 +30,7 @@ const CAMPO_LABELS: Record<CampoParcela, string> = {
   valor_parcela: 'Valor da parcela (R$)',
   prorrogada: 'Parcela desconsiderada na prorrogação',
   primeira_parcela: 'É a primeira parcela?',
+  consta_ultimo_import: 'Consta no último import?',
   data_prorrogacao: 'Data de prorrogação',
   vencimento: 'Data de vencimento',
   ultima_atualizacao: 'Data do último import',
@@ -39,7 +40,7 @@ const CAMPO_LABELS: Record<CampoParcela, string> = {
 const CAMPOS_NUMERICOS: CampoParcela[] = ['dias_apos_vencimento', 'dias_sem_import', 'valor_parcela'];
 const CAMPOS_STATUS: CampoParcela[] = ['status'];
 const CAMPOS_TEXTO: CampoParcela[] = ['seguradora', 'ramo', 'forma_pagamento'];
-const CAMPOS_BOOLEANOS: CampoParcela[] = ['prorrogada', 'primeira_parcela'];
+const CAMPOS_BOOLEANOS: CampoParcela[] = ['prorrogada', 'primeira_parcela', 'consta_ultimo_import'];
 const CAMPOS_DATA: CampoParcela[] = ['data_prorrogacao', 'vencimento', 'ultima_atualizacao', 'data_limite'];
 
 const OPCOES_DATA_ACAO = [
