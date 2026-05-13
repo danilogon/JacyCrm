@@ -28,11 +28,20 @@ function toSnake(s: string): string {
   return s.replace(/[A-Z]/g, (c: string) => '_' + c.toLowerCase());
 }
 
+// Mapeamentos especiais para campos cujo nome camelCase não faz round-trip
+// perfeito com a conversão automática (ex: siglas como "2FA").
+const SNAKE_OVERRIDES: Record<string, string> = {
+  exigir2FA: 'exigir_2fa',
+};
+const CAMEL_OVERRIDES: Record<string, string> = {
+  exigir_2fa: 'exigir2FA',
+};
+
 /** Converte chaves de primeiro nível de snake_case → camelCase */
 function rowToCamel<T>(row: Record<string, unknown>): T {
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(row)) {
-    out[toCamel(k)] = row[k];
+    out[CAMEL_OVERRIDES[k] ?? toCamel(k)] = row[k];
   }
   return out as T;
 }
@@ -41,7 +50,7 @@ function rowToCamel<T>(row: Record<string, unknown>): T {
 function objToSnake(obj: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const k of Object.keys(obj)) {
-    out[toSnake(k)] = obj[k];
+    out[SNAKE_OVERRIDES[k] ?? toSnake(k)] = obj[k];
   }
   return out;
 }
