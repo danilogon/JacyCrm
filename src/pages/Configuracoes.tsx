@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff, Copy, Webhook } from 'lucide-react';
 import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
@@ -189,6 +189,15 @@ function ConfigAssinaturas() {
   const [salvando, setSalvando]         = useState(false);
   const [testeStatus, setTesteStatus]   = useState<'idle' | 'ok' | 'erro'>('idle');
   const [testeErro, setTesteErro]       = useState<string | null>(null);
+  const [copiado, setCopiado]           = useState(false);
+
+  const webhookUrl = `${window.location.origin}/api/clicksign-webhook`;
+
+  function copiarWebhook() {
+    navigator.clipboard.writeText(webhookUrl);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  }
 
   const [modalModelo, setModalModelo] = useState<ModeloAssinatura | 'novo' | null>(null);
   const [formModelo, setFormModelo] = useState({ nome: '', descricao: '', mensagem: '' });
@@ -322,6 +331,59 @@ function ConfigAssinaturas() {
             <span><strong>Falha na verificação:</strong> {testeErro} As configurações foram salvas, mas verifique o token antes de usar.</span>
           </div>
         )}
+      </div>
+
+      {/* Webhook */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl space-y-4">
+        <div className="flex items-start gap-3">
+          <Webhook size={18} className="text-blue-600 mt-0.5 shrink-0" />
+          <div>
+            <h2 className="font-semibold text-gray-800 mb-0.5">Webhook de Retorno</h2>
+            <p className="text-sm text-gray-500">
+              Configure esta URL no painel do ClickSign em <strong>Configurações → Integrações → Webhooks</strong>.
+              O sistema receberá automaticamente os eventos de assinatura e atualizará os status.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">URL do Webhook</label>
+          <div className="flex gap-2">
+            <input
+              readOnly
+              value={webhookUrl}
+              className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono bg-gray-50 text-gray-700 select-all"
+              onClick={e => (e.target as HTMLInputElement).select()}
+            />
+            <button
+              onClick={copiarWebhook}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                copiado
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {copiado ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar</>}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-2">Mapeamento de status ClickSign → SmartCor</p>
+          <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
+            {[
+              { cs: 'completed', label: 'Assinado',             cor: 'bg-green-100 text-green-700' },
+              { cs: 'canceled',  label: 'Cancelado',            cor: 'bg-red-100 text-red-700'   },
+              { cs: 'expired',   label: 'Expirado',             cor: 'bg-gray-100 text-gray-500' },
+              { cs: 'running',   label: 'Aguardando Assinatura', cor: 'bg-yellow-100 text-yellow-700' },
+            ].map(({ cs, label, cor }) => (
+              <div key={cs} className="flex items-center justify-between px-3 py-2 border-b border-gray-50 last:border-0">
+                <span className="font-mono text-gray-500">{cs}</span>
+                <span className={`px-2 py-0.5 rounded-full font-medium ${cor}`}>{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Modelos de mensagem */}
