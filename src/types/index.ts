@@ -1,5 +1,37 @@
 export type Role = 'admin' | 'gestor' | 'usuario';
 
+// ─── Assinaturas Eletrônicas (ClickSign) ─────────────────────────────────────
+
+export interface ConfigClickSign {
+  token: string;
+  ativo: boolean;
+}
+
+export interface ModeloAssinatura {
+  id: string;
+  nome: string;
+  descricao: string;
+  mensagem: string;
+  criadoEm: string;
+}
+
+export type StatusEnvelope = 'enviado' | 'assinado' | 'cancelado' | 'expirado';
+
+export interface EnvelopeAssinatura {
+  id: string;
+  envelopeIdClicksign: string;
+  nomeDocumento: string;
+  nomeSignatario: string;
+  emailSignatario: string;
+  modeloId?: string;
+  status: StatusEnvelope;
+  linkAssinatura?: string;
+  avisoEnvio?: string;
+  clienteId?: string;
+  responsavelId: string;
+  criadoEm: string;
+}
+
 export interface TipoUsuario {
   id: string;
   nome: string;

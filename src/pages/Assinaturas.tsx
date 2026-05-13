@@ -1,0 +1,352 @@
+import { useState, useRef } from 'react';
+import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search } from 'lucide-react';
+import { useLocalStorage } from '../hooks/useLocalStorage';
+import { enviarDocumentoParaAssinatura } from '../lib/clicksign';
+import { generateId } from '../utils/formatters';
+import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope } from '../types';
+
+const STATUS_LABEL: Record<StatusEnvelope, string> = {
+  enviado:   'Aguardando Assinatura',
+  assinado:  'Assinado',
+  cancelado: 'Cancelado',
+  expirado:  'Expirado',
+};
+
+const STATUS_COLOR: Record<StatusEnvelope, string> = {
+  enviado:   'bg-yellow-100 text-yellow-700',
+  assinado:  'bg-green-100 text-green-700',
+  cancelado: 'bg-red-100 text-red-700',
+  expirado:  'bg-gray-100 text-gray-500',
+};
+
+const STATUS_ICON: Record<StatusEnvelope, React.ReactNode> = {
+  enviado:   <Clock size={13} />,
+  assinado:  <CheckCircle size={13} />,
+  cancelado: <XCircle size={13} />,
+  expirado:  <AlertTriangle size={13} />,
+};
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function Assinaturas() {
+  const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', ativo: false });
+  const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
+  const [envelopes, setEnvelopes] = useLocalStorage<EnvelopeAssinatura[]>('clicksign_envelopes', []);
+
+  const [modalAberto, setModalAberto] = useState(false);
+  const [enviando, setEnviando]       = useState(false);
+  const [erro, setErro]               = useState<string | null>(null);
+  const [busca, setBusca]             = useState('');
+
+  const [form, setForm] = useState({
+    nomeSignatario:  '',
+    emailSignatario: '',
+    modeloId:        '',
+    mensagemCustom:  '',
+  });
+  const [arquivo, setArquivo] = useState<{ nome: string; base64: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const tokenOk = config.ativo && config.token.trim().length > 0;
+
+  function abrirModal() {
+    setForm({ nomeSignatario: '', emailSignatario: '', modeloId: modelos[0]?.id ?? '', mensagemCustom: '' });
+    setArquivo(null);
+    setErro(null);
+    setModalAberto(true);
+  }
+
+  function handleArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf') { setErro('Apenas arquivos PDF são aceitos.'); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setArquivo({ nome: file.name, base64: reader.result as string });
+      setErro(null);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  const modeloSelecionado = modelos.find(m => m.id === form.modeloId);
+  const mensagemFinal = modeloSelecionado
+    ? modeloSelecionado.mensagem
+        .replace(/\{\{nome\}\}/g, form.nomeSignatario)
+        .replace(/\{\{email\}\}/g, form.emailSignatario)
+    : form.mensagemCustom;
+
+  async function enviar() {
+    if (!arquivo) { setErro('Selecione um arquivo PDF.'); return; }
+    if (!form.nomeSignatario.trim()) { setErro('Informe o nome do signatário.'); return; }
+    if (!form.emailSignatario.trim()) { setErro('Informe o e-mail do signatário.'); return; }
+    if (!mensagemFinal.trim()) { setErro('Defina uma mensagem para o signatário.'); return; }
+
+    setEnviando(true);
+    setErro(null);
+
+    const resultado = await enviarDocumentoParaAssinatura({
+      token:           config.token,
+      nomeArquivo:     arquivo.nome,
+      conteudoBase64:  arquivo.base64,
+      nomeSignatario:  form.nomeSignatario.trim(),
+      emailSignatario: form.emailSignatario.trim(),
+      mensagem:        mensagemFinal,
+    });
+
+    setEnviando(false);
+
+    if (!resultado.ok) {
+      setErro(resultado.erro ?? 'Erro ao enviar documento.');
+      return;
+    }
+
+    const novoEnvelope: EnvelopeAssinatura = {
+      id:                  generateId(),
+      envelopeIdClicksign: resultado.envelopeId!,
+      nomeDocumento:       arquivo.nome,
+      nomeSignatario:      form.nomeSignatario.trim(),
+      emailSignatario:     form.emailSignatario.trim(),
+      modeloId:            form.modeloId || undefined,
+      status:              'enviado',
+      linkAssinatura:      resultado.linkAssinatura,
+      avisoEnvio:          resultado.erro,
+      responsavelId:       '',
+      criadoEm:            new Date().toISOString(),
+    };
+
+    setEnvelopes(prev => [novoEnvelope, ...prev]);
+    setModalAberto(false);
+  }
+
+  const envelopesFiltrados = envelopes.filter(e =>
+    e.nomeSignatario.toLowerCase().includes(busca.toLowerCase()) ||
+    e.emailSignatario.toLowerCase().includes(busca.toLowerCase()) ||
+    e.nomeDocumento.toLowerCase().includes(busca.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileSignature size={22} className="text-blue-700" />
+          <h1 className="text-xl font-bold text-gray-900">Assinaturas Eletrônicas</h1>
+        </div>
+        <button
+          onClick={abrirModal}
+          disabled={!tokenOk}
+          title={!tokenOk ? 'Configure o token do ClickSign em Configurações → Assinaturas' : ''}
+          className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus size={15} /> Enviar Documento
+        </button>
+      </div>
+
+      {/* Aviso sem token */}
+      {!tokenOk && (
+        <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+          <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+          <span>
+            Token do ClickSign não configurado ou inativo.{' '}
+            <a href="/configuracoes" className="underline font-medium">Configure em Configurações → Assinaturas</a>.
+          </span>
+        </div>
+      )}
+
+      {/* Busca + lista */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+          <Search size={15} className="text-gray-400" />
+          <input
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            placeholder="Buscar por signatário, e-mail ou documento…"
+            className="flex-1 text-sm outline-none bg-transparent placeholder-gray-400"
+          />
+        </div>
+
+        {envelopesFiltrados.length === 0 ? (
+          <div className="py-14 text-center text-gray-400 text-sm">
+            <FileSignature size={32} className="mx-auto mb-3 opacity-30" />
+            {busca ? 'Nenhum resultado encontrado.' : 'Nenhum documento enviado ainda.'}
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Documento</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Signatário</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Enviado em</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Ações</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {envelopesFiltrados.map(env => (
+                <tr key={env.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-800 max-w-[220px] truncate" title={env.nomeDocumento}>
+                    {env.nomeDocumento}
+                    {env.avisoEnvio && (
+                      <span title={env.avisoEnvio}>
+                        <AlertTriangle size={13} className="inline ml-1 text-amber-400" />
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium text-gray-800">{env.nomeSignatario}</div>
+                    <div className="text-xs text-gray-400">{env.emailSignatario}</div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLOR[env.status]}`}>
+                      {STATUS_ICON[env.status]}
+                      {STATUS_LABEL[env.status]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(env.criadoEm)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      {env.linkAssinatura && (
+                        <a href={env.linkAssinatura} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                          <ExternalLink size={12} /> Painel
+                        </a>
+                      )}
+                      <select
+                        value={env.status}
+                        onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
+                        className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
+                      >
+                        <option value="enviado">Aguardando</option>
+                        <option value="assinado">Assinado</option>
+                        <option value="cancelado">Cancelado</option>
+                        <option value="expirado">Expirado</option>
+                      </select>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Modal novo envelope */}
+      {modalAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Enviar Documento para Assinatura</h2>
+              <button onClick={() => setModalAberto(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Upload PDF */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Documento PDF</label>
+                <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleArquivo} />
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  className="w-full border-2 border-dashed border-gray-200 rounded-xl py-6 flex flex-col items-center gap-2 text-gray-400 hover:border-blue-400 hover:text-blue-500 transition-colors"
+                >
+                  <Upload size={22} />
+                  <span className="text-sm">
+                    {arquivo ? (
+                      <span className="text-green-600 font-medium">✓ {arquivo.nome}</span>
+                    ) : (
+                      'Clique para selecionar o PDF'
+                    )}
+                  </span>
+                </button>
+              </div>
+
+              {/* Signatário */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Signatário</label>
+                  <input
+                    value={form.nomeSignatario}
+                    onChange={e => setForm(f => ({ ...f, nomeSignatario: e.target.value }))}
+                    placeholder="Nome e Sobrenome"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">E-mail do Signatário</label>
+                  <input
+                    type="email"
+                    value={form.emailSignatario}
+                    onChange={e => setForm(f => ({ ...f, emailSignatario: e.target.value }))}
+                    placeholder="email@exemplo.com"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Mensagem */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Mensagem</label>
+                {modelos.length > 0 ? (
+                  <div className="space-y-2">
+                    <select
+                      value={form.modeloId}
+                      onChange={e => setForm(f => ({ ...f, modeloId: e.target.value, mensagemCustom: '' }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">— Digitar mensagem manualmente —</option>
+                      {modelos.map(m => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+                    {form.modeloId && modeloSelecionado && (
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 whitespace-pre-wrap">
+                        {mensagemFinal}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+                {(!form.modeloId) && (
+                  <textarea
+                    value={form.mensagemCustom}
+                    onChange={e => setForm(f => ({ ...f, mensagemCustom: e.target.value }))}
+                    rows={3}
+                    placeholder="Mensagem que será enviada ao signatário..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none mt-2"
+                  />
+                )}
+                <p className="text-xs text-gray-400 mt-1">Variáveis disponíveis: {`{{nome}}`}, {`{{email}}`}</p>
+              </div>
+
+              {erro && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                  <XCircle size={15} className="shrink-0 mt-0.5" />
+                  {erro}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setModalAberto(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                Cancelar
+              </button>
+              <button
+                onClick={enviar}
+                disabled={enviando}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-60"
+              >
+                {enviando ? (
+                  <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Enviando…</>
+                ) : (
+                  <><FileSignature size={15} /> Enviar para Assinatura</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

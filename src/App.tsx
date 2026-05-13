@@ -20,6 +20,7 @@ import { ConsultaRenovacoes } from './pages/ConsultaRenovacoes';
 import { Emails } from './pages/Emails';
 import { Parcelas } from './pages/Parcelas';
 import { DashboardLookalike } from './pages/DashboardLookalike';
+import { Assinaturas } from './pages/Assinaturas';
 import { fetchAll, db } from './lib/db';
 import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo, FormaPagamento,
@@ -524,6 +525,10 @@ function AppRoutes() {
               setParcelas={setParcelas}
             />
           } />
+        )}
+
+        {(usuario.role === 'admin' || usuario.role === 'gestor') && (
+          <Route path="/assinaturas" element={<Assinaturas />} />
         )}
 
         {usuario.role === 'admin' && (

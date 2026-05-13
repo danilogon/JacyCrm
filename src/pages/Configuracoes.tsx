@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle } from 'lucide-react';
-import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela } from '../types';
+import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface Props {
   seguradoras: Seguradora[];
@@ -46,7 +47,7 @@ interface Props {
   setParcelas: (p: Parcela[]) => void;
 }
 
-type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes';
+type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes' | 'assinaturas';
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
   return (
@@ -173,6 +174,203 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
     </div>
   );
 }
+
+// ─── Config Assinaturas Eletrônicas ─────────────────────────────────────────
+
+function ConfigAssinaturas() {
+  const [config, setConfig] = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', ativo: false });
+  const [modelos, setModelos] = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
+
+  const [tokenVisivel, setTokenVisivel] = useState(false);
+  const [formToken, setFormToken] = useState(config.token);
+  const [tokenSalvo, setTokenSalvo] = useState(false);
+
+  const [modalModelo, setModalModelo] = useState<ModeloAssinatura | 'novo' | null>(null);
+  const [formModelo, setFormModelo] = useState({ nome: '', descricao: '', mensagem: '' });
+  const [confirmDelModelo, setConfirmDelModelo] = useState<string | null>(null);
+
+  function salvarToken() {
+    setConfig({ ...config, token: formToken.trim() });
+    setTokenSalvo(true);
+    setTimeout(() => setTokenSalvo(false), 2500);
+  }
+
+  function abrirNovoModelo() {
+    setFormModelo({ nome: '', descricao: '', mensagem: '' });
+    setModalModelo('novo');
+  }
+
+  function abrirEditModelo(m: ModeloAssinatura) {
+    setFormModelo({ nome: m.nome, descricao: m.descricao, mensagem: m.mensagem });
+    setModalModelo(m);
+  }
+
+  function salvarModelo() {
+    if (!formModelo.nome.trim() || !formModelo.mensagem.trim()) return;
+    const now = new Date().toISOString();
+    if (modalModelo === 'novo') {
+      setModelos([...modelos, { id: generateId(), ...formModelo, criadoEm: now }]);
+    } else if (modalModelo && typeof modalModelo === 'object') {
+      setModelos(modelos.map(m => m.id === modalModelo.id ? { ...m, ...formModelo } : m));
+    }
+    setModalModelo(null);
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Token */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 max-w-xl space-y-4">
+        <div>
+          <h2 className="font-semibold text-gray-800 mb-0.5">Integração ClickSign</h2>
+          <p className="text-sm text-gray-500">Configure o Access Token gerado no painel do ClickSign (Configurações → API).</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Access Token</label>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <input
+                type={tokenVisivel ? 'text' : 'password'}
+                value={formToken}
+                onChange={e => setFormToken(e.target.value)}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                className="w-full px-3 py-2 pr-9 border border-gray-300 rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => setTokenVisivel(v => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {tokenVisivel ? <EyeOff size={15} /> : <Eye size={15} />}
+              </button>
+            </div>
+            <button
+              onClick={salvarToken}
+              className="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 whitespace-nowrap"
+            >
+              Salvar
+            </button>
+          </div>
+          {tokenSalvo && <p className="text-xs text-green-600 mt-1 flex items-center gap-1"><Check size={12} /> Token salvo com sucesso.</p>}
+        </div>
+        <div className="flex items-center gap-3 pt-1 border-t border-gray-100">
+          <span className="text-sm text-gray-700">Integração ativa</span>
+          <button
+            onClick={() => setConfig(c => ({ ...c, ativo: !c.ativo }))}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.ativo ? 'bg-blue-600' : 'bg-gray-300'}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${config.ativo ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
+          <span className={`text-xs font-medium ${config.ativo ? 'text-green-600' : 'text-gray-400'}`}>
+            {config.ativo ? 'Ativa' : 'Inativa'}
+          </span>
+        </div>
+      </div>
+
+      {/* Modelos de mensagem */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h2 className="font-semibold text-gray-800">Modelos de Mensagem</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Mensagens enviadas aos signatários. Use {`{{nome}}`} e {`{{email}}`} como variáveis.</p>
+          </div>
+          <button
+            onClick={abrirNovoModelo}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800"
+          >
+            <Plus size={14} /> Novo Modelo
+          </button>
+        </div>
+
+        {modelos.length === 0 ? (
+          <div className="py-10 text-center text-sm text-gray-400">Nenhum modelo cadastrado.</div>
+        ) : (
+          <div className="divide-y divide-gray-50">
+            {modelos.map(m => (
+              <div key={m.id} className="px-5 py-3 flex items-start justify-between gap-3 hover:bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-sm text-gray-800">{m.nome}</div>
+                  {m.descricao && <div className="text-xs text-gray-400 mt-0.5">{m.descricao}</div>}
+                  <div className="text-xs text-gray-500 mt-1 line-clamp-2">{m.mensagem}</div>
+                </div>
+                <div className="flex gap-1 shrink-0">
+                  <button onClick={() => abrirEditModelo(m)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded">
+                    <Edit2 size={13} />
+                  </button>
+                  <button onClick={() => setConfirmDelModelo(m.id)} className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal modelo */}
+      {modalModelo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h3 className="font-semibold">{modalModelo === 'novo' ? 'Novo Modelo' : 'Editar Modelo'}</h3>
+              <button onClick={() => setModalModelo(null)}><X size={16} className="text-gray-400" /></button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nome do modelo</label>
+                <input
+                  value={formModelo.nome}
+                  onChange={e => setFormModelo(f => ({ ...f, nome: e.target.value }))}
+                  placeholder="Ex: Renovação de Seguro"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descrição (opcional)</label>
+                <input
+                  value={formModelo.descricao}
+                  onChange={e => setFormModelo(f => ({ ...f, descricao: e.target.value }))}
+                  placeholder="Ex: Utilizado para renovações de apólice"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mensagem</label>
+                <textarea
+                  value={formModelo.mensagem}
+                  onChange={e => setFormModelo(f => ({ ...f, mensagem: e.target.value }))}
+                  rows={4}
+                  placeholder={'Olá {{nome}}, por favor assine o documento de renovação do seu seguro.'}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1">Variáveis: {`{{nome}}`}, {`{{email}}`}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setModalModelo(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm">Cancelar</button>
+              <button
+                onClick={salvarModelo}
+                disabled={!formModelo.nome.trim() || !formModelo.mensagem.trim()}
+                className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50"
+              >
+                <Save size={14} /> Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={!!confirmDelModelo}
+        title="Excluir modelo"
+        message="Deseja excluir este modelo de mensagem?"
+        onConfirm={() => { setModelos(modelos.filter(m => m.id !== confirmDelModelo)); setConfirmDelModelo(null); }}
+        onCancel={() => setConfirmDelModelo(null)}
+      />
+    </div>
+  );
+}
+
+// ─── Configuracoes principal ─────────────────────────────────────────────────
 
 export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
@@ -327,6 +525,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
     { key: 'origens_prospeccao', label: 'Origem do Negócio' },
     { key: 'regras_parcelas', label: 'Regras de Parcelas' },
     { key: 'importacoes', label: 'Importações' },
+    { key: 'assinaturas', label: 'Assinaturas Eletrônicas' },
   ];
 
   function desfazerImportacao(lote: ImportacaoLote) {
@@ -2361,6 +2560,9 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
           </div>
         );
       })()}
+
+      {/* ── Assinaturas Eletrônicas ────────────────────────────── */}
+      {tab === 'assinaturas' && <ConfigAssinaturas />}
     </div>
   );
 }
