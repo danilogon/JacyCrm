@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle, AlertTriangle, ExternalLink, Search, RefreshCw, User, FileDown, Loader2 } from 'lucide-react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado } from '../lib/clicksign';
+import { enviarDocumentoParaAssinatura, baixarDocumentoAssinado, buscarDocumentId } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
 import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente } from '../types';
@@ -145,20 +145,38 @@ export function Assinaturas({ clientes }: Props) {
     if (envelopes.length === 0) return;
     setSincronizando(true);
     try {
-      // Coleta todos os IDs possíveis: envelope v3 + document v1 (para webhooks legados)
-      const ids = envelopes.flatMap(e =>
-        [e.envelopeIdClicksign, e.documentIdClicksign].filter(Boolean) as string[]
+      // Passo 1: popular documentIdClicksign nos envelopes que ainda não têm.
+      // O ID do documento v3 = chave v1 usada pelo webhook — sem ele não há match.
+      const semDocId = envelopes.filter(
+        e => !e.documentIdClicksign && e.status !== 'assinado'
       );
+      let envelopesAtualizados = envelopes;
+      if (semDocId.length > 0 && config.token) {
+        const novoDocIds: Record<string, string> = {};
+        await Promise.all(
+          semDocId.map(async e => {
+            const docId = await buscarDocumentId(config.token, e.envelopeIdClicksign);
+            if (docId) novoDocIds[e.id] = docId;
+          })
+        );
+        if (Object.keys(novoDocIds).length > 0) {
+          envelopesAtualizados = envelopes.map(e =>
+            novoDocIds[e.id] ? { ...e, documentIdClicksign: novoDocIds[e.id] } : e
+          );
+          setEnvelopes(envelopesAtualizados);
+        }
+      }
 
+      // Passo 2: buscar TODOS os eventos recentes do Supabase (sem filtro de ID)
+      // para garantir que encontramos mesmo quando o ID do webhook diverge.
       const { data } = await supabase
         .from('clicksign_eventos')
         .select('envelope_id_clicksign, status_local, recebido_em')
-        .in('envelope_id_clicksign', ids)
         .not('status_local', 'is', null)
-        .order('recebido_em', { ascending: false });
+        .order('recebido_em', { ascending: false })
+        .limit(500);
 
       if (data && data.length > 0) {
-        // Mapa de qualquer ID (envelope ou document) → status mais recente
         const maiorStatus: Record<string, StatusEnvelope> = {};
         for (const ev of data) {
           if (!maiorStatus[ev.envelope_id_clicksign]) {
@@ -172,6 +190,7 @@ export function Assinaturas({ clientes }: Props) {
           return novoStatus && novoStatus !== e.status ? { ...e, status: novoStatus } : e;
         }));
       }
+
       setUltimaSync(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
     } finally {
       setSincronizando(false);

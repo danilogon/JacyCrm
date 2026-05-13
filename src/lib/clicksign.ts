@@ -14,6 +14,24 @@ async function callProxy(token: string, path: string, method = 'GET', body?: unk
   return { status: res.status, ok: res.ok, data: await res.json() };
 }
 
+/**
+ * Busca o ID do primeiro documento de um envelope via API v3.
+ * O ID do documento (v3) é equivalente à chave usada nos webhooks v1/v2,
+ * permitindo fazer o match entre eventos recebidos e envelopes locais.
+ */
+export async function buscarDocumentId(
+  token: string,
+  envelopeId: string,
+): Promise<string | null> {
+  try {
+    const r = await callProxy(token, `envelopes/${envelopeId}/documents`);
+    const id = r.data?.data?.[0]?.id ?? null;
+    return id;
+  } catch {
+    return null;
+  }
+}
+
 export async function testarConexao(token: string): Promise<{ ok: boolean; erro?: string }> {
   try {
     const r = await callProxy(token, 'envelopes?page[size]=1');
