@@ -581,7 +581,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                                   const campo = e.target.value as CampoParcela;
                                   const ops = operadoresParaCampo(campo);
                                   const operador = ops[0].value;
-                                  const valor = CAMPOS_DATA.includes(campo) ? '' : campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
+                                  const valor = CAMPOS_BOOLEANOS.includes(campo) ? 'sim' : CAMPOS_DATA.includes(campo) ? '' : campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
                                   updateCondicao(cond.id, { campo, operador, valor, tipoValor: 'fixo', valorCampo: undefined, diasOffset: undefined });
                                 }}
                                 className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
