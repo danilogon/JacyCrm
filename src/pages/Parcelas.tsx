@@ -73,7 +73,7 @@ const STATUS_CLS: Record<string, string> = {
 };
 
 const STATUSES_EDITAVEIS: StatusParcela[] = [
-  'desconsiderada', 'em_tratativa', 'importada', 'paga', 'seguro_cancelado', 'tratar',
+  'analise_critica', 'desconsiderada', 'em_tratativa', 'importada', 'paga', 'seguro_cancelado', 'tratar',
 ];
 
 // ─── Helpers de parse ─────────────────────────────────────────────────────────
@@ -922,7 +922,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           <option value="pendentes">Pendentes</option>
           <option value="todas">Todos</option>
           <option value="baixada_sistema">Baixa Automática</option>
-          {STATUSES_EDITAVEIS.map(s => (
+          <option value="analise_critica">Análise Crítica</option>
+          {STATUSES_EDITAVEIS.filter(s => s !== 'analise_critica').map(s => (
             <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
           ))}
         </select>
@@ -1148,7 +1149,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                   <select value={formStatus} onChange={e => setFormStatus(e.target.value as StatusParcela)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="baixada_sistema">Baixa Automática</option>
-                    {STATUSES_EDITAVEIS.map(s => (
+                    <option value="analise_critica">Análise Crítica</option>
+                    {STATUSES_EDITAVEIS.filter(s => s !== 'analise_critica').map(s => (
                       <option key={s} value={s}>{STATUS_PARCELA_LABELS[s]}</option>
                     ))}
                   </select>
