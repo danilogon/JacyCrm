@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff, Copy, Webhook } from 'lucide-react';
 import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
@@ -193,11 +193,17 @@ function ConfigAssinaturas() {
   const [testeErro, setTesteErro]         = useState<string | null>(null);
   const [copiado, setCopiado]             = useState(false);
 
-  // Sincroniza os campos do form sempre que o config mudar no localStorage
-  useEffect(() => { setFormToken(config.token ?? ''); },         [config.token]);
-  useEffect(() => { setFormEmail(config.emailPadrao ?? ''); },   [config.emailPadrao]);
-  useEffect(() => { setFormNome(config.nomePadrao ?? ''); },     [config.nomePadrao]);
-  useEffect(() => { setFormSecret(config.webhookSecret ?? ''); },[config.webhookSecret]);
+  // Sincroniza campos do form somente quando o config muda por fonte externa
+  // (ex: outra aba). Usamos ref para evitar resetar o que o usuário está digitando.
+  const prevConfig = useRef(config);
+  useEffect(() => {
+    const prev = prevConfig.current;
+    prevConfig.current = config;
+    if (config.token        !== prev.token)        setFormToken(config.token ?? '');
+    if (config.emailPadrao  !== prev.emailPadrao)  setFormEmail(config.emailPadrao ?? '');
+    if (config.nomePadrao   !== prev.nomePadrao)   setFormNome(config.nomePadrao ?? '');
+    if (config.webhookSecret !== prev.webhookSecret) setFormSecret(config.webhookSecret ?? '');
+  }, [config]);
 
   const webhookUrl = `${window.location.origin}/api/clicksign-webhook`;
 
@@ -212,14 +218,21 @@ function ConfigAssinaturas() {
   const [confirmDelModelo, setConfirmDelModelo] = useState<string | null>(null);
 
   async function salvarConfig() {
-    const token = formToken.trim();
+    // Captura todos os valores antes de qualquer operação async para evitar stale closure
+    const token   = formToken.trim();
+    const email   = formEmail.trim();
+    const nome    = formNome.trim();
+    const secret  = formSecret.trim();
+
+    // Salva ANTES do teste para garantir que o dado nunca se perde
+    setConfig(c => ({ ...c, token, emailPadrao: email, nomePadrao: nome, webhookSecret: secret }));
+
     setSalvando(true);
     setTesteStatus('idle');
     setTesteErro(null);
 
     const resultado = await testarConexao(token);
 
-    setConfig({ ...config, token, emailPadrao: formEmail.trim(), nomePadrao: formNome.trim(), webhookSecret: formSecret.trim() });
     setSalvando(false);
 
     if (resultado.ok) {
