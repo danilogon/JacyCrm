@@ -368,9 +368,9 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                 Ao Criar
               </span>
             )}
-            {(a.filtroSeguradora || a.filtroRamo) && (
+            {(a.filtroSeguradora || a.filtroRamo || a.filtroFormaPagamento) && (
               <span className="text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
-                {[a.filtroSeguradora, a.filtroRamo].filter(Boolean).join(' · ')}
+                {[a.filtroSeguradora, a.filtroRamo, a.filtroFormaPagamento].filter(Boolean).join(' · ')}
               </span>
             )}
             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${a.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -785,6 +785,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                     })}
                     {form.filtroSeguradora && <span> · Seguradora: <strong>{form.filtroSeguradora}</strong></span>}
                     {form.filtroRamo && <span> · Ramo: <strong>{form.filtroRamo}</strong></span>}
+                    {form.filtroFormaPagamento && <span> · Forma pgto: <strong>{form.filtroFormaPagamento}</strong></span>}
                     {' → '}<strong>{STATUS_LABELS[form.novoStatus]}</strong>
                   </p>
                 </div>

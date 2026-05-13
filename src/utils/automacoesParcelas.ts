@@ -13,6 +13,12 @@ function diasEntre(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
+/** Normaliza string para comparação: remove acentos e converte para minúsculas.
+ *  Ex.: "Débito" === "Debito" === "DEBITO" → todos viram "debito" */
+function norm(s: string): string {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 // Campos cujo valor é uma data YYYY-MM-DD (para habilitar diasOffset e comparação entre datas)
 const CAMPOS_DATA_SET = new Set<CampoParcela>([
   'vencimento', 'ultima_atualizacao', 'data_limite', 'data_prorrogacao',
@@ -92,9 +98,9 @@ function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date, ul
     refNum = Number(cond.valor);
   }
 
-  // Comparações de texto são case-insensitive (ex: "ZURICH" === "Zurich")
-  const valorStr  = String(valor).toLowerCase();
-  const refStrLow = refStr.toLowerCase();
+  // Comparações de texto sem acento e sem case (ex: "ZURICH" === "Zurich", "Débito" === "Debito")
+  const valorStr  = norm(String(valor));
+  const refStrLow = norm(refStr);
 
   switch (cond.operador) {
     case 'igual':       return typeof valor === 'number' ? valor === refNum : valorStr === refStrLow;
@@ -155,9 +161,10 @@ export function aplicarAutomacoes(
     const logEntries: LogParcela[] = [];
 
     for (const auto of ativas) {
-      // Filtros avaliados contra o estado atual
-      if (auto.filtroSeguradora && current.seguradora.toLowerCase() !== auto.filtroSeguradora.toLowerCase()) continue;
-      if (auto.filtroRamo && (current.ramo ?? '').toLowerCase() !== auto.filtroRamo.toLowerCase()) continue;
+      // Filtros avaliados contra o estado atual (sem acento, sem case)
+      if (auto.filtroSeguradora    && norm(current.seguradora)           !== norm(auto.filtroSeguradora))    continue;
+      if (auto.filtroRamo          && norm(current.ramo ?? '')           !== norm(auto.filtroRamo))          continue;
+      if (auto.filtroFormaPagamento && norm(current.formaPagamento ?? '') !== norm(auto.filtroFormaPagamento)) continue;
 
       let match = false;
 
