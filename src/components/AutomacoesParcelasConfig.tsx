@@ -327,7 +327,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
       const lado = c.tipoValor === 'campo' && c.valorCampo
         ? `${CAMPO_LABELS[c.valorCampo]}${c.diasOffset ? ` ${c.diasOffset > 0 ? '+' : ''}${c.diasOffset}d` : ''}`
         : c.valor;
-      const condicaoStr = `${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${lado}`;
+      const condicaoStr = `${c.negado ? 'NÃO ' : ''}${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${lado}`;
       if (i < a.condicoes.length - 1) {
         const op = c.operadorProximo ?? a.operadorLogico ?? 'E';
         return `${condicaoStr} ${op}`;
@@ -562,6 +562,18 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                           <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-2 border border-gray-100">
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="text-xs text-gray-500 font-medium shrink-0">SE</span>
+                              {/* Toggle NÃO (NOT) */}
+                              <button
+                                type="button"
+                                onClick={() => updateCondicao(cond.id, { negado: !cond.negado })}
+                                title="Negar condição (NOT)"
+                                className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors shrink-0 ${
+                                  cond.negado
+                                    ? 'bg-red-600 text-white border-red-600 hover:bg-red-500'
+                                    : 'bg-white text-gray-400 border-gray-300 hover:border-red-400 hover:text-red-500'
+                                }`}>
+                                NÃO
+                              </button>
                               {/* Campo esquerdo */}
                               <select value={cond.campo}
                                 onChange={e => {
@@ -742,6 +754,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                       return (
                         <span key={c.id}>
                           {i > 0 && ' '}
+                          {c.negado && <strong className="text-red-600">NÃO </strong>}
                           {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g, ' ')} {ladoDir}
                           {i < form.condicoes.length - 1 && (
                             <strong className={op === 'E' ? ' text-blue-800' : ' text-amber-700'}> {op} </strong>

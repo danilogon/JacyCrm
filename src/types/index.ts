@@ -529,6 +529,11 @@ export interface CondicaoAutomacao {
    */
   diasOffset?: number;
   /**
+   * Quando true, o resultado da avaliação desta condição é invertido (NOT).
+   * Ex: campo=status, operador=igual, valor=paga, negado=true → "status NÃO é Paga".
+   */
+  negado?: boolean;
+  /**
    * Operador lógico que conecta ESTA condição com a PRÓXIMA na lista.
    * Ignorado na última condição da lista.
    * Fallback: usa auto.operadorLogico quando não definido (retrocompatibilidade).

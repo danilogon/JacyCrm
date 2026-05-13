@@ -55,7 +55,7 @@ function resolverAcaoData(valor: string, hoje: Date, p: Parcela): string {
   return valor; // data fixa YYYY-MM-DD
 }
 
-function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
+function avaliarCondicaoBase(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
   const valor = resolverCampo(p, cond.campo, hoje);
 
   // Booleano: compara 'sim'/'nao' com o valor booleano
@@ -96,6 +96,11 @@ function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boole
     case 'menor_igual': return typeof valor === 'number' ? valor <= refNum : String(valor) <= refStr;
     default: return false;
   }
+}
+
+function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boolean {
+  const resultado = avaliarCondicaoBase(p, cond, hoje);
+  return cond.negado ? !resultado : resultado;
 }
 
 export function aplicarAutomacoes(
