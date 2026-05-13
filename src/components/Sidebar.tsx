@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCw, PlusCircle, Target, Users, Settings,
-  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, CalendarCheck, BookOpen, Mail, CreditCard, ScanSearch, FileSignature,
+  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, BookOpen, Mail, CreditCard, ScanSearch, FileSignature,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa } from '../types';
@@ -12,11 +12,11 @@ const DASHBOARD_PATHS = ['/dashboard', '/metas', '/comissoes', '/producao', '/lo
 const NEGOCIOS_PATHS  = ['/renovacoes', '/seguros-novos', '/prospeccao', '/consulta-renovacoes'];
 
 interface Props {
-  tarefas: Tarefa[];
+  tarefas?: Tarefa[];
   onNavigate?: () => void;
 }
 
-export function Sidebar({ tarefas, onNavigate }: Props) {
+export function Sidebar({ onNavigate }: Props) {
   const { usuario } = useAuth();
   const location = useLocation();
 
@@ -53,14 +53,6 @@ export function Sidebar({ tarefas, onNavigate }: Props) {
     localStorage.setItem('sidebar_negocios_open', String(next));
   }
 
-  // Conta tarefas pendentes do usuário atual para o badge
-  const tarefasPendentes = useMemo(() => {
-    if (!usuario) return 0;
-    return tarefas.filter(t =>
-      t.status === 'pendente' &&
-      (usuario.role !== 'usuario' || t.responsavelId === usuario.id)
-    ).length;
-  }, [tarefas, usuario]);
 
   if (!usuario) return null;
 
@@ -83,7 +75,6 @@ export function Sidebar({ tarefas, onNavigate }: Props) {
   const negociosAtivo  = NEGOCIOS_PATHS.some(p => location.pathname.startsWith(p));
 
   const bottomLinks = [
-    { to: '/tarefas',       icon: CalendarCheck, label: 'Tarefas',       show: true, badge: tarefasPendentes },
     { to: '/clientes',      icon: Users,         label: 'Clientes',      show: true, badge: 0 },
     { to: '/parcelas',      icon: CreditCard,    label: 'Parcelas',      show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoParcelas ?? false), badge: 0 },
     { to: '/emails',        icon: Mail,          label: 'E-mails',       show: usuario.role === 'admin', badge: 0 },

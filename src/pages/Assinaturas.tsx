@@ -35,6 +35,13 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+function diasDesdeEnvio(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (diff === 0) return 'Hoje';
+  if (diff === 1) return '1 dia';
+  return `${diff} dias`;
+}
+
 export function Assinaturas({ clientes }: Props) {
   const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
   const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
@@ -44,10 +51,11 @@ export function Assinaturas({ clientes }: Props) {
   const [enviando, setEnviando]           = useState(false);
   const [erro, setErro]                   = useState<string | null>(null);
   const [busca, setBusca]                 = useState('');
-  const [sincronizando, setSincronizando] = useState(false);
-  const [ultimaSync, setUltimaSync]       = useState<string | null>(null);
-  const [baixando, setBaixando]           = useState<string | null>(null); // envelopeId em download
-  const [erroDownload, setErroDownload]   = useState<{ id: string; msg: string } | null>(null);
+  const [sincronizando, setSincronizando]   = useState(false);
+  const [ultimaSync, setUltimaSync]         = useState<string | null>(null);
+  const [baixando, setBaixando]             = useState<string | null>(null);
+  const [erroDownload, setErroDownload]     = useState<{ id: string; msg: string } | null>(null);
+  const [filtroStatus, setFiltroStatus]     = useState<StatusEnvelope | 'todos'>('todos');
 
   // Busca de cliente no modal
   const [buscaCliente, setBuscaCliente]         = useState('');
@@ -229,11 +237,22 @@ export function Assinaturas({ clientes }: Props) {
     setModalAberto(false);
   }
 
-  const envelopesFiltrados = envelopes.filter(e =>
-    e.nomeSignatario.toLowerCase().includes(busca.toLowerCase()) ||
-    e.emailSignatario.toLowerCase().includes(busca.toLowerCase()) ||
-    e.nomeDocumento.toLowerCase().includes(busca.toLowerCase())
-  );
+  const envelopesFiltrados = envelopes.filter(e => {
+    const matchBusca =
+      e.nomeSignatario.toLowerCase().includes(busca.toLowerCase()) ||
+      e.emailSignatario.toLowerCase().includes(busca.toLowerCase()) ||
+      e.nomeDocumento.toLowerCase().includes(busca.toLowerCase());
+    const matchStatus = filtroStatus === 'todos' || e.status === filtroStatus;
+    return matchBusca && matchStatus;
+  });
+
+  const contagemPorStatus = {
+    todos:     envelopes.length,
+    enviado:   envelopes.filter(e => e.status === 'enviado').length,
+    assinado:  envelopes.filter(e => e.status === 'assinado').length,
+    cancelado: envelopes.filter(e => e.status === 'cancelado').length,
+    expirado:  envelopes.filter(e => e.status === 'expirado').length,
+  };
 
   return (
     <div className="space-y-4">
@@ -277,14 +296,42 @@ export function Assinaturas({ clientes }: Props) {
 
       {/* Busca + lista */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
-          <Search size={15} className="text-gray-400" />
-          <input
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            placeholder="Buscar por signatário, e-mail ou documento…"
-            className="flex-1 text-sm outline-none bg-transparent placeholder-gray-400"
-          />
+        <div className="px-4 py-3 border-b border-gray-100 flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-48">
+            <Search size={15} className="text-gray-400 shrink-0" />
+            <input
+              value={busca}
+              onChange={e => setBusca(e.target.value)}
+              placeholder="Buscar por signatário, e-mail ou documento…"
+              className="flex-1 text-sm outline-none bg-transparent placeholder-gray-400"
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            {([
+              { key: 'todos',     label: 'Todos' },
+              { key: 'enviado',   label: 'Aguardando' },
+              { key: 'assinado',  label: 'Assinado' },
+              { key: 'cancelado', label: 'Cancelado' },
+              { key: 'expirado',  label: 'Expirado' },
+            ] as { key: StatusEnvelope | 'todos'; label: string }[]).map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setFiltroStatus(key)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  filtroStatus === key
+                    ? 'bg-blue-700 text-white'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+                {contagemPorStatus[key] > 0 && (
+                  <span className={`ml-1 ${filtroStatus === key ? 'text-blue-200' : 'text-gray-400'}`}>
+                    {contagemPorStatus[key]}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {envelopesFiltrados.length === 0 ? (
@@ -330,7 +377,10 @@ export function Assinaturas({ clientes }: Props) {
                         {STATUS_LABEL[env.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-500 text-xs">{formatDate(env.criadoEm)}</td>
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      <div>{formatDate(env.criadoEm)}</div>
+                      <div className="text-gray-400 mt-0.5">{diasDesdeEnvio(env.criadoEm)}</div>
+                    </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-2">
