@@ -381,7 +381,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const prazo = calcPrazo(p.dataLimite);
       return prazo !== null && prazo >= 0 && prazo <= 3;
     }).length;
-    return { tratar, emTratativa, valorAberto, primeirasPendentes, prazoUrgente };
+    const analiseCritica = parcelas.filter(p => p.status === 'analise_critica').length;
+    return { tratar, emTratativa, valorAberto, primeirasPendentes, prazoUrgente, analiseCritica };
   }, [parcelas]);
 
   // ── Importação XLSX ───────────────────────────────────────────────────────
@@ -870,22 +871,74 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         </div>
       )}
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-        {[
-          { label: 'Tratar',            value: kpis.tratar,        text: 'text-amber-700' },
-          { label: 'Em Tratativa',      value: kpis.emTratativa,   text: 'text-blue-600' },
-          { label: 'Valor em Aberto',   value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, text: 'text-green-700' },
-          { label: '1ª Parcelas',       value: kpis.primeirasPendentes, text: 'text-amber-700', bell: true },
-          { label: 'Prazo ≤ 3 dias',    value: kpis.prazoUrgente,  text: 'text-red-600' },
-        ].map(k => (
-          <div key={k.label} className={`bg-white rounded-xl border p-4 ${(k as { bell?: boolean }).bell && filtroP1 ? 'border-amber-400 bg-amber-50' : 'border-gray-200'}`}>
+      {/* KPIs — clicáveis para filtrar */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {([
+          {
+            label: 'Tratar',
+            value: kpis.tratar,
+            text: 'text-amber-700',
+            activeBorder: 'border-amber-400 bg-amber-50',
+            isActive: filtroStatus === 'tratar',
+            onClick: () => { setFiltroStatus(filtroStatus === 'tratar' ? 'pendentes' : 'tratar'); },
+          },
+          {
+            label: 'Em Tratativa',
+            value: kpis.emTratativa,
+            text: 'text-blue-600',
+            activeBorder: 'border-blue-400 bg-blue-50',
+            isActive: filtroStatus === 'em_tratativa',
+            onClick: () => { setFiltroStatus(filtroStatus === 'em_tratativa' ? 'pendentes' : 'em_tratativa'); },
+          },
+          {
+            label: 'Análise Crítica',
+            value: kpis.analiseCritica,
+            text: 'text-orange-600',
+            activeBorder: 'border-orange-400 bg-orange-50',
+            isActive: filtroStatus === 'analise_critica',
+            onClick: () => { setFiltroStatus(filtroStatus === 'analise_critica' ? 'pendentes' : 'analise_critica'); },
+          },
+          {
+            label: 'Valor em Aberto',
+            value: `R$ ${kpis.valorAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+            text: 'text-green-700',
+            activeBorder: 'border-green-400 bg-green-50',
+            isActive: filtroStatus === 'pendentes' && !filtroP1 && filtroPrazo.length === 0,
+            onClick: () => { setFiltroStatus('pendentes'); setFiltroP1(false); setFiltroPrazo([]); },
+          },
+          {
+            label: '1ª Parcelas',
+            value: kpis.primeirasPendentes,
+            text: 'text-amber-700',
+            activeBorder: 'border-amber-400 bg-amber-50',
+            isActive: filtroP1,
+            bell: true,
+            onClick: () => { setFiltroP1(v => !v); },
+          },
+          {
+            label: 'Prazo ≤ 3 dias',
+            value: kpis.prazoUrgente,
+            text: 'text-red-600',
+            activeBorder: 'border-red-400 bg-red-50',
+            isActive: filtroPrazo.includes('vencido') && filtroPrazo.includes('hoje') && filtroPrazo.includes('1_5'),
+            onClick: () => {
+              const urgentes = ['vencido', 'hoje', '1_5'];
+              const jaAtivo = urgentes.every(k => filtroPrazo.includes(k));
+              setFiltroPrazo(jaAtivo ? [] : urgentes);
+            },
+          },
+        ] as { label: string; value: string | number; text: string; activeBorder: string; isActive: boolean; bell?: boolean; onClick: () => void }[]).map(k => (
+          <button
+            key={k.label}
+            onClick={k.onClick}
+            className={`bg-white rounded-xl border p-4 text-left transition-all hover:shadow-sm active:scale-95 ${k.isActive ? k.activeBorder : 'border-gray-200 hover:border-gray-300'}`}
+          >
             <div className={`text-xs font-semibold mb-1 flex items-center gap-1 ${k.text}`}>
-              {(k as { bell?: boolean }).bell && <Bell size={11} />}
+              {k.bell && <Bell size={11} />}
               {k.label}
             </div>
             <div className="text-xl font-bold text-gray-900">{k.value}</div>
-          </div>
+          </button>
         ))}
       </div>
 
