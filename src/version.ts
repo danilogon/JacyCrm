@@ -5,4 +5,4 @@
  *   minor  (+0.1.0) → novas funcionalidades
  *   major  (+1.0.0) → mudanças estruturais / breaking changes
  */
-export const APP_VERSION = 'v1.8.51';
+export const APP_VERSION = 'v1.8.52';

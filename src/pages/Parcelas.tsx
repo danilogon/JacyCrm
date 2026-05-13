@@ -469,19 +469,39 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         chavesSeen.add(existing ? existing.chaveUnica : chave);
 
         if (existing) {
-          // Atualiza mas preserva campos do operador (status, prorrogada, logs, etc.)
-          updated.push({
-            ...existing,
-            nomeCliente,
-            apolice,
-            numeroParcela,
-            vencimento,
-            valorParcela,
-            seguradora,
-            formaPagamento,
-            ultimaAtualizacao: dataImport,
-            atualizadoEm: new Date().toISOString(),
-          });
+          const agora = new Date().toISOString();
+          if (existing.prorrogada === true) {
+            // Parcela prorrogada que reapareceu na planilha (possivelmente com nova data):
+            // mantém a data de vencimento original e registra log do reaparecimento.
+            const logReapare: LogParcela = {
+              id: generateId(),
+              data: agora,
+              autor: 'Sistema',
+              tipo: 'importacao',
+              descricao: `Parcela reapareceu na planilha (${file.name}) com vencimento ${vencimento} — data original mantida`,
+            };
+            updated.push({
+              ...existing,
+              formaPagamento,   // atualiza forma de pagamento se mudou
+              ultimaAtualizacao: dataImport,
+              atualizadoEm: agora,
+              logs: [...(existing.logs ?? []), logReapare],
+            });
+          } else {
+            // Parcela normal: atualiza dados conforme a planilha
+            updated.push({
+              ...existing,
+              nomeCliente,
+              apolice,
+              numeroParcela,
+              vencimento,
+              valorParcela,
+              seguradora,
+              formaPagamento,
+              ultimaAtualizacao: dataImport,
+              atualizadoEm: agora,
+            });
+          }
           totalAtualizadas++;
         } else {
           // Nova parcela — herda vínculo de cliente se já existe para esta apólice+seguradora
