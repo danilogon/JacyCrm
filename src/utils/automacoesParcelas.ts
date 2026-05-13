@@ -13,6 +13,11 @@ function diasEntre(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / 86_400_000);
 }
 
+// Campos cujo valor é uma data YYYY-MM-DD (para habilitar diasOffset e comparação entre datas)
+const CAMPOS_DATA_SET = new Set<CampoParcela>([
+  'vencimento', 'ultima_atualizacao', 'data_limite', 'data_prorrogacao',
+]);
+
 function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | number | boolean {
   switch (campo) {
     case 'dias_apos_vencimento': return diasEntre(new Date(p.vencimento + 'T00:00:00'), hoje);
@@ -24,6 +29,9 @@ function resolverCampo(p: Parcela, campo: CampoParcela, hoje: Date): string | nu
     case 'valor_parcela':        return p.valorParcela;
     case 'prorrogada':           return p.prorrogada ?? false;
     case 'data_prorrogacao':     return p.dataProrrogacao ?? '';
+    case 'vencimento':           return p.vencimento;
+    case 'ultima_atualizacao':   return p.ultimaAtualizacao;
+    case 'data_limite':          return p.dataLimite ?? '';
     default:                     return '';
   }
 }
@@ -65,6 +73,14 @@ function avaliarCondicao(p: Parcela, cond: CondicaoAutomacao, hoje: Date): boole
     const ref = resolverCampo(p, cond.valorCampo, hoje);
     refStr = String(ref);
     refNum = Number(ref);
+    // Aplica diasOffset quando ambos os campos são datas
+    if (cond.diasOffset && CAMPOS_DATA_SET.has(cond.campo) && CAMPOS_DATA_SET.has(cond.valorCampo)) {
+      const d = new Date(refStr + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        d.setDate(d.getDate() + cond.diasOffset);
+        refStr = d.toISOString().slice(0, 10);
+      }
+    }
   } else {
     refStr = cond.valor;
     refNum = Number(cond.valor);
@@ -133,8 +149,17 @@ export function aplicarAutomacoes(
         match = naoApareceu && diasVenc >= (auto.diasAntesSemImport ?? 0);
       } else {
         if (auto.condicoes.length === 0) continue;
-        const resultados = auto.condicoes.map(c => avaliarCondicao(p, c, hoje));
-        match = auto.operadorLogico === 'E' ? resultados.every(Boolean) : resultados.some(Boolean);
+        // Avaliação da esquerda para direita com operador por condição (mistura de E/OU)
+        // Cada condição tem operadorProximo que conecta à próxima.
+        // Fallback: usa auto.operadorLogico global para retrocompatibilidade.
+        let matchResult = avaliarCondicao(p, auto.condicoes[0], hoje);
+        for (let i = 1; i < auto.condicoes.length; i++) {
+          const op = auto.condicoes[i - 1].operadorProximo ?? auto.operadorLogico ?? 'E';
+          const condResult = avaliarCondicao(p, auto.condicoes[i], hoje);
+          if (op === 'E') matchResult = matchResult && condResult;
+          else matchResult = matchResult || condResult;
+        }
+        match = matchResult;
       }
 
       if (match) {

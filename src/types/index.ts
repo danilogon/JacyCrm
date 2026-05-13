@@ -487,7 +487,10 @@ export type CampoParcela =
   | 'forma_pagamento'
   | 'valor_parcela'
   | 'prorrogada'             // boolean: parcela desconsiderada pela seguradora na prorrogação
-  | 'data_prorrogacao';      // YYYY-MM-DD: data da prorrogação
+  | 'data_prorrogacao'       // YYYY-MM-DD: data da prorrogação
+  | 'vencimento'             // YYYY-MM-DD: data de vencimento da parcela
+  | 'ultima_atualizacao'     // YYYY-MM-DD: data do último import em que a parcela apareceu
+  | 'data_limite';           // YYYY-MM-DD: data limite para pagamento
 
 /** Formas de pagamento gerenciadas (similar a Ramo/Seguradora) */
 export interface FormaPagamento {
@@ -513,6 +516,18 @@ export interface CondicaoAutomacao {
   valor: string;
   /** Usado quando tipoValor === 'campo' */
   valorCampo?: CampoParcela;
+  /**
+   * Dias somados ao valorCampo antes da comparação (positivo = mais tarde, negativo = mais cedo).
+   * Só aplicado quando tipoValor === 'campo' e ambos os campos são datas (ex: vencimento, ultima_atualizacao, data_limite, data_prorrogacao).
+   * Exemplo: campo=vencimento, valorCampo=ultima_atualizacao, diasOffset=15 → "vencimento > último import + 15 dias"
+   */
+  diasOffset?: number;
+  /**
+   * Operador lógico que conecta ESTA condição com a PRÓXIMA na lista.
+   * Ignorado na última condição da lista.
+   * Fallback: usa auto.operadorLogico quando não definido (retrocompatibilidade).
+   */
+  operadorProximo?: 'E' | 'OU';
 }
 
 export interface AutomacaoParcela {

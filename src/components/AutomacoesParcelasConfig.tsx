@@ -30,13 +30,16 @@ const CAMPO_LABELS: Record<CampoParcela, string> = {
   valor_parcela: 'Valor da parcela (R$)',
   prorrogada: 'Parcela desconsiderada na prorrogação',
   data_prorrogacao: 'Data de prorrogação',
+  vencimento: 'Data de vencimento',
+  ultima_atualizacao: 'Data do último import',
+  data_limite: 'Data limite',
 };
 
 const CAMPOS_NUMERICOS: CampoParcela[] = ['dias_apos_vencimento', 'dias_sem_import', 'valor_parcela'];
 const CAMPOS_STATUS: CampoParcela[] = ['status'];
 const CAMPOS_TEXTO: CampoParcela[] = ['seguradora', 'ramo', 'forma_pagamento'];
 const CAMPOS_BOOLEANOS: CampoParcela[] = ['prorrogada'];
-const CAMPOS_DATA: CampoParcela[] = ['data_prorrogacao'];
+const CAMPOS_DATA: CampoParcela[] = ['data_prorrogacao', 'vencimento', 'ultima_atualizacao', 'data_limite'];
 
 const OPCOES_DATA_ACAO = [
   { value: '', label: 'Não alterar' },
@@ -58,7 +61,7 @@ function camposCompativeisParaReferencia(campo: CampoParcela): CampoParcela[] {
   if (CAMPOS_NUMERICOS.includes(campo)) return CAMPOS_NUMERICOS.filter(c => c !== campo);
   if (CAMPOS_STATUS.includes(campo)) return [];
   if (CAMPOS_BOOLEANOS.includes(campo)) return [];
-  if (CAMPOS_DATA.includes(campo)) return [];
+  if (CAMPOS_DATA.includes(campo)) return CAMPOS_DATA.filter(c => c !== campo);
   return CAMPOS_TEXTO.filter(c => c !== campo);
 }
 
@@ -291,7 +294,14 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   }
 
   function addCondicao() {
-    const nova: CondicaoAutomacao = { id: generateId(), campo: 'dias_apos_vencimento', operador: 'maior_que', tipoValor: 'fixo', valor: '5' };
+    const nova: CondicaoAutomacao = {
+      id: generateId(),
+      campo: 'dias_apos_vencimento',
+      operador: 'maior_que',
+      tipoValor: 'fixo',
+      valor: '5',
+      operadorProximo: 'E',
+    };
     setForm(f => ({ ...f, condicoes: [...f.condicoes, nova] }));
   }
 
@@ -312,12 +322,17 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
     if (a.tipo === 'padrao_vencimento') return `Após ${a.diasAposVencimento ?? 0} dias do vencimento`;
     if (a.tipo === 'padrao_sem_import') return `Ausente no import há ${a.diasAntesSemImport ?? 0} dias`;
     if (!a.condicoes.length) return '(sem condições)';
-    return a.condicoes.map(c => {
+    return a.condicoes.map((c, i) => {
       const lado = c.tipoValor === 'campo' && c.valorCampo
-        ? CAMPO_LABELS[c.valorCampo]
+        ? `${CAMPO_LABELS[c.valorCampo]}${c.diasOffset ? ` ${c.diasOffset > 0 ? '+' : ''}${c.diasOffset}d` : ''}`
         : c.valor;
-      return `${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${lado}`;
-    }).join(` ${a.operadorLogico} `);
+      const condicaoStr = `${CAMPO_LABELS[c.campo]} ${c.operador.replace(/_/g,' ')} ${lado}`;
+      if (i < a.condicoes.length - 1) {
+        const op = c.operadorProximo ?? a.operadorLogico ?? 'E';
+        return `${condicaoStr} ${op}`;
+      }
+      return condicaoStr;
+    }).join(' ');
   }
 
   const CardRegra = ({ a }: { a: AutomacaoParcela }) => (
@@ -503,93 +518,142 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               {/* Conditions builder */}
               {form.tipo !== 'ao_criar' && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-4 py-2.5 flex items-center justify-between border-b border-gray-200">
+                  <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
                     <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Condições (SE...)</span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-gray-400 mr-1">Operador:</span>
-                      <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'E' }))}
-                        className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'E' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>E</button>
-                      <button onClick={() => setForm(f => ({ ...f, operadorLogico: 'OU' }))}
-                        className={`px-2 py-0.5 rounded text-xs font-bold border transition-colors ${form.operadorLogico === 'OU' ? 'bg-blue-700 text-white border-blue-700' : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'}`}>OU</button>
-                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">Use <strong>E</strong> / <strong>OU</strong> entre cada par de condições para misturar operadores.</p>
                   </div>
 
-                  <div className="p-3 space-y-2">
+                  <div className="p-3 space-y-1">
                     {form.condicoes.length === 0 && (
                       <p className="text-sm text-gray-400 text-center py-2">Nenhuma condição adicionada ainda.</p>
                     )}
                     {form.condicoes.map((cond, idx) => {
                       const camposRef = camposCompativeisParaReferencia(cond.campo);
-                      const podeCompararcampo = camposRef.length > 0;
+                      const podeCompararCampo = camposRef.length > 0;
                       const modoAtual = cond.tipoValor ?? 'fixo';
+                      const isDataCampo = CAMPOS_DATA.includes(cond.campo);
+                      const isDataRef = cond.valorCampo ? CAMPOS_DATA.includes(cond.valorCampo) : false;
+                      const podeDiasOffset = modoAtual === 'campo' && isDataCampo && isDataRef;
+                      const opProx = cond.operadorProximo ?? 'E';
+                      const isUltima = idx === form.condicoes.length - 1;
                       return (
-                        <div key={cond.id} className="bg-gray-50 rounded-lg px-3 py-2 space-y-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {idx > 0 && (
-                              <span className="text-xs font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-200 shrink-0">
-                                {form.operadorLogico}
-                              </span>
-                            )}
-                            <span className="text-xs text-gray-500 shrink-0">SE</span>
-                            {/* Campo esquerdo */}
-                            <select value={cond.campo}
-                              onChange={e => {
-                                const campo = e.target.value as CampoParcela;
-                                const ops = operadoresParaCampo(campo);
-                                const operador = ops[0].value;
-                                const valor = campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
-                                updateCondicao(cond.id, { campo, operador, valor, tipoValor: 'fixo', valorCampo: undefined });
-                              }}
-                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                              {(Object.entries(CAMPO_LABELS) as [CampoParcela, string][]).map(([k, v]) => (
-                                <option key={k} value={k}>{v}</option>
-                              ))}
-                            </select>
-                            {/* Operador */}
-                            <select value={cond.operador}
-                              onChange={e => updateCondicao(cond.id, { operador: e.target.value as OperadorCondicao })}
-                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                              {operadoresParaCampo(cond.campo).map(op => (
-                                <option key={op.value} value={op.value}>{op.label}</option>
-                              ))}
-                            </select>
-                            {/* Toggle fixo/campo — só aparece quando há campos compatíveis */}
-                            {podeCompararcampo && (
-                              <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
-                                <button type="button"
-                                  onClick={() => updateCondicao(cond.id, { tipoValor: 'fixo', valorCampo: undefined })}
-                                  className={`px-2 py-1 transition-colors ${modoAtual === 'fixo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
-                                  Valor
-                                </button>
-                                <button type="button"
-                                  onClick={() => updateCondicao(cond.id, { tipoValor: 'campo', valorCampo: camposRef[0] })}
-                                  className={`px-2 py-1 border-l border-gray-300 transition-colors ${modoAtual === 'campo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
-                                  Campo
-                                </button>
-                              </div>
-                            )}
-                            {/* Lado direito: valor fixo ou campo de referência */}
-                            {modoAtual === 'campo' && podeCompararcampo ? (
-                              <select value={cond.valorCampo ?? camposRef[0]}
-                                onChange={e => updateCondicao(cond.id, { valorCampo: e.target.value as CampoParcela })}
-                                className="flex-1 px-2 py-1 border border-blue-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                {camposRef.map(c => (
-                                  <option key={c} value={c}>{CAMPO_LABELS[c]}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <ValorInput campo={cond.campo} valor={cond.valor} onChange={v => updateCondicao(cond.id, { valor: v })} seguradoras={seguradoras} ramos={ramos} formasPagamento={formasPagamento} />
-                            )}
-                            <button onClick={() => removeCondicao(cond.id)} className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0">
-                              <X size={13} />
-                            </button>
-                          </div>
-                          {/* Indicador visual quando modo campo */}
-                          {modoAtual === 'campo' && cond.valorCampo && (
-                            <div className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
-                              Comparando <strong>{CAMPO_LABELS[cond.campo]}</strong> com o valor de <strong>{CAMPO_LABELS[cond.valorCampo]}</strong> da própria parcela
+                        <div key={cond.id}>
+                          {/* Badge E/OU acima desta condição (exceto a primeira) */}
+                          {idx > 0 && (
+                            <div className="flex items-center justify-center my-1">
+                              {/* O badge pertence à condição ANTERIOR (idx-1) */}
+                              <button
+                                type="button"
+                                title="Clique para alternar E / OU"
+                                onClick={() => updateCondicao(form.condicoes[idx - 1].id, {
+                                  operadorProximo: (form.condicoes[idx - 1].operadorProximo ?? 'E') === 'E' ? 'OU' : 'E',
+                                })}
+                                className={`px-3 py-0.5 rounded-full text-xs font-bold border transition-colors cursor-pointer select-none ${
+                                  (form.condicoes[idx - 1].operadorProximo ?? 'E') === 'E'
+                                    ? 'bg-blue-700 text-white border-blue-700 hover:bg-blue-600'
+                                    : 'bg-amber-500 text-white border-amber-500 hover:bg-amber-400'
+                                }`}>
+                                {(form.condicoes[idx - 1].operadorProximo ?? 'E') === 'E' ? 'E' : 'OU'}
+                              </button>
                             </div>
                           )}
+
+                          <div className="bg-gray-50 rounded-lg px-3 py-2 space-y-2 border border-gray-100">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs text-gray-500 font-medium shrink-0">SE</span>
+                              {/* Campo esquerdo */}
+                              <select value={cond.campo}
+                                onChange={e => {
+                                  const campo = e.target.value as CampoParcela;
+                                  const ops = operadoresParaCampo(campo);
+                                  const operador = ops[0].value;
+                                  const valor = CAMPOS_DATA.includes(campo) ? '' : campo === 'status' ? '' : campo === 'valor_parcela' ? '0' : '5';
+                                  updateCondicao(cond.id, { campo, operador, valor, tipoValor: 'fixo', valorCampo: undefined, diasOffset: undefined });
+                                }}
+                                className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {(Object.entries(CAMPO_LABELS) as [CampoParcela, string][]).map(([k, v]) => (
+                                  <option key={k} value={k}>{v}</option>
+                                ))}
+                              </select>
+                              {/* Operador */}
+                              <select value={cond.operador}
+                                onChange={e => updateCondicao(cond.id, { operador: e.target.value as OperadorCondicao })}
+                                className="px-2 py-1 border border-gray-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                {operadoresParaCampo(cond.campo).map(op => (
+                                  <option key={op.value} value={op.value}>{op.label}</option>
+                                ))}
+                              </select>
+                              {/* Toggle Valor/Campo — só para campos com referência compatível */}
+                              {podeCompararCampo && (
+                                <div className="flex rounded border border-gray-300 overflow-hidden text-xs shrink-0">
+                                  <button type="button"
+                                    onClick={() => updateCondicao(cond.id, { tipoValor: 'fixo', valorCampo: undefined, diasOffset: undefined })}
+                                    className={`px-2 py-1 transition-colors ${modoAtual === 'fixo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                                    Valor
+                                  </button>
+                                  <button type="button"
+                                    onClick={() => updateCondicao(cond.id, { tipoValor: 'campo', valorCampo: camposRef[0] })}
+                                    className={`px-2 py-1 border-l border-gray-300 transition-colors ${modoAtual === 'campo' ? 'bg-blue-700 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'}`}>
+                                    Campo
+                                  </button>
+                                </div>
+                              )}
+                              {/* Lado direito */}
+                              {modoAtual === 'campo' && podeCompararCampo ? (
+                                <select value={cond.valorCampo ?? camposRef[0]}
+                                  onChange={e => updateCondicao(cond.id, { valorCampo: e.target.value as CampoParcela, diasOffset: undefined })}
+                                  className="flex-1 px-2 py-1 border border-blue-300 rounded text-xs bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                  {camposRef.map(c => (
+                                    <option key={c} value={c}>{CAMPO_LABELS[c]}</option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <ValorInput campo={cond.campo} valor={cond.valor}
+                                  onChange={v => updateCondicao(cond.id, { valor: v })}
+                                  seguradoras={seguradoras} ramos={ramos} formasPagamento={formasPagamento} />
+                              )}
+                              <button onClick={() => removeCondicao(cond.id)} className="p-1 text-gray-400 hover:text-red-600 rounded shrink-0">
+                                <X size={13} />
+                              </button>
+                            </div>
+
+                            {/* Offset de dias — só aparece quando comparando dois campos de data */}
+                            {podeDiasOffset && (
+                              <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded px-2 py-1.5">
+                                <span className="text-xs text-blue-700 shrink-0">Offset (dias):</span>
+                                <input
+                                  type="number"
+                                  value={cond.diasOffset ?? 0}
+                                  onChange={e => updateCondicao(cond.id, { diasOffset: Number(e.target.value) })}
+                                  className="w-20 px-2 py-0.5 border border-blue-300 rounded text-xs text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                  placeholder="0"
+                                />
+                                <span className="text-xs text-blue-600">
+                                  {(cond.diasOffset ?? 0) === 0
+                                    ? `comparar diretamente com ${CAMPO_LABELS[cond.valorCampo!]}`
+                                    : (cond.diasOffset ?? 0) > 0
+                                      ? `${cond.diasOffset} dias após ${CAMPO_LABELS[cond.valorCampo!]}`
+                                      : `${Math.abs(cond.diasOffset!)} dias antes de ${CAMPO_LABELS[cond.valorCampo!]}`}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Indicador visual campo-a-campo */}
+                            {modoAtual === 'campo' && cond.valorCampo && !podeDiasOffset && (
+                              <div className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                                Comparando <strong>{CAMPO_LABELS[cond.campo]}</strong> com <strong>{CAMPO_LABELS[cond.valorCampo]}</strong> da própria parcela
+                              </div>
+                            )}
+
+                            {/* Badge E/OU ao final da condição (exceto última) — legenda */}
+                            {!isUltima && (
+                              <div className="text-xs text-gray-400 text-right">
+                                conecta à próxima com:{' '}
+                                <span className={`font-bold ${opProx === 'E' ? 'text-blue-600' : 'text-amber-600'}`}>{opProx}</span>
+                                {' '}(clique no badge para alterar)
+                              </div>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -668,15 +732,22 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               {form.tipo !== 'ao_criar' && form.condicoes.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
                   <p className="font-semibold mb-1">Resumo da regra:</p>
-                  <p>
-                    {form.condicoes.map((c, i) => (
-                      <span key={c.id}>{i > 0 && <strong> {form.operadorLogico} </strong>}
-                        {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g,' ')}{' '}
-                        {c.tipoValor === 'campo' && c.valorCampo
-                          ? <em>{CAMPO_LABELS[c.valorCampo]}</em>
-                          : <strong>{c.valor || '—'}</strong>}
-                      </span>
-                    ))}
+                  <p className="leading-relaxed">
+                    {form.condicoes.map((c, i) => {
+                      const ladoDir = c.tipoValor === 'campo' && c.valorCampo
+                        ? <em>{CAMPO_LABELS[c.valorCampo]}{c.diasOffset ? ` ${c.diasOffset > 0 ? '+' : ''}${c.diasOffset}d` : ''}</em>
+                        : <strong>{c.valor || '—'}</strong>;
+                      const op = c.operadorProximo ?? 'E';
+                      return (
+                        <span key={c.id}>
+                          {i > 0 && ' '}
+                          {CAMPO_LABELS[c.campo]} {c.operador.replace(/_/g, ' ')} {ladoDir}
+                          {i < form.condicoes.length - 1 && (
+                            <strong className={op === 'E' ? ' text-blue-800' : ' text-amber-700'}> {op} </strong>
+                          )}
+                        </span>
+                      );
+                    })}
                     {form.filtroSeguradora && <span> · Seguradora: <strong>{form.filtroSeguradora}</strong></span>}
                     {form.filtroRamo && <span> · Ramo: <strong>{form.filtroRamo}</strong></span>}
                     {' → '}<strong>{STATUS_LABELS[form.novoStatus]}</strong>
