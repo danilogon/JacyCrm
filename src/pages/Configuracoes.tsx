@@ -1778,17 +1778,23 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
               <div className="flex items-start justify-between gap-6 bg-gray-50 rounded-lg p-4 border border-gray-100">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-800 mb-1">
-                    Status a aplicar nas parcelas ausentes do import
+                    O que fazer com parcelas ausentes do import?
                   </p>
                   <p className="text-xs text-gray-500 mb-3">
-                    Quando a seguradora aparece na planilha mas uma parcela específica não é encontrada,
-                    o sistema aplica este status automaticamente.
+                    Quando a seguradora aparece na planilha mas uma parcela específica não é encontrada no arquivo importado.
                   </p>
                   <div className="flex flex-col gap-2">
                     {([
-                      { value: 'baixada_sistema', label: 'Baixa Automática', desc: 'Parcela marcada como baixada pelo sistema (padrão).' },
-                      { value: 'desconsiderada',  label: 'Desconsiderada',   desc: 'Parcela marcada como desconsiderada.' },
-                      { value: 'nao_alterar',     label: 'Não alterar',      desc: 'Nenhum status é alterado — registro do import apenas.' },
+                      {
+                        value: 'baixada_sistema',
+                        label: 'Baixa Automática (padrão)',
+                        desc: 'A parcela recebe o status "Baixa Automática", indicando que a seguradora confirmou o recebimento e ela saiu da carteira de cobrança. Parcelas já pagas, canceladas ou em análise crítica não são alteradas.',
+                      },
+                      {
+                        value: 'nao_alterar',
+                        label: 'Não alterar',
+                        desc: 'Nenhum status é modificado — o import apenas registra as parcelas que apareceram, sem tocar nas que não vieram.',
+                      },
                     ] as const).map(opt => {
                       const sel = (empresa.statusAusenteImport ?? 'baixada_sistema') === opt.value;
                       return (

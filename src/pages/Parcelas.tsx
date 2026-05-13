@@ -476,7 +476,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
 
       // Marcar baixadas: parcelas das seguradoras consideradas que NÃO apareceram
       // Configurações da empresa determinam o comportamento
-      const statusAusente = empresa.statusAusenteImport ?? 'baixada_sistema';
+      // Garante retrocompat: valor legado 'desconsiderada' cai em 'baixada_sistema'
+      const statusAusente = (empresa.statusAusenteImport === 'nao_alterar') ? 'nao_alterar' : 'baixada_sistema';
       const protegerDesc  = empresa.protegerDesconsideradaImport === true;
       let totalBaixadas = 0;
       parcelas.forEach(p => {
