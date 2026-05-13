@@ -1788,12 +1788,20 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                       {
                         value: 'baixada_sistema',
                         label: 'Baixa Automática (padrão)',
-                        desc: 'A parcela recebe o status "Baixa Automática", indicando que a seguradora confirmou o recebimento e ela saiu da carteira de cobrança. Parcelas já pagas, canceladas ou em análise crítica não são alteradas.',
+                        desc: (
+                          <>
+                            A lógica de baixa funciona assim: a cada import, o sistema identifica quais seguradoras vieram na planilha. Para cada parcela dessas seguradoras que <strong>apareceu</strong> no arquivo, os dados são atualizados e o status permanece inalterado — a parcela ainda está em aberto na carteira de cobrança da seguradora. Para cada parcela dessas seguradoras que <strong>não apareceu</strong> no arquivo, o sistema entende que a seguradora já a baixou (confirmou o recebimento) e aplica o status <strong>"Baixa Automática"</strong>. Parcelas já pagas, canceladas ou em análise crítica nunca são alteradas.
+                          </>
+                        ),
                       },
                       {
                         value: 'nao_alterar',
                         label: 'Não alterar',
-                        desc: 'Nenhum status é modificado — o import apenas registra as parcelas que apareceram, sem tocar nas que não vieram.',
+                        desc: (
+                          <>
+                            Nenhum status é modificado — o import apenas atualiza os dados das parcelas que apareceram na planilha, sem tocar no status das que não vieram.
+                          </>
+                        ),
                       },
                     ] as const).map(opt => {
                       const sel = (empresa.statusAusenteImport ?? 'baixada_sistema') === opt.value;
@@ -1809,7 +1817,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                           />
                           <div>
                             <span className={`text-sm font-medium ${sel ? 'text-blue-800' : 'text-gray-800'}`}>{opt.label}</span>
-                            <p className="text-xs text-gray-500 mt-0.5">{opt.desc}</p>
+                            <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{opt.desc}</p>
                           </div>
                         </label>
                       );
