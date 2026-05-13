@@ -106,7 +106,11 @@ CREATE TABLE IF NOT EXISTS configuracao_empresa (
   nome TEXT DEFAULT 'Segura Mais',
   logo_url TEXT DEFAULT '',
   cor_primaria TEXT DEFAULT '#1e40af',
-  cor_secundaria TEXT DEFAULT '#1d4ed8'
+  cor_secundaria TEXT DEFAULT '#1d4ed8',
+  status_ausente_import TEXT DEFAULT 'baixada_sistema',
+  proteger_seguradora_sem_import BOOLEAN DEFAULT true,
+  proteger_desconsiderada_import BOOLEAN DEFAULT false,
+  proteger_primeira_parcela_import BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS clientes (
