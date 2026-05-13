@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Plus, Edit2, Trash2, X, Save, Play, Zap } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, Save, Play, Zap, Copy } from 'lucide-react';
 import type { AutomacaoParcela, CondicaoAutomacao, CampoParcela, OperadorCondicao, StatusParcela } from '../types';
 import { generateId } from '../utils/formatters';
 
@@ -295,6 +295,19 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
     setConfirmDel(null);
   }
 
+  function duplicar(a: AutomacaoParcela) {
+    const copia: AutomacaoParcela = {
+      ...a,
+      id: generateId(),
+      nome: `${a.nome} (cópia)`,
+      ativo: false,
+      criadoEm: new Date().toISOString(),
+      atualizadoEm: new Date().toISOString(),
+      condicoes: a.condicoes.map(c => ({ ...c, id: generateId() })),
+    };
+    setAutomacoes([...automacoes, copia]);
+  }
+
   function addCondicao() {
     const nova: CondicaoAutomacao = {
       id: generateId(),
@@ -394,6 +407,9 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
           <button onClick={() => toggleAtivo(a.id)} title={a.ativo ? 'Desativar' : 'Ativar'}
             className={`p-1 rounded text-xs ${a.ativo ? 'text-green-600 hover:bg-green-50' : 'text-gray-400 hover:bg-gray-100'}`}>
             <Play size={13} />
+          </button>
+          <button onClick={() => duplicar(a)} className="p-1 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded" title="Duplicar regra">
+            <Copy size={13} />
           </button>
           <button onClick={() => abrirEditar(a)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar">
             <Edit2 size={13} />
