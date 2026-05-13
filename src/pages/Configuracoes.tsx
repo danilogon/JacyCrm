@@ -2194,7 +2194,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                           <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
                               {['Data/Hora', 'Arquivo', 'Novas', 'Atualizadas', 'Baixadas Sistema', 'Ignoradas', 'Ações'].map(h => (
-                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">{h}</th>
+                                <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-600 whitespace-nowrap ${['Novas','Atualizadas','Baixadas Sistema','Ignoradas','Ações'].includes(h) ? 'text-center' : 'text-left'}`}>{h}</th>
                               ))}
                             </tr>
                           </thead>
@@ -2208,11 +2208,11 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                                 <tr key={lote.id} className="hover:bg-gray-50 cursor-pointer select-none" onDoubleClick={() => setAuditoriaP(lote)}>
                                   <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{dataHora}</td>
                                   <td className="px-4 py-3 text-gray-700 max-w-[180px] truncate" title={lote.nomeArquivo}>{lote.nomeArquivo}</td>
-                                  <td className="px-4 py-3 text-right font-medium text-blue-700">{lote.totalNovas}</td>
-                                  <td className="px-4 py-3 text-right font-medium text-gray-700">{lote.totalAtualizadas}</td>
-                                  <td className="px-4 py-3 text-right font-medium text-green-700">{lote.totalBaixadas}</td>
-                                  <td className="px-4 py-3 text-right font-medium text-red-600">{lote.totalIgnoradas}</td>
-                                  <td className="px-4 py-3">
+                                  <td className="px-4 py-3 text-center font-medium text-blue-700">{lote.totalNovas}</td>
+                                  <td className="px-4 py-3 text-center font-medium text-gray-700">{lote.totalAtualizadas}</td>
+                                  <td className="px-4 py-3 text-center font-medium text-green-700">{lote.totalBaixadas}</td>
+                                  <td className="px-4 py-3 text-center font-medium text-red-600">{lote.totalIgnoradas}</td>
+                                  <td className="px-4 py-3 text-center">
                                     <button onClick={() => setConfirmDelP(lote)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Excluir registro">
                                       <Trash2 size={14} />
                                     </button>
