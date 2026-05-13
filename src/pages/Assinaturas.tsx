@@ -66,8 +66,9 @@ export function Assinaturas({ clientes, origens }: Props) {
   const [baixando, setBaixando]             = useState<string | null>(null);
   const [erroDownload, setErroDownload]     = useState<{ id: string; msg: string } | null>(null);
   const [filtroStatus, setFiltroStatus]     = useState<StatusEnvelope | 'todos'>('todos');
-  const [cancelandoId, setCancelandoId]     = useState<string | null>(null);
+  const [cancelandoId, setCancelandoId]       = useState<string | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
+  const [erroCancel, setErroCancel]           = useState<{ id: string; msg: string } | null>(null);
 
   // Modal — busca de cliente
   const [buscaCliente, setBuscaCliente]             = useState('');
@@ -291,32 +292,35 @@ export function Assinaturas({ clientes, origens }: Props) {
   async function confirmarCancelamento(env: EnvelopeAssinatura) {
     setCancelandoId(env.id);
     setConfirmCancelId(null);
+    setErroCancel(null);
 
-    // A API v1 exige o documentKey — busca se ainda não estiver salvo
+    // API v1 exige documentKey — busca se ainda não estiver salvo
     let documentKey = env.documentIdClicksign;
     if (!documentKey) {
-      documentKey = (await buscarDocumentId(config.token, env.envelopeIdClicksign)) ?? undefined;
-      if (documentKey) {
+      const fetched = await buscarDocumentId(config.token, env.envelopeIdClicksign);
+      if (fetched) {
+        documentKey = fetched;
         setEnvelopes(prev => prev.map(e =>
-          e.id === env.id ? { ...e, documentIdClicksign: documentKey } : e
+          e.id === env.id ? { ...e, documentIdClicksign: fetched } : e
         ));
       }
     }
 
     if (!documentKey) {
       setCancelandoId(null);
-      setEnvelopes(prev => prev.map(e =>
-        e.id === env.id ? { ...e, status: 'cancelado' } : e
-      ));
+      setErroCancel({ id: env.id, msg: 'Não foi possível obter o ID do documento no ClickSign.' });
       return;
     }
 
     const resultado = await cancelarEnvelope(config.token, documentKey);
     setCancelandoId(null);
+
     if (resultado.ok) {
       setEnvelopes(prev => prev.map(e =>
         e.id === env.id ? { ...e, status: 'cancelado' } : e
       ));
+    } else {
+      setErroCancel({ id: env.id, msg: resultado.erro ?? 'Erro ao cancelar no ClickSign.' });
     }
   }
 
@@ -559,31 +563,39 @@ export function Assinaturas({ clientes, origens }: Props) {
                       {/* Cancelar */}
                       <td className="px-4 py-3">
                         {env.status === 'enviado' && (
-                          confirmCancelId === env.id ? (
-                            <div className="flex items-center gap-1">
+                          <>
+                            {cancelandoId === env.id ? (
+                              <span className="flex items-center gap-1 text-xs text-gray-400">
+                                <Loader2 size={12} className="animate-spin" /> Cancelando…
+                              </span>
+                            ) : confirmCancelId === env.id ? (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => confirmarCancelamento(env)}
+                                  className="text-[11px] px-2 py-0.5 bg-red-600 text-white rounded font-medium hover:bg-red-700"
+                                >
+                                  Confirmar
+                                </button>
+                                <button
+                                  onClick={() => { setConfirmCancelId(null); setErroCancel(null); }}
+                                  className="text-[11px] px-2 py-0.5 border border-gray-300 text-gray-500 rounded hover:bg-gray-50"
+                                >
+                                  Não
+                                </button>
+                              </div>
+                            ) : (
                               <button
-                                onClick={() => confirmarCancelamento(env)}
-                                disabled={cancelandoId === env.id}
-                                className="text-[11px] px-2 py-0.5 bg-red-600 text-white rounded font-medium hover:bg-red-700 disabled:opacity-50"
+                                onClick={() => { setConfirmCancelId(env.id); setErroCancel(null); }}
+                                title="Cancelar envelope"
+                                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
                               >
-                                {cancelandoId === env.id ? '…' : 'Confirmar'}
+                                <Ban size={12} /> Cancelar
                               </button>
-                              <button
-                                onClick={() => setConfirmCancelId(null)}
-                                className="text-[11px] px-2 py-0.5 border border-gray-300 text-gray-500 rounded hover:bg-gray-50"
-                              >
-                                Não
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setConfirmCancelId(env.id)}
-                              title="Cancelar envelope"
-                              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
-                            >
-                              <Ban size={12} /> Cancelar
-                            </button>
-                          )
+                            )}
+                            {erroCancel?.id === env.id && (
+                              <p className="text-[10px] text-red-600 mt-1 max-w-[160px]">{erroCancel.msg}</p>
+                            )}
+                          </>
                         )}
                       </td>
 

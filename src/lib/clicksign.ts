@@ -76,6 +76,7 @@ export async function cancelarEnvelope(
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, erro: data.error ?? `Erro ${res.status}` };
+    if (data.ok === false) return { ok: false, erro: data.error ?? 'ClickSign recusou o cancelamento.' };
     return { ok: true };
   } catch (err) {
     return { ok: false, erro: String(err) };
