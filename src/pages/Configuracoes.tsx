@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff, Copy, Webhook } from 'lucide-react';
 import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
@@ -193,6 +193,12 @@ function ConfigAssinaturas() {
   const [testeErro, setTesteErro]         = useState<string | null>(null);
   const [copiado, setCopiado]             = useState(false);
 
+  // Sincroniza os campos do form sempre que o config mudar no localStorage
+  useEffect(() => { setFormToken(config.token ?? ''); },         [config.token]);
+  useEffect(() => { setFormEmail(config.emailPadrao ?? ''); },   [config.emailPadrao]);
+  useEffect(() => { setFormNome(config.nomePadrao ?? ''); },     [config.nomePadrao]);
+  useEffect(() => { setFormSecret(config.webhookSecret ?? ''); },[config.webhookSecret]);
+
   const webhookUrl = `${window.location.origin}/api/clicksign-webhook`;
 
   function copiarWebhook() {
@@ -300,7 +306,7 @@ function ConfigAssinaturas() {
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-700">Integração ativa</span>
             <button
-              onClick={() => setConfig(c => ({ ...c, ativo: !c.ativo }))}
+              onClick={() => setConfig(c => ({ ...c, token: formToken.trim(), emailPadrao: formEmail.trim(), nomePadrao: formNome.trim(), webhookSecret: formSecret.trim(), ativo: !c.ativo }))}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.ativo ? 'bg-blue-600' : 'bg-gray-300'}`}
             >
               <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${config.ativo ? 'translate-x-4' : 'translate-x-0.5'}`} />
