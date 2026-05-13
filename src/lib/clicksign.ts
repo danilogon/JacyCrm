@@ -86,16 +86,20 @@ export async function baixarDocumentoAssinado(
       body: JSON.stringify({ token, envelopeId }),
     });
 
+    const data = await res.json().catch(() => ({}));
+
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       return { ok: false, erro: data.error ?? `Erro ${res.status}` };
     }
 
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    return { ok: true, blobUrl };
+    // Endpoint agora retorna { url } — abre direto no navegador
+    if (data.url) {
+      return { ok: true, blobUrl: data.url };
+    }
+
+    return { ok: false, erro: 'ClickSign não retornou URL de download.' };
   } catch (err) {
-    return { ok: false, erro: `Não foi possível baixar o documento: ${String(err)}` };
+    return { ok: false, erro: `Não foi possível obter o link do documento: ${String(err)}` };
   }
 }
 
