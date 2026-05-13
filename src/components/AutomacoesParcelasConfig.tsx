@@ -320,7 +320,11 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
   }
 
   function resumoCondicoes(a: AutomacaoParcela): string {
-    if (a.tipo === 'ao_criar') return 'Disparada ao importar nova parcela';
+    if (a.tipo === 'ao_criar') {
+      const base = 'Nova parcela importada';
+      if (!a.condicoes.length) return base;
+      return base + ' + ' + a.condicoes.length + ' condição(ões)';
+    }
     if (a.tipo === 'padrao_vencimento') return `Após ${a.diasAposVencimento ?? 0} dias do vencimento`;
     if (a.tipo === 'padrao_sem_import') return `Ausente no import há ${a.diasAntesSemImport ?? 0} dias`;
     if (!a.condicoes.length) return '(sem condições)';
@@ -510,16 +514,14 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
 
-              {/* Conditions builder — oculto para ao_criar */}
+              {/* Conditions builder */}
               {form.tipo === 'ao_criar' && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-800">
-                  Esta automação é disparada automaticamente toda vez que uma nova parcela é importada (status <strong>Importada</strong>). Não é necessário definir condições — configure apenas as ações abaixo.
+                  Disparada quando uma nova parcela é importada (status <strong>Importada</strong>). Adicione condições abaixo para restringir a quais parcelas se aplica (ex.: seguradora, ramo, forma de pagamento).
                 </div>
               )}
 
-              {/* Conditions builder */}
-              {form.tipo !== 'ao_criar' && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2.5 border-b border-gray-200">
                     <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Condições (SE...)</span>
                     <p className="text-xs text-gray-400 mt-0.5">Use <strong>E</strong> / <strong>OU</strong> entre cada par de condições para misturar operadores.</p>
@@ -677,7 +679,6 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
                     </button>
                   </div>
                 </div>
-              )}
 
               {/* Actions (ENTÃO) */}
               <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -743,7 +744,7 @@ export function AutomacoesParcelasConfig({ automacoes, setAutomacoes, seguradora
               </div>
 
               {/* Preview */}
-              {form.tipo !== 'ao_criar' && form.condicoes.length > 0 && (
+              {form.condicoes.length > 0 && (
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-4 py-3 text-xs text-blue-700">
                   <p className="font-semibold mb-1">Resumo da regra:</p>
                   <p className="leading-relaxed">

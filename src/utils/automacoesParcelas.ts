@@ -153,7 +153,18 @@ export function aplicarAutomacoes(
 
       if (auto.tipo === 'ao_criar') {
         // Dispara quando a parcela está com status inicial 'importada' (recém-criada)
+        // Condições adicionais (seguradora, ramo, etc.) são avaliadas se existirem
         match = (p.status as string) === 'importada';
+        if (match && auto.condicoes.length > 0) {
+          let condMatch = avaliarCondicao(p, auto.condicoes[0], hoje, ultimaImportData);
+          for (let i = 1; i < auto.condicoes.length; i++) {
+            const op = auto.condicoes[i - 1].operadorProximo ?? auto.operadorLogico ?? 'E';
+            const r  = avaliarCondicao(p, auto.condicoes[i], hoje, ultimaImportData);
+            if (op === 'E') condMatch = condMatch && r;
+            else            condMatch = condMatch || r;
+          }
+          match = condMatch;
+        }
       } else if (auto.tipo === 'padrao_vencimento') {
         const venc = new Date(p.vencimento + 'T00:00:00');
         const dias = diasEntre(venc, hoje);
