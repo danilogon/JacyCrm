@@ -377,11 +377,10 @@ export function Assinaturas({ clientes }: Props) {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Documento</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Signatário</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Enviado em</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Ações</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500">Documento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
@@ -389,14 +388,6 @@ export function Assinaturas({ clientes }: Props) {
                 const cliente = clientes.find(c => c.id === env.clienteId);
                 return (
                   <tr key={env.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-800 max-w-[220px] truncate" title={env.nomeDocumento}>
-                      {env.nomeDocumento}
-                      {env.avisoEnvio && (
-                        <span title={env.avisoEnvio}>
-                          <AlertTriangle size={13} className="inline ml-1 text-amber-400" />
-                        </span>
-                      )}
-                    </td>
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-800 flex items-center gap-1">
                         {cliente && <User size={12} className="text-blue-400 shrink-0" />}
@@ -416,35 +407,21 @@ export function Assinaturas({ clientes }: Props) {
                       <div className="text-gray-400 mt-0.5">{diasDesdeEnvio(env.criadoEm)}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex flex-col gap-1.5">
-                        <div className="flex items-center gap-2">
-                          {env.status === 'assinado' && (
-                            <button
-                              onClick={() => abrirDocumentoAssinado(env)}
-                              disabled={baixando === env.id}
-                              title="Abrir documento assinado"
-                              className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium disabled:opacity-50"
-                            >
-                              {baixando === env.id
-                                ? <><Loader2 size={12} className="animate-spin" /> Baixando…</>
-                                : <><FileDown size={12} /> Documento</>}
-                            </button>
-                          )}
-                          <select
-                            value={env.status}
-                            onChange={e => setEnvelopes(prev => prev.map(x => x.id === env.id ? { ...x, status: e.target.value as StatusEnvelope } : x))}
-                            className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600 focus:outline-none focus:ring-1 focus:ring-blue-400"
-                          >
-                            <option value="enviado">Aguardando</option>
-                            <option value="assinado">Assinado</option>
-                            <option value="cancelado">Cancelado</option>
-                            <option value="expirado">Expirado</option>
-                          </select>
-                        </div>
-                        {erroDownload?.id === env.id && (
-                          <p className="text-xs text-red-600">{erroDownload.msg}</p>
-                        )}
-                      </div>
+                      {env.status === 'assinado' && (
+                        <button
+                          onClick={() => abrirDocumentoAssinado(env)}
+                          disabled={baixando === env.id}
+                          title="Abrir documento assinado"
+                          className="flex items-center gap-1 text-xs text-green-700 hover:text-green-900 font-medium disabled:opacity-50"
+                        >
+                          {baixando === env.id
+                            ? <><Loader2 size={12} className="animate-spin" /> Baixando…</>
+                            : <><FileDown size={12} /> Baixar</>}
+                        </button>
+                      )}
+                      {erroDownload?.id === env.id && (
+                        <p className="text-xs text-red-600 mt-1">{erroDownload.msg}</p>
+                      )}
                     </td>
                   </tr>
                 );
