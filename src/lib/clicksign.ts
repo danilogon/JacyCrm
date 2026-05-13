@@ -1,24 +1,22 @@
 /**
  * Integração ClickSign API v3
+ * Todas as chamadas passam pelo proxy /api/clicksign-proxy (evita CORS + CSP).
  * Fluxo: criar envelope → adicionar documento → adicionar signatário
  *        → configurar requisitos → ativar → disparar notificação
  */
 
-const BASE_URL = 'https://app.clicksign.com/api/v3';
-
-function headers(token: string) {
-  return {
-    Authorization: token,
-    'Content-Type': 'application/vnd.api+json',
-  };
+async function callProxy(token: string, path: string, method = 'GET', body?: unknown) {
+  const res = await fetch('/api/clicksign-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, path, method, body }),
+  });
+  return { status: res.status, ok: res.ok, data: await res.json() };
 }
 
 export async function testarConexao(token: string): Promise<{ ok: boolean; erro?: string }> {
   try {
-    const r = await fetch(`${BASE_URL}/envelopes?page[size]=1`, {
-      method: 'GET',
-      headers: headers(token),
-    });
+    const r = await callProxy(token, 'envelopes?page[size]=1');
     if (r.status === 401 || r.status === 403) return { ok: false, erro: 'Token inválido ou sem permissão.' };
     if (!r.ok) return { ok: false, erro: `Resposta inesperada da API: ${r.status}` };
     return { ok: true };
@@ -46,125 +44,54 @@ export async function enviarDocumentoParaAssinatura(params: {
 
   try {
     // 1. Criar envelope
-    const r1 = await fetch(`${BASE_URL}/envelopes`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'envelopes',
-          attributes: { name: nomeArquivo, locale: 'pt-BR', auto_close: true },
-        },
-      }),
+    const r1 = await callProxy(token, 'envelopes', 'POST', {
+      data: { type: 'envelopes', attributes: { name: nomeArquivo, locale: 'pt-BR', auto_close: true } },
     });
-    if (!r1.ok) {
-      const e = await r1.json();
-      return { ok: false, erro: `Erro ao criar envelope: ${JSON.stringify(e)}` };
-    }
-    const envelopeId: string = (await r1.json()).data.id;
+    if (!r1.ok) return { ok: false, erro: `Erro ao criar envelope: ${JSON.stringify(r1.data)}` };
+    const envelopeId: string = r1.data.data.id;
 
     // 2. Adicionar documento
-    const r2 = await fetch(`${BASE_URL}/envelopes/${envelopeId}/documents`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'documents',
-          attributes: { filename: nomeArquivo, content_base64: conteudoBase64 },
-        },
-      }),
+    const r2 = await callProxy(token, `envelopes/${envelopeId}/documents`, 'POST', {
+      data: { type: 'documents', attributes: { filename: nomeArquivo, content_base64: conteudoBase64 } },
     });
-    if (!r2.ok) {
-      const e = await r2.json();
-      return { ok: false, erro: `Erro ao adicionar documento: ${JSON.stringify(e)}` };
-    }
-    const docId: string = (await r2.json()).data.id;
+    if (!r2.ok) return { ok: false, erro: `Erro ao adicionar documento: ${JSON.stringify(r2.data)}` };
+    const docId: string = r2.data.data.id;
 
     // 3. Adicionar signatário
-    const r3 = await fetch(`${BASE_URL}/envelopes/${envelopeId}/signers`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'signers',
-          attributes: { name: nomeSignatario, email: emailSignatario },
-        },
-      }),
+    const r3 = await callProxy(token, `envelopes/${envelopeId}/signers`, 'POST', {
+      data: { type: 'signers', attributes: { name: nomeSignatario, email: emailSignatario } },
     });
-    if (!r3.ok) {
-      const e = await r3.json();
-      return { ok: false, erro: `Erro ao adicionar signatário: ${JSON.stringify(e)}` };
-    }
-    const signerId: string = (await r3.json()).data.id;
+    if (!r3.ok) return { ok: false, erro: `Erro ao adicionar signatário: ${JSON.stringify(r3.data)}` };
+    const signerId: string = r3.data.data.id;
 
     const relacionamentos = {
       document: { data: { type: 'documents', id: docId } },
-      signer: { data: { type: 'signers', id: signerId } },
+      signer:   { data: { type: 'signers',   id: signerId } },
     };
 
     // 4a. Requisito de assinatura (agree/sign)
-    const r4a = await fetch(`${BASE_URL}/envelopes/${envelopeId}/requirements`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'requirements',
-          attributes: { action: 'agree', role: 'sign' },
-          relationships: relacionamentos,
-        },
-      }),
+    const r4a = await callProxy(token, `envelopes/${envelopeId}/requirements`, 'POST', {
+      data: { type: 'requirements', attributes: { action: 'agree', role: 'sign' }, relationships: relacionamentos },
     });
-    if (!r4a.ok) {
-      const e = await r4a.json();
-      return { ok: false, erro: `Erro ao configurar requisito de assinatura: ${JSON.stringify(e)}` };
-    }
+    if (!r4a.ok) return { ok: false, erro: `Erro ao configurar requisito de assinatura: ${JSON.stringify(r4a.data)}` };
 
     // 4b. Requisito de autenticação (provide_evidence/email)
-    const r4b = await fetch(`${BASE_URL}/envelopes/${envelopeId}/requirements`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'requirements',
-          attributes: { action: 'provide_evidence', auth: 'email' },
-          relationships: relacionamentos,
-        },
-      }),
+    const r4b = await callProxy(token, `envelopes/${envelopeId}/requirements`, 'POST', {
+      data: { type: 'requirements', attributes: { action: 'provide_evidence', auth: 'email' }, relationships: relacionamentos },
     });
-    if (!r4b.ok) {
-      const e = await r4b.json();
-      return { ok: false, erro: `Erro ao configurar autenticação: ${JSON.stringify(e)}` };
-    }
+    if (!r4b.ok) return { ok: false, erro: `Erro ao configurar autenticação: ${JSON.stringify(r4b.data)}` };
 
     // 5. Ativar envelope
-    const r5 = await fetch(`${BASE_URL}/envelopes/${envelopeId}`, {
-      method: 'PATCH',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'envelopes',
-          id: envelopeId,
-          attributes: { status: 'running' },
-        },
-      }),
+    const r5 = await callProxy(token, `envelopes/${envelopeId}`, 'PATCH', {
+      data: { type: 'envelopes', id: envelopeId, attributes: { status: 'running' } },
     });
-    if (!r5.ok) {
-      const e = await r5.json();
-      return { ok: false, erro: `Erro ao ativar envelope: ${JSON.stringify(e)}` };
-    }
+    if (!r5.ok) return { ok: false, erro: `Erro ao ativar envelope: ${JSON.stringify(r5.data)}` };
 
     // 6. Disparar notificação por e-mail
-    const r6 = await fetch(`${BASE_URL}/envelopes/${envelopeId}/notifications`, {
-      method: 'POST',
-      headers: headers(token),
-      body: JSON.stringify({
-        data: {
-          type: 'notifications',
-          attributes: { message: mensagem },
-        },
-      }),
+    const r6 = await callProxy(token, `envelopes/${envelopeId}/notifications`, 'POST', {
+      data: { type: 'notifications', attributes: { message: mensagem } },
     });
     if (!r6.ok) {
-      // Notificação falhou mas envelope foi criado — retornamos ok com aviso
       return {
         ok: true,
         envelopeId,
