@@ -6,6 +6,7 @@ import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useLocalStorage } from '../hooks/useLocalStorage';
+import { testarConexao } from '../lib/clicksign';
 
 interface Props {
   seguradoras: Seguradora[];
@@ -185,16 +186,31 @@ function ConfigAssinaturas() {
   const [formToken, setFormToken]       = useState(config.token);
   const [formEmail, setFormEmail]       = useState(config.emailPadrao ?? '');
   const [formNome, setFormNome]         = useState(config.nomePadrao ?? '');
-  const [configSalvo, setConfigSalvo]   = useState(false);
+  const [salvando, setSalvando]         = useState(false);
+  const [testeStatus, setTesteStatus]   = useState<'idle' | 'ok' | 'erro'>('idle');
+  const [testeErro, setTesteErro]       = useState<string | null>(null);
 
   const [modalModelo, setModalModelo] = useState<ModeloAssinatura | 'novo' | null>(null);
   const [formModelo, setFormModelo] = useState({ nome: '', descricao: '', mensagem: '' });
   const [confirmDelModelo, setConfirmDelModelo] = useState<string | null>(null);
 
-  function salvarConfig() {
-    setConfig({ ...config, token: formToken.trim(), emailPadrao: formEmail.trim(), nomePadrao: formNome.trim() });
-    setConfigSalvo(true);
-    setTimeout(() => setConfigSalvo(false), 2500);
+  async function salvarConfig() {
+    const token = formToken.trim();
+    setSalvando(true);
+    setTesteStatus('idle');
+    setTesteErro(null);
+
+    const resultado = await testarConexao(token);
+
+    setConfig({ ...config, token, emailPadrao: formEmail.trim(), nomePadrao: formNome.trim() });
+    setSalvando(false);
+
+    if (resultado.ok) {
+      setTesteStatus('ok');
+    } else {
+      setTesteStatus('erro');
+      setTesteErro(resultado.erro ?? 'Erro desconhecido.');
+    }
   }
 
   function abrirNovoModelo() {
@@ -284,12 +300,28 @@ function ConfigAssinaturas() {
           </div>
           <button
             onClick={salvarConfig}
-            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800"
+            disabled={salvando || !formToken.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            <Save size={14} /> Salvar configurações
+            {salvando ? (
+              <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Verificando…</>
+            ) : (
+              <><Save size={14} /> Salvar configurações</>
+            )}
           </button>
         </div>
-        {configSalvo && <p className="text-xs text-green-600 flex items-center gap-1"><Check size={12} /> Configurações salvas com sucesso.</p>}
+
+        {testeStatus === 'ok' && (
+          <p className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
+            <CheckCircle2 size={13} /> Conexão confirmada — token válido. Configurações salvas.
+          </p>
+        )}
+        {testeStatus === 'erro' && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
+            <XCircle size={13} className="shrink-0 mt-0.5" />
+            <span><strong>Falha na verificação:</strong> {testeErro} As configurações foram salvas, mas verifique o token antes de usar.</span>
+          </div>
+        )}
       </div>
 
       {/* Modelos de mensagem */}

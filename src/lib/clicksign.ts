@@ -13,6 +13,20 @@ function headers(token: string) {
   };
 }
 
+export async function testarConexao(token: string): Promise<{ ok: boolean; erro?: string }> {
+  try {
+    const r = await fetch(`${BASE_URL}/envelopes?page[size]=1`, {
+      method: 'GET',
+      headers: headers(token),
+    });
+    if (r.status === 401 || r.status === 403) return { ok: false, erro: 'Token inválido ou sem permissão.' };
+    if (!r.ok) return { ok: false, erro: `Resposta inesperada da API: ${r.status}` };
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, erro: `Não foi possível conectar ao ClickSign: ${String(err)}` };
+  }
+}
+
 export interface ClickSignResult {
   ok: boolean;
   envelopeId?: string;
