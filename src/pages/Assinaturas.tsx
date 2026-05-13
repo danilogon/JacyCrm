@@ -32,7 +32,7 @@ function formatDate(iso: string) {
 }
 
 export function Assinaturas() {
-  const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', ativo: false });
+  const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
   const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
   const [envelopes, setEnvelopes] = useLocalStorage<EnvelopeAssinatura[]>('clicksign_envelopes', []);
 

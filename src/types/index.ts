@@ -6,6 +6,7 @@ export interface ConfigClickSign {
   token: string;
   emailPadrao: string;
   nomePadrao: string;
+  webhookSecret: string;
   ativo: boolean;
 }
 

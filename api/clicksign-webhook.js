@@ -2,14 +2,23 @@
  * Webhook ClickSign — recebe eventos de assinatura e persiste no Supabase.
  * Configure no painel ClickSign: Integrações → Webhooks → URL desta rota.
  *
+ * Verificação HMAC SHA256:
+ *   - ClickSign envia o header X-Clicksign-Hmac-Sha256 com HMAC(secret, rawBody) em hex
+ *   - O secret deve estar na variável de ambiente CLICKSIGN_WEBHOOK_SECRET no Vercel
+ *   - Se o secret não estiver configurado, o webhook aceita sem verificar (modo legado)
+ *
  * Eventos tratados:
- *   envelope:completed  → assinado
- *   envelope:canceled   → cancelado
- *   envelope:expired    → expirado
- *   signer:signed       → registrado (status do envelope permanece "enviado" até completed)
+ *   envelope:completed → assinado
+ *   envelope:canceled  → cancelado
+ *   envelope:expired   → expirado
+ *   signer:signed      → registrado (status permanece "enviado" até completed)
  */
 
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
+
+// Desabilita o body parser do Vercel para lermos o raw body (necessário para HMAC)
+export const config = { api: { bodyParser: false } };
 
 const STATUS_MAP = {
   completed: 'assinado',
@@ -18,11 +27,49 @@ const STATUS_MAP = {
   running:   'enviado',
 };
 
+async function rawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
+function verificarHmac(secret, body, headerValue) {
+  const expected = crypto
+    .createHmac('sha256', secret)
+    .update(body)
+    .digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(headerValue));
+  } catch {
+    return false;
+  }
+}
+
 export default async function handler(req, res) {
-  // ClickSign faz POST para notificar eventos
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Método não permitido' });
     return;
+  }
+
+  // Lê o raw body antes de parsear
+  const bodyBuffer = await rawBody(req);
+  const bodyText   = bodyBuffer.toString('utf-8');
+
+  // Verificação HMAC (se o secret estiver configurado)
+  const secret = process.env.CLICKSIGN_WEBHOOK_SECRET;
+  if (secret) {
+    const assinatura = req.headers['x-clicksign-hmac-sha256'] ?? '';
+    if (!assinatura) {
+      res.status(401).json({ error: 'Header X-Clicksign-Hmac-Sha256 ausente.' });
+      return;
+    }
+    if (!verificarHmac(secret, bodyBuffer, assinatura)) {
+      res.status(401).json({ error: 'Assinatura HMAC inválida.' });
+      return;
+    }
   }
 
   const supabaseUrl = process.env.VITE_SUPABASE_URL;
@@ -37,10 +84,9 @@ export default async function handler(req, res) {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
-    const payload = req.body ?? {};
+    const payload = JSON.parse(bodyText);
 
-    // Estrutura do payload ClickSign v3
-    const eventoNome      = payload?.event?.name ?? '';          // ex: "envelope:completed"
+    const eventoNome      = payload?.event?.name ?? '';
     const envelopeId      = payload?.event?.data?.envelope?.id ?? '';
     const statusClicksign = payload?.event?.data?.envelope?.status ?? '';
 
