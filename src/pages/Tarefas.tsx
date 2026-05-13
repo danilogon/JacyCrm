@@ -132,7 +132,7 @@ function grupoCor(dateStr: string): { header: string; card: string } {
   return { header: 'text-gray-600 bg-gray-50 border-gray-200', card: 'border-gray-100 bg-white' };
 }
 
-export function Tarefas({ tarefas, setTarefas, usuarios, clientes, parcelas = [], renovacoes = [], segurosNovos = [], prospeccoes = [] }: Props) {
+export function Tarefas({ tarefas, setTarefas, usuarios, clientes, parcelas: _parcelas = [], renovacoes: _renovacoes = [], segurosNovos: _segurosNovos = [], prospeccoes: _prospeccoes = [] }: Props) {
   const { usuario } = useAuth();
   const navigate = useNavigate();
   const isAdmin  = usuario?.role === 'admin';
