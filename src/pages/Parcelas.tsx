@@ -412,6 +412,21 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
       const parcelasMap = new Map(parcelas.map(p => [p.chaveUnica, p]));
       const updated: Parcela[] = [];
 
+      // Normaliza string para busca sem acento/case (igual ao motor de automações)
+      const normStr = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+
+      // Índice secundário para parcelas prorrogadas:
+      // chave "apolice|numeroParcela|nomeCliente_normalizado" → Parcela
+      // Garante que quando a seguradora reemite a parcela com nova data de vencimento
+      // o sistema encontra a existente e não cria uma duplicata.
+      const prorrogadasIndex = new Map<string, Parcela>();
+      parcelas.forEach(p => {
+        if (p.prorrogada === true) {
+          const k = `${p.apolice.trim()}|${p.numeroParcela.trim()}|${normStr(p.nomeCliente)}`;
+          prorrogadasIndex.set(k, p);
+        }
+      });
+
       // Índice de vínculos já conhecidos: "apolice|seguradora" → clienteId
       const vinculoIndex = new Map<string, string>();
       parcelas.forEach(p => {
@@ -437,13 +452,24 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         if (!vencimento)  { linhasIgnoradas.push({ linha: lineNum, motivo: `${nomeCliente} — Data inválida` }); return; }
 
         const chave = `${apolice}_${numeroParcela}`;
-        chavesSeen.add(chave);
         seguradorasConsideradas.add(seguradora);
         seguradorasContagem[seguradora] = (seguradorasContagem[seguradora] || 0) + 1;
 
-        const existing = parcelasMap.get(chave);
+        // Busca pela chave primária (apólice + nº parcela)
+        let existing = parcelasMap.get(chave);
+
+        // Busca secundária para parcelas prorrogadas que reapareceram com data diferente:
+        // valida apólice + nº parcela + nome do cliente (sem acento/case)
+        if (!existing) {
+          const prorrogadaKey = `${apolice}|${numeroParcela}|${normStr(nomeCliente)}`;
+          existing = prorrogadasIndex.get(prorrogadaKey);
+        }
+
+        // Registra a chave como vista (usa chaveUnica real da parcela encontrada, se houver)
+        chavesSeen.add(existing ? existing.chaveUnica : chave);
+
         if (existing) {
-          // Atualiza mas preserva campos do operador
+          // Atualiza mas preserva campos do operador (status, prorrogada, logs, etc.)
           updated.push({
             ...existing,
             nomeCliente,
@@ -531,7 +557,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           statusAtualStr === 'baixada' ||
           statusAtualStr === 'cancelado' ||
           (protegerDesc && statusAtualStr === 'desconsiderada') ||
-          (protegerPrimeiraParc && isPrimeira);
+          (protegerPrimeiraParc && isPrimeira) ||
+          p.prorrogada === true; // prorrogada: seguradora pode estar em tentativa de débito — não baixar
         if (protegido) {
           updated.push(p);
           return;
