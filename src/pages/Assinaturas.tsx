@@ -56,7 +56,6 @@ export function Assinaturas({ clientes }: Props) {
   const [baixando, setBaixando]             = useState<string | null>(null);
   const [erroDownload, setErroDownload]     = useState<{ id: string; msg: string } | null>(null);
   const [filtroStatus, setFiltroStatus]     = useState<StatusEnvelope | 'todos'>('todos');
-  const [debugApi, setDebugApi]             = useState<string | null>(null);
 
   // Busca de cliente no modal
   const [buscaCliente, setBuscaCliente]         = useState('');
@@ -151,32 +150,12 @@ export function Assinaturas({ clientes }: Props) {
       // Passo 1 (primário): consulta o status diretamente na API do ClickSign.
       if (pendentes.length > 0 && config.token) {
         const atualizacoes: Record<string, StatusEnvelope> = {};
-        const linhasDebug: string[] = [];
-
         await Promise.all(
           pendentes.map(async e => {
-            // Busca o raw da API para diagnóstico
-            const r = await fetch('/api/clicksign-proxy', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ token: config.token, path: `envelopes/${e.envelopeIdClicksign}`, method: 'GET' }),
-            }).then(res => res.json()).catch(() => null);
-
-            const rawStatus: string =
-              r?.data?.attributes?.status ??
-              r?.data?.status ??
-              r?.attributes?.status ??
-              '(não encontrado)';
-
-            linhasDebug.push(`${e.nomeDocumento.slice(0, 30)}: "${rawStatus}"`);
-
             const status = await buscarStatusEnvelope(config.token, e.envelopeIdClicksign);
             if (status && status !== e.status) atualizacoes[e.id] = status;
           })
         );
-
-        setDebugApi(linhasDebug.join('\n'));
-
         if (Object.keys(atualizacoes).length > 0) {
           setEnvelopes(prev => prev.map(e =>
             atualizacoes[e.id] ? { ...e, status: atualizacoes[e.id] } : e
@@ -337,16 +316,6 @@ export function Assinaturas({ clientes }: Props) {
         </div>
       </div>
 
-      {/* Painel de diagnóstico temporário */}
-      {debugApi && (
-        <div className="bg-gray-900 text-green-400 rounded-xl p-4 text-xs font-mono whitespace-pre-wrap">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-gray-400 font-sans text-xs">Status bruto retornado pela API ClickSign (diagnóstico)</span>
-            <button onClick={() => setDebugApi(null)} className="text-gray-500 hover:text-white text-xs font-sans">✕ fechar</button>
-          </div>
-          {debugApi}
-        </div>
-      )}
 
       {/* Aviso sem token */}
       {!tokenOk && (

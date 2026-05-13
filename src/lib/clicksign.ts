@@ -58,8 +58,6 @@ export async function buscarStatusEnvelope(
       r.data?.data?.status ??
       r.data?.status ??
       '';
-    // Log temporário para diagnóstico — remove após confirmar o valor correto
-    console.log(`[ClickSign] envelope=${envelopeId} status_api="${status}"`);
     return STATUS_MAP[status] ?? null;
   } catch {
     return null;
