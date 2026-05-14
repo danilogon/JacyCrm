@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Edit2, Trash2, X, Save, CheckSquare, Square, Check, Lock, CheckCircle2, XCircle, Eye, EyeOff, Copy, Webhook } from 'lucide-react';
-import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura } from '../types';
+import type { Seguradora, Ramo, FormaPagamento, ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, FaixaMeta, TipoCampoCustom, PlanoMetaRenovacao, PlanoMetaSeguroNovo, TipoUsuario, Role, OrigemProspeccao, ImportacaoLote, LinhaImportValida, LinhaImportInvalida, Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, RegraParcelaNegocio, ImportacaoParcelas, AutomacaoParcela, Parcela, ConfigClickSign, ModeloAssinatura, ParcelasApiToken } from '../types';
 import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig';
 import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
@@ -49,6 +49,8 @@ interface Props {
   setClicksignConfig: (c: ConfigClickSign) => void;
   clicksignModelos: ModeloAssinatura[];
   setClicksignModelos: (items: ModeloAssinatura[]) => void;
+  parcelasApiTokens: ParcelasApiToken[];
+  setParcelasApiTokens: (t: ParcelasApiToken[]) => void;
 }
 
 type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes' | 'assinaturas';
@@ -578,7 +580,7 @@ function ConfigAssinaturas({ config, setConfig, modelos, setModelos }: ConfigAss
 
 // ─── Configuracoes principal ─────────────────────────────────────────────────
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas, clicksignConfig, setClicksignConfig, clicksignModelos, setClicksignModelos }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas, clicksignConfig, setClicksignConfig, clicksignModelos, setClicksignModelos, parcelasApiTokens, setParcelasApiTokens }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -638,6 +640,41 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
   const [formEmpresa, setFormEmpresa] = useState<ConfiguracaoEmpresa>(empresa);
   const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
   const [empresaSalva, setEmpresaSalva] = useState(false);
+
+  // ── API Tokens ──────────────────────────────────────────────────────────────
+  const [showTokenNovo, setShowTokenNovo] = useState(false);
+  const [formTokenApi, setFormTokenApi] = useState({ nome: '', seguradora: '' });
+  const [tokenVisivel, setTokenVisivel] = useState<string | null>(null);
+  const [copiadoApi, setCopiadoApi] = useState(false);
+
+  function gerarTokenApi(): string {
+    const arr = new Uint8Array(32);
+    crypto.getRandomValues(arr);
+    return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  function salvarTokenApi() {
+    if (!formTokenApi.nome.trim()) { alert('Nome obrigatório.'); return; }
+    if (!formTokenApi.seguradora.trim()) { alert('Seguradora obrigatória.'); return; }
+    const now = new Date().toISOString();
+    const novoToken: ParcelasApiToken = {
+      id: generateId(),
+      nome: formTokenApi.nome.trim(),
+      seguradora: formTokenApi.seguradora.trim(),
+      token: gerarTokenApi(),
+      ativo: true,
+      criadoEm: now,
+      atualizadoEm: now,
+    };
+    setParcelasApiTokens([...parcelasApiTokens, novoToken]);
+    setTokenVisivel(novoToken.token);
+    setFormTokenApi({ nome: '', seguradora: '' });
+    setShowTokenNovo(false);
+  }
+
+  function copiarApi(text: string) {
+    navigator.clipboard.writeText(text).then(() => { setCopiadoApi(true); setTimeout(() => setCopiadoApi(false), 2000); });
+  }
 
   async function salvarEmpresa() {
     setSalvandoEmpresa(true);
@@ -2484,6 +2521,157 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
             onConfirm={() => { if (confirmDelRegra) setRegrasParcelas(regrasParcelas.filter(r => r.id !== confirmDelRegra)); setConfirmDelRegra(null); }}
             onCancel={() => setConfirmDelRegra(null)}
           />
+
+          {/* Integração via API (tokens por seguradora) */}
+          {(() => {
+            const API_URL = 'https://jacy-crm.vercel.app/api/parcelas-import';
+            return (
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="flex items-center justify-between mb-1">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Webhook size={16} className="text-blue-600" />
+                      <h2 className="font-semibold text-gray-900">Integração via API</h2>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      Seguradoras que enviam parcelas por endpoint (ao invés de planilha). Cada uma recebe um token secreto único.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowTokenNovo(true)}
+                    className="flex items-center gap-2 px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 shrink-0"
+                  >
+                    <Plus size={14} /> Novo Token
+                  </button>
+                </div>
+
+                {/* Endpoint URL */}
+                <div className="mt-4 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="text-xs text-gray-400 shrink-0">URL do endpoint:</span>
+                  <code className="flex-1 text-xs text-gray-700 font-mono truncate">{API_URL}</code>
+                  <button onClick={() => copiarApi(API_URL)} className="p-1 text-gray-400 hover:text-blue-600 shrink-0" title="Copiar URL">
+                    <Copy size={13} />
+                  </button>
+                </div>
+
+                {/* Aviso token recém-criado */}
+                {tokenVisivel && (
+                  <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-amber-800 mb-1">⚠ Copie o token agora — ele não será exibido novamente.</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs font-mono text-amber-900 break-all">{tokenVisivel}</code>
+                      <button onClick={() => copiarApi(tokenVisivel)} className="p-1.5 text-amber-600 hover:bg-amber-100 rounded shrink-0" title="Copiar token">
+                        {copiadoApi ? <Check size={14} /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                    <button onClick={() => setTokenVisivel(null)} className="mt-2 text-xs text-amber-600 hover:underline">Fechar aviso</button>
+                  </div>
+                )}
+
+                {/* Lista de tokens */}
+                {parcelasApiTokens.length > 0 && (
+                  <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b border-gray-100">
+                        <tr>
+                          {['Nome', 'Seguradora', 'Token', 'Último uso', 'Status', ''].map(h => (
+                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {parcelasApiTokens.map(t => (
+                          <tr key={t.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 font-medium text-gray-800">{t.nome}</td>
+                            <td className="px-4 py-2.5 text-gray-600">{t.seguradora}</td>
+                            <td className="px-4 py-2.5">
+                              <span className="font-mono text-xs text-gray-400">{t.token.slice(0, 8)}••••••••</span>
+                            </td>
+                            <td className="px-4 py-2.5 text-xs text-gray-400">
+                              {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleDateString('pt-BR') : '—'}
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${t.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {t.ativo ? 'Ativo' : 'Inativo'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setParcelasApiTokens(parcelasApiTokens.map(x => x.id === t.id ? { ...x, ativo: !x.ativo, atualizadoEm: new Date().toISOString() } : x))}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg text-xs"
+                                  title={t.ativo ? 'Desativar' : 'Ativar'}
+                                >
+                                  {t.ativo ? <EyeOff size={13} /> : <Eye size={13} />}
+                                </button>
+                                <button
+                                  onClick={() => setParcelasApiTokens(parcelasApiTokens.filter(x => x.id !== t.id))}
+                                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                  title="Excluir token"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {parcelasApiTokens.length === 0 && !showTokenNovo && (
+                  <div className="mt-4 rounded-lg border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
+                    Nenhuma seguradora integrada via API ainda.<br />
+                    <span className="text-xs">Clique em "Novo Token" para gerar as credenciais de acesso.</span>
+                  </div>
+                )}
+
+                {/* Modal novo token */}
+                {showTokenNovo && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm">
+                      <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                        <h2 className="font-bold text-gray-900">Novo Token de API</h2>
+                        <button onClick={() => setShowTokenNovo(false)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Nome descritivo <span className="text-red-500">*</span></label>
+                          <input
+                            value={formTokenApi.nome}
+                            onChange={e => setFormTokenApi(f => ({ ...f, nome: e.target.value }))}
+                            placeholder="Ex.: Porto Seguro — Produção"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Seguradora <span className="text-red-500">*</span></label>
+                          <select
+                            value={formTokenApi.seguradora}
+                            onChange={e => setFormTokenApi(f => ({ ...f, seguradora: e.target.value }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">— Selecione —</option>
+                            {[...seguradoras].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map(s => (
+                              <option key={s.id} value={s.nome}>{s.nome}</option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-gray-400 mt-1">As parcelas recebidas por este token serão cadastradas com esta seguradora.</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+                        <button onClick={() => setShowTokenNovo(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
+                        <button onClick={salvarTokenApi} className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800">
+                          <Save size={14} /> Gerar Token
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Automações de Parcelas — dentro de Regras de Parcelas */}
           <AutomacoesParcelasConfig

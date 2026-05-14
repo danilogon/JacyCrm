@@ -27,7 +27,7 @@ import type {
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
   Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela, EnvelopeAssinatura,
-  ConfigClickSign, ModeloAssinatura,
+  ConfigClickSign, ModeloAssinatura, ParcelasApiToken,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -128,6 +128,7 @@ function AppRoutes() {
   const [envelopes,          setEnvelopesState]          = useState<EnvelopeAssinatura[]>([]);
   const [clicksignConfig,    setClicksignConfigState]    = useState<ConfigClickSign>({ token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
   const [clicksignModelos,   setClicksignModelosState]   = useState<ModeloAssinatura[]>([]);
+  const [parcelasApiTokens,  setParcelasApiTokensState]  = useState<ParcelasApiToken[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -161,6 +162,7 @@ function AppRoutes() {
         setEnvelopesState(data.envelopesAssinatura);
         setClicksignConfigState(data.clicksignConfig);
         setClicksignModelosState(data.modelosAssinatura);
+        setParcelasApiTokensState(data.parcelasApiTokens);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -230,6 +232,8 @@ function AppRoutes() {
     makeSyncer(setRegrasParcelasState, db.upsertRegrasParcelas, db.deleteRegrasParcelas), []);
   const setAutomacoesParcelas = useCallback(
     makeSyncer(setAutomacoesParcelasState, db.upsertAutomacoesParcelas, db.deleteAutomacoesParcelas), []);
+  const setParcelasApiTokens = useCallback(
+    makeSyncer(setParcelasApiTokensState, db.upsertParcelasApiTokens, db.deleteParcelasApiTokens), []);
 
   const setEnvelopesSync = useCallback(
     makeSyncer(setEnvelopesState, db.upsertEnvelopesAssinatura, db.deleteEnvelopesAssinatura), []);
@@ -629,6 +633,8 @@ function AppRoutes() {
               setClicksignConfig={setClicksignConfig}
               clicksignModelos={clicksignModelos}
               setClicksignModelos={setClicksignModelos}
+              parcelasApiTokens={parcelasApiTokens}
+              setParcelasApiTokens={setParcelasApiTokens}
             />
           } />
         )}

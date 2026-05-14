@@ -16,7 +16,7 @@ import type {
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
   Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
-  ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura,
+  ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, ParcelasApiToken,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -120,6 +120,7 @@ export async function fetchAll() {
     r_clicksign_config,
     r_modelos_assinatura,
     r_envelopes_assinatura,
+    r_parcelas_api_tokens,
     // ── Tabelas grandes (paginadas) ──
     clientes,
     renovacoes,
@@ -149,6 +150,7 @@ export async function fetchAll() {
     supabase.from('configuracao_clicksign').select('*').eq('id', 1).maybeSingle(),
     supabase.from('modelos_assinatura').select('*').order('criado_em', { ascending: true }),
     supabase.from('envelopes_assinatura').select('*').order('criado_em', { ascending: false }),
+    supabase.from('parcelas_api_tokens').select('*').order('criado_em', { ascending: true }),
     // ── Tabelas grandes (cada uma percorre todas as páginas internamente) ──
     fetchPaginated<Cliente>(
       (f, t) => supabase.from('clientes').select('*').range(f, t)),
@@ -192,6 +194,7 @@ export async function fetchAll() {
     importacoesParcelas: (r_imp_parcelas.data || []).map(r => rowToCamel<ImportacaoParcelas>(r as Record<string, unknown>)),
     regrasParcelas: (r_regras_parcelas.data || []).map(r => rowToCamel<RegraParcelaNegocio>(r as Record<string, unknown>)),
     automacoesParcelas: r_automacoes_parcelas.error ? [] : (r_automacoes_parcelas.data || []).map(r => rowToCamel<AutomacaoParcela>(r as Record<string, unknown>)),
+    parcelasApiTokens: r_parcelas_api_tokens.error ? [] : (r_parcelas_api_tokens.data || []).map(r => rowToCamel<ParcelasApiToken>(r as Record<string, unknown>)),
     // Tabelas grandes já convertidas pelo fetchPaginated
     clientes,
     renovacoes,
@@ -400,6 +403,10 @@ export const db = {
     }
   },
   deleteAutomacoesParcelas: (ids: string[]) => deleteRows('automacoes_parcelas', ids),
+
+  // Tokens de API para seguradoras (integração via endpoint)
+  upsertParcelasApiTokens: (items: ParcelasApiToken[]) => upsertRows('parcelas_api_tokens', items as unknown as Record<string, unknown>[]),
+  deleteParcelasApiTokens: (ids: string[])              => deleteRows('parcelas_api_tokens', ids),
 
   // Configurações de metas (singleton id=1)
   upsertMetas: async (metas: ConfiguracoesMetas) => {

@@ -274,6 +274,7 @@ export interface Cliente {
   cpfCnpj: string;
   tipo: 'PF' | 'PJ';
   nome: string;
+  pessoaContato?: string;
   email: string;
   telefone: string;
   dataNascimento?: string;
@@ -710,6 +711,23 @@ export interface RegraParcelaNegocio {
    */
   apolicePrefix?: string;
   ativo: boolean;
+  criadoEm: string;
+  atualizadoEm: string;
+}
+
+// ─── Tokens de API para seguradoras (integração via endpoint) ─────────────────
+
+export interface ParcelasApiToken {
+  id: string;
+  /** Nome descritivo, ex: "Porto Seguro" */
+  nome: string;
+  /** Nome da seguradora a gravar nas parcelas importadas por este token */
+  seguradora: string;
+  /** Token secreto enviado no header Authorization: Bearer <token> */
+  token: string;
+  ativo: boolean;
+  /** Último uso do token (ISO timestamp) */
+  lastUsedAt?: string;
   criadoEm: string;
   atualizadoEm: string;
 }
