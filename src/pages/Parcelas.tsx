@@ -1576,6 +1576,91 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
                 </div>
               )}
 
+              {/* Histórico de planilhas importadas */}
+              {(() => {
+                const logsImport = [...(editando.logs ?? [])]
+                  .filter(l => l.tipo === 'importacao')
+                  .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+                if (logsImport.length === 0) return null;
+
+                function getImportAcao(descricao: string): { label: string; cls: string } {
+                  if (descricao.startsWith('Parcela importada')) return { label: 'Nova', cls: 'bg-blue-100 text-blue-700' };
+                  if (descricao.startsWith('Dados atualizados')) return { label: 'Atualizada', cls: 'bg-gray-100 text-gray-600' };
+                  if (descricao.startsWith('Parcela reapareceu')) return { label: 'Reapareceu', cls: 'bg-purple-100 text-purple-700' };
+                  if (descricao.startsWith('Status atualizado')) {
+                    const para = logsImport.find(l => l.descricao === descricao)?.mudancas?.[0]?.para ?? '';
+                    if (para === STATUS_PARCELA_LABELS['analise_critica']) return { label: 'Análise Crítica', cls: 'bg-orange-100 text-orange-700' };
+                    return { label: 'Baixada Sistema', cls: 'bg-green-100 text-green-700' };
+                  }
+                  return { label: 'Import', cls: 'bg-blue-100 text-blue-700' };
+                }
+
+                // Extrai o nome do arquivo da descrição
+                function extrairArquivo(descricao: string): string {
+                  const m = descricao.match(/(?:arquivo |planilha \()([^)]+\.xlsx?)/) ??
+                            descricao.match(/importação:\s*(.+\.xlsx?)/) ??
+                            descricao.match(/:\s*(.+\.xlsx?)/);
+                  return m ? m[1] : descricao;
+                }
+
+                return (
+                  <div className="border-t border-gray-100 pt-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <FileText size={14} className="text-gray-400" />
+                      <span className="text-sm font-semibold text-gray-700">Histórico de Planilhas</span>
+                      <span className="text-xs text-gray-400 ml-auto">{logsImport.length} ocorrência(s)</span>
+                    </div>
+                    <div className="relative pl-5">
+                      {/* linha vertical */}
+                      <div className="absolute left-1.5 top-1 bottom-1 w-px bg-gray-200" />
+                      <div className="space-y-3">
+                        {logsImport.map((log, i) => {
+                          const acao = getImportAcao(log.descricao);
+                          const arquivo = extrairArquivo(log.descricao);
+                          const dataFormatada = new Date(log.data).toLocaleDateString('pt-BR', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                          });
+                          const horaFormatada = new Date(log.data).toLocaleTimeString('pt-BR', {
+                            hour: '2-digit', minute: '2-digit',
+                          });
+                          return (
+                            <div key={log.id} className="relative flex items-start gap-3">
+                              {/* dot */}
+                              <div className={`absolute -left-3.5 mt-1 w-2.5 h-2.5 rounded-full border-2 border-white ${
+                                i === logsImport.length - 1 ? 'bg-blue-500' : 'bg-gray-300'
+                              }`} />
+                              <div className="flex-1 bg-gray-50 rounded-lg px-3 py-2 border border-gray-100 text-xs">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`px-1.5 py-0.5 rounded font-semibold uppercase tracking-wide text-[10px] ${acao.cls}`}>
+                                      {acao.label}
+                                    </span>
+                                    <span className="text-gray-700 font-medium truncate max-w-[200px]" title={arquivo}>{arquivo}</span>
+                                  </div>
+                                  <span className="text-gray-400 whitespace-nowrap">{dataFormatada} {horaFormatada}</span>
+                                </div>
+                                {log.mudancas && log.mudancas.length > 0 && (
+                                  <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-gray-500">
+                                    {log.mudancas.map((m, j) => (
+                                      <span key={j}>
+                                        <span className="font-medium text-gray-600">{m.campo}:</span>{' '}
+                                        <span className="line-through text-red-400">{m.de}</span>
+                                        {' → '}
+                                        <span className="text-green-600 font-medium">{m.para}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Histórico de observações */}
               {editando.observacoes.length > 0 && (
                 <div className="border-t border-gray-100 pt-4">
