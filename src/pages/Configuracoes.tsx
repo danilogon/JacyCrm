@@ -699,7 +699,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
   // Regras de Parcelas state
   const regraVazia: Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'> = {
-    nome: '', isDefault: false, seguradora: '', ramo: '', formaPagamento: '', ativo: true,
+    nome: '', isDefault: false, seguradora: '', ramo: '', formaPagamento: '', apolicePrefix: '', ativo: true,
   };
   const [modalRegra, setModalRegra] = useState<RegraParcelaNegocio | 'nova' | null>(null);
   const [formRegra, setFormRegra] = useState<Omit<RegraParcelaNegocio, 'id' | 'criadoEm' | 'atualizadoEm'>>(regraVazia);
@@ -2293,6 +2293,86 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
             </div>
           </div>
 
+          {/* Regras Personalizadas de Prazo */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <div>
+                <h2 className="font-semibold text-gray-900">Regras Personalizadas de Prazo</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Defina condições para identificar automaticamente o ramo de uma parcela e aplicar regras específicas de prazo.
+                </p>
+              </div>
+              <button
+                onClick={() => { setFormRegra({ ...regraVazia, isDefault: false }); setModalRegra('nova'); }}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800 shrink-0"
+              >
+                <Plus size={14} /> Nova Regra
+              </button>
+            </div>
+
+            {regrasParcelas.filter(r => !r.isDefault).length === 0 ? (
+              <div className="mt-4 rounded-lg border border-dashed border-gray-200 py-8 text-center text-sm text-gray-400">
+                Nenhuma regra personalizada cadastrada.<br />
+                <span className="text-xs">Clique em "Nova Regra" para adicionar condições como prefixo de apólice, seguradora ou ramo.</span>
+              </div>
+            ) : (
+              <div className="mt-4 overflow-x-auto rounded-lg border border-gray-100">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Nome</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Seguradora</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Ramo</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Forma Pgto</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Apólice começa com</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500">Status</th>
+                      <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {regrasParcelas.filter(r => !r.isDefault).map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onDoubleClick={() => { setFormRegra({ nome: r.nome, isDefault: r.isDefault, seguradora: r.seguradora, ramo: r.ramo, formaPagamento: r.formaPagamento, apolicePrefix: r.apolicePrefix ?? '', ativo: r.ativo }); setModalRegra(r); }}>
+                        <td className="px-4 py-2.5 font-medium text-gray-800">{r.nome}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.seguradora || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.ramo || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-2.5 text-gray-600">{r.formaPagamento || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-4 py-2.5">
+                          {r.apolicePrefix
+                            ? <span className="font-mono bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-xs">{r.apolicePrefix}…</span>
+                            : <span className="text-gray-300">—</span>
+                          }
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${r.ativo ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {r.ativo ? 'Ativa' : 'Inativa'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => { setFormRegra({ nome: r.nome, isDefault: r.isDefault, seguradora: r.seguradora, ramo: r.ramo, formaPagamento: r.formaPagamento, apolicePrefix: r.apolicePrefix ?? '', ativo: r.ativo }); setModalRegra(r); }}
+                              className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                              title="Editar"
+                            >
+                              <Edit2 size={14} />
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelRegra(r.id)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Excluir"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
           {/* Modal criar/editar regra */}
           {modalRegra !== null && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -2356,6 +2436,19 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                         />
                         <p className="text-xs text-gray-400 mt-1">Deixe em branco para aplicar a qualquer forma de pagamento.</p>
                       </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Apólice começa com</label>
+                        <input
+                          value={formRegra.apolicePrefix ?? ''}
+                          onChange={e => setFormRegra(f => ({ ...f, apolicePrefix: e.target.value }))}
+                          placeholder="Ex.: AUTO, VID-, 72, P-..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          Deixe em branco para qualquer apólice. Use para identificar o ramo pelo prefixo do número da apólice (não diferencia maiúsculas/minúsculas).
+                        </p>
+                      </div>
                     </>
                   )}
 
@@ -2363,12 +2456,13 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                     <Ck v={formRegra.ativo} label="Regra ativa" onChange={v => setFormRegra(f => ({ ...f, ativo: v }))} />
                   </div>
 
-                  {!formRegra.isDefault && (formRegra.seguradora || formRegra.ramo || formRegra.formaPagamento) && (
+                  {!formRegra.isDefault && (formRegra.seguradora || formRegra.ramo || formRegra.formaPagamento || formRegra.apolicePrefix) && (
                     <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
                       Esta regra será aplicada a parcelas com:
                       {formRegra.seguradora && <span className="font-medium"> Seguradora = "{formRegra.seguradora}"</span>}
                       {formRegra.ramo && <span className="font-medium"> · Ramo = "{formRegra.ramo}"</span>}
                       {formRegra.formaPagamento && <span className="font-medium"> · Forma = "{formRegra.formaPagamento}"</span>}
+                      {formRegra.apolicePrefix && <span className="font-medium"> · Apólice começa com "{formRegra.apolicePrefix}"</span>}
                     </div>
                   )}
                 </div>

@@ -694,7 +694,7 @@ export interface RegraParcelaNegocio {
   nome: string;
   /**
    * true  → regra padrão, aplica quando nenhuma regra específica corresponde.
-   * false → regra específica, identificada pela combinação seguradora/ramo/formaPagamento.
+   * false → regra específica, identificada pela combinação seguradora/ramo/formaPagamento/apolicePrefix.
    */
   isDefault: boolean;
   /** Vazio ("") = qualquer seguradora. Ignorado quando isDefault = true. */
@@ -703,6 +703,12 @@ export interface RegraParcelaNegocio {
   ramo: string;
   /** Vazio ("") = qualquer forma de pagamento. Ignorado quando isDefault = true. */
   formaPagamento: string;
+  /**
+   * Prefixo do número da apólice (case-insensitive).
+   * Vazio ("") = qualquer apólice. Ignorado quando isDefault = true.
+   * Ex.: "AUTO-" → aplica somente a apólices que começam com "AUTO-"
+   */
+  apolicePrefix?: string;
   ativo: boolean;
   criadoEm: string;
   atualizadoEm: string;
