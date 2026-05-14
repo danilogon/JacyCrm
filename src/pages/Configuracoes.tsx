@@ -643,9 +643,11 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
   // ── API Tokens ──────────────────────────────────────────────────────────────
   const [showTokenNovo, setShowTokenNovo] = useState(false);
-  const [formTokenApi, setFormTokenApi] = useState({ nome: '', seguradora: '' });
+  const [formTokenApi, setFormTokenApi] = useState({ nome: '', seguradora: '', webhookSecret: '' });
   const [tokenVisivel, setTokenVisivel] = useState<string | null>(null);
   const [copiadoApi, setCopiadoApi] = useState(false);
+  /** Id do token cujos detalhes completos estão sendo exibidos (modal de detalhes) */
+  const [tokenDetalhesId, setTokenDetalhesId] = useState<string | null>(null);
 
   function gerarTokenApi(): string {
     const arr = new Uint8Array(32);
@@ -662,13 +664,14 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
       nome: formTokenApi.nome.trim(),
       seguradora: formTokenApi.seguradora.trim(),
       token: gerarTokenApi(),
+      webhookSecret: formTokenApi.webhookSecret.trim() || undefined,
       ativo: true,
       criadoEm: now,
       atualizadoEm: now,
     };
     setParcelasApiTokens([...parcelasApiTokens, novoToken]);
     setTokenVisivel(novoToken.token);
-    setFormTokenApi({ nome: '', seguradora: '' });
+    setFormTokenApi({ nome: '', seguradora: '', webhookSecret: '' });
     setShowTokenNovo(false);
   }
 
@@ -2551,7 +2554,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 border-b border-gray-100">
                         <tr>
-                          {['Nome', 'Seguradora', 'Token', 'Último uso', 'Status', ''].map(h => (
+                          {['Nome', 'Seguradora', 'Token', 'Chave Webhook', 'Último uso', 'Status', ''].map(h => (
                             <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">{h}</th>
                           ))}
                         </tr>
@@ -2562,7 +2565,22 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                             <td className="px-4 py-2.5 font-medium text-gray-800">{t.nome}</td>
                             <td className="px-4 py-2.5 text-gray-600">{t.seguradora}</td>
                             <td className="px-4 py-2.5">
-                              <span className="font-mono text-xs text-gray-400">{t.token.slice(0, 8)}••••••••</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-mono text-xs text-gray-400">{t.token.slice(0, 8)}••••••••</span>
+                                <button
+                                  onClick={() => setTokenDetalhesId(t.id)}
+                                  className="p-1 text-gray-300 hover:text-blue-500 rounded"
+                                  title="Ver credenciais completas (admin)"
+                                >
+                                  <Eye size={12} />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5">
+                              {t.webhookSecret
+                                ? <span className="font-mono text-xs text-gray-400">••••••••</span>
+                                : <span className="text-gray-300 text-xs">—</span>
+                              }
                             </td>
                             <td className="px-4 py-2.5 text-xs text-gray-400">
                               {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleDateString('pt-BR') : '—'}
@@ -2636,6 +2654,20 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                           </select>
                           <p className="text-xs text-gray-400 mt-1">As parcelas recebidas por este token serão cadastradas com esta seguradora.</p>
                         </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Chave Secreta do Webhook <span className="text-gray-400 font-normal">(opcional)</span>
+                          </label>
+                          <input
+                            value={formTokenApi.webhookSecret}
+                            onChange={e => setFormTokenApi(f => ({ ...f, webhookSecret: e.target.value }))}
+                            placeholder="Chave gerada pela seguradora no webhook dela"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                          />
+                          <p className="text-xs text-gray-400 mt-1">
+                            Chave fornecida pela seguradora para verificar a autenticidade das requisições recebidas (assinatura HMAC).
+                          </p>
+                        </div>
                       </div>
                       <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
                         <button onClick={() => setShowTokenNovo(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancelar</button>
@@ -2646,6 +2678,69 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                     </div>
                   </div>
                 )}
+
+                {/* Modal de detalhes completos (admin) */}
+                {tokenDetalhesId && (() => {
+                  const tk = parcelasApiTokens.find(x => x.id === tokenDetalhesId);
+                  if (!tk) return null;
+                  return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+                          <div>
+                            <h2 className="font-bold text-gray-900">Credenciais — {tk.nome}</h2>
+                            <p className="text-xs text-gray-400 mt-0.5">{tk.seguradora}</p>
+                          </div>
+                          <button onClick={() => setTokenDetalhesId(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                          <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
+                            ⚠ Informações sigilosas — visíveis apenas para administradores. Não compartilhe.
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Bearer Token</label>
+                            <p className="text-xs text-gray-400 mb-1">Enviado pela seguradora no header <code className="bg-gray-100 px-1 rounded">Authorization: Bearer …</code></p>
+                            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                              <code className="flex-1 text-xs font-mono text-gray-800 break-all">{tk.token}</code>
+                              <button
+                                onClick={() => copiarApi(tk.token)}
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded shrink-0"
+                                title="Copiar token"
+                              >
+                                {copiadoApi ? <Check size={13} /> : <Copy size={13} />}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Chave Secreta do Webhook</label>
+                            <p className="text-xs text-gray-400 mb-1">Gerada pela seguradora — usada para validar a assinatura HMAC das requisições.</p>
+                            {tk.webhookSecret ? (
+                              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                <code className="flex-1 text-xs font-mono text-gray-800 break-all">{tk.webhookSecret}</code>
+                                <button
+                                  onClick={() => copiarApi(tk.webhookSecret!)}
+                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded shrink-0"
+                                  title="Copiar chave"
+                                >
+                                  {copiadoApi ? <Check size={13} /> : <Copy size={13} />}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-400 italic">
+                                Nenhuma chave cadastrada para esta integração.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex justify-end p-5 border-t border-gray-200">
+                          <button onClick={() => setTokenDetalhesId(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">Fechar</button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })()}

@@ -725,6 +725,11 @@ export interface ParcelasApiToken {
   seguradora: string;
   /** Token secreto enviado no header Authorization: Bearer <token> */
   token: string;
+  /**
+   * Chave secreta gerada pela seguradora no webhook dela (opcional).
+   * Usada para verificar a assinatura HMAC das requisições recebidas.
+   */
+  webhookSecret?: string;
   ativo: boolean;
   /** Último uso do token (ISO timestamp) */
   lastUsedAt?: string;
