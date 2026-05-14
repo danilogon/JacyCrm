@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela, Tarefa } from '../types';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
+import { db } from '../lib/db';
 import { formatDate, generateId, abrirArquivoNoNavegador } from '../utils/formatters';
 import { DateInput } from '../components/DateInput';
 
@@ -257,6 +258,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   const [showHistorico, setShowHistorico] = useState(false);
   const [historicoSel, setHistoricoSel] = useState<ImportacaoParcelas | null>(null);
   const [importResult, setImportResult] = useState<ImportacaoParcelas | null>(null);
+  const [showAuditImport, setShowAuditImport] = useState(false);
 
   // ── Automações ───────────────────────────────────────────────────────────
   const [processando, setProcessando] = useState(false);
@@ -273,15 +275,16 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
   }
 
   // ── Execução automática diária ────────────────────────────────────────────
-  const STORAGE_KEY = 'parcelas_automacoes_ultima_execucao';
   useEffect(() => {
     if (!automacoesParcelas.some(a => a.ativo)) return;
     if (!parcelas.length) return;
     const hoje = new Date().toISOString().slice(0, 10);
-    const ultimaExecucao = localStorage.getItem(STORAGE_KEY);
-    if (ultimaExecucao === hoje) return; // já rodou hoje
-    processarAutomacoes();
-    localStorage.setItem(STORAGE_KEY, hoje);
+    (async () => {
+      const ultimaExecucao = await db.getParcelasUltimaAutomacao();
+      if (ultimaExecucao === hoje) return; // já rodou hoje neste sistema
+      await db.setParcelasUltimaAutomacao(hoje);
+      processarAutomacoes();
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // roda só na montagem do componente
 
@@ -492,6 +495,13 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             });
           } else {
             // Parcela normal: atualiza dados conforme a planilha
+            const logAtualiz: LogParcela = {
+              id: generateId(),
+              data: agora,
+              autor: 'Sistema',
+              tipo: 'importacao',
+              descricao: `Dados atualizados por importação: ${file.name}`,
+            };
             updated.push({
               ...existing,
               nomeCliente,
@@ -503,6 +513,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               formaPagamento,
               ultimaAtualizacao: dataImport,
               atualizadoEm: agora,
+              logs: [...(existing.logs ?? []), logAtualiz],
             });
           }
           totalAtualizadas++;
@@ -638,8 +649,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
         parcelasFinais = comAuto;
       }
       setParcelas(parcelasFinais);
-      // Marca execução de hoje no localStorage para não duplicar na montagem
-      localStorage.setItem('parcelas_automacoes_ultima_execucao', new Date().toISOString().slice(0, 10));
+      // Marca execução de hoje no Supabase para não duplicar na montagem
+      db.setParcelasUltimaAutomacao(new Date().toISOString().slice(0, 10));
       setImportacoesParcelas([lote, ...importacoesParcelas]);
       setImportResult(lote);
     };
@@ -994,13 +1005,20 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           {historicoSel && (
             <div className="px-4 py-3 text-sm space-y-3">
               {/* Resumo */}
-              <div className="flex flex-wrap gap-4 text-xs text-gray-500">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
                 <span><strong className="text-gray-700">{historicoSel.totalNovas}</strong> novas</span>
                 <span><strong className="text-gray-700">{historicoSel.totalAtualizadas}</strong> atualizadas</span>
                 <span><strong className="text-gray-700">{historicoSel.totalBaixadas}</strong> baixadas automáticas</span>
                 {historicoSel.totalIgnoradas > 0 && (
                   <span className="text-amber-600"><strong>{historicoSel.totalIgnoradas}</strong> ignoradas</span>
                 )}
+                <button
+                  onClick={() => setShowAuditImport(true)}
+                  className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 text-xs font-medium"
+                  title="Ver parcelas desta importação"
+                >
+                  <FileText size={13} /> Ver parcelas
+                </button>
               </div>
 
               {/* Tabela seguradora × parcelas */}
@@ -1040,6 +1058,135 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
           )}
         </div>
       )}
+
+      {/* Modal auditoria de parcelas por importação */}
+      {showAuditImport && historicoSel && (() => {
+        const nomeArq = historicoSel.nomeArquivo;
+        const parcelasDoImport = parcelas.filter(p =>
+          (p.logs ?? []).some(l => l.tipo === 'importacao' && l.descricao.includes(nomeArq))
+        );
+
+        function getAcao(p: Parcela): { label: string; cls: string } {
+          const log = (p.logs ?? []).find(l => l.tipo === 'importacao' && l.descricao.includes(nomeArq));
+          if (!log) return { label: 'Desconhecida', cls: 'bg-gray-100 text-gray-500' };
+          if (log.descricao.startsWith('Parcela importada')) return { label: 'Nova', cls: 'bg-blue-100 text-blue-700' };
+          if (log.descricao.startsWith('Status atualizado')) {
+            const para = log.mudancas?.[0]?.para ?? '';
+            if (para === STATUS_PARCELA_LABELS['analise_critica']) return { label: 'Análise Crítica', cls: 'bg-orange-100 text-orange-700' };
+            return { label: 'Baixada Sistema', cls: 'bg-green-100 text-green-700' };
+          }
+          if (log.descricao.startsWith('Parcela reapareceu')) return { label: 'Atualizada', cls: 'bg-purple-100 text-purple-700' };
+          if (log.descricao.startsWith('Dados atualizados')) return { label: 'Atualizada', cls: 'bg-gray-100 text-gray-600' };
+          return { label: 'Processada', cls: 'bg-gray-100 text-gray-500' };
+        }
+
+        const dataHora = new Date(historicoSel.criadoEm).toLocaleString('pt-BR', {
+          day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+        });
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setShowAuditImport(false)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 px-6 py-4 border-b border-gray-200">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base font-semibold text-gray-900 truncate">{nomeArq}</h2>
+                  <div className="flex flex-wrap items-center gap-3 mt-1">
+                    <span className="text-xs text-gray-500">{dataHora}</span>
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">Parcelas</span>
+                    <span className="text-xs text-gray-400">{parcelasDoImport.length} parcela(s) registradas</span>
+                  </div>
+                </div>
+                <button onClick={() => setShowAuditImport(false)} className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg shrink-0">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Resumo cards */}
+              <div className="px-6 pt-4 pb-2 grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Novas', value: historicoSel.totalNovas, cls: 'bg-blue-50 text-blue-700 border-blue-100' },
+                  { label: 'Atualizadas', value: historicoSel.totalAtualizadas, cls: 'bg-gray-50 text-gray-700 border-gray-200' },
+                  { label: 'Baixadas Sistema', value: historicoSel.totalBaixadas, cls: 'bg-green-50 text-green-700 border-green-100' },
+                  { label: 'Ignoradas', value: historicoSel.totalIgnoradas, cls: 'bg-red-50 text-red-700 border-red-100' },
+                ].map(({ label, value, cls }) => (
+                  <div key={label} className={`rounded-xl border px-4 py-3 text-center ${cls}`}>
+                    <div className="text-2xl font-bold">{value}</div>
+                    <div className="text-xs mt-0.5">{label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tabela de parcelas */}
+              <div className="flex-1 overflow-y-auto px-6 pb-6">
+                {parcelasDoImport.length === 0 ? (
+                  <div className="py-10 text-center text-gray-400 text-sm">
+                    Nenhuma parcela com registro de log para esta importação.<br />
+                    <span className="text-xs">Importações anteriores podem não ter gerado log individual por parcela.</span>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-gray-100 mt-2">
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          {['Ação', 'Cliente', 'Apólice / Parc.', 'Seguradora', 'Vencimento', 'Valor', 'Status atual'].map(h => (
+                            <th key={h} className="px-3 py-2 text-left font-semibold text-gray-500 whitespace-nowrap border-b border-gray-100">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {parcelasDoImport.map(p => {
+                          const acao = getAcao(p);
+                          return (
+                            <tr key={p.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${acao.cls}`}>{acao.label}</span>
+                              </td>
+                              <td className="px-3 py-2 text-gray-800 max-w-[160px] truncate" title={p.nomeCliente}>{p.nomeCliente}</td>
+                              <td className="px-3 py-2 font-mono text-gray-600 whitespace-nowrap">{p.apolice} / {p.numeroParcela}</td>
+                              <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{p.seguradora}</td>
+                              <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{formatDate(p.vencimento)}</td>
+                              <td className="px-3 py-2 text-gray-700 whitespace-nowrap font-medium">
+                                {p.valorParcela > 0 ? `R$ ${p.valorParcela.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}
+                              </td>
+                              <td className="px-3 py-2"><StatusBadge status={p.status} /></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Linhas ignoradas */}
+                {historicoSel.linhasIgnoradas.length > 0 && (
+                  <div className="mt-4">
+                    <div className="text-xs font-semibold text-red-700 mb-2">Linhas ignoradas ({historicoSel.linhasIgnoradas.length})</div>
+                    <div className="overflow-x-auto rounded-lg border border-red-100">
+                      <table className="w-full text-xs">
+                        <thead className="bg-red-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-semibold text-red-800">Linha</th>
+                            <th className="px-3 py-2 text-left font-semibold text-red-800">Motivo</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-red-50">
+                          {historicoSel.linhasIgnoradas.map((l, i) => (
+                            <tr key={i} className="hover:bg-red-50/50">
+                              <td className="px-3 py-2 text-gray-500">{l.linha}</td>
+                              <td className="px-3 py-2 text-red-700">{l.motivo}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Filtros */}
       <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-wrap gap-3 items-center">
