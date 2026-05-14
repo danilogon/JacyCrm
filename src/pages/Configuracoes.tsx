@@ -2568,9 +2568,9 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                               <div className="flex items-center gap-1.5">
                                 <span className="font-mono text-xs text-gray-400">{t.token.slice(0, 8)}••••••••</span>
                                 <button
-                                  onClick={() => setTokenDetalhesId(t.id)}
+                                  onClick={() => { setFormTokenApi(f => ({ ...f, webhookSecret: '' })); setTokenDetalhesId(t.id); }}
                                   className="p-1 text-gray-300 hover:text-blue-500 rounded"
-                                  title="Ver credenciais completas (admin)"
+                                  title="Ver / editar credenciais (admin)"
                                 >
                                   <Eye size={12} />
                                 </button>
@@ -2683,6 +2683,18 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                 {tokenDetalhesId && (() => {
                   const tk = parcelasApiTokens.find(x => x.id === tokenDetalhesId);
                   if (!tk) return null;
+                  // Estado local para edição da chave (sem hook — variável reatribuível via IIFE não funciona,
+                  // então usamos o formTokenApi.webhookSecret como buffer de edição inicializado ao abrir)
+                  const editandoChave = formTokenApi.webhookSecret;
+                  function salvarChave() {
+                    setParcelasApiTokens(parcelasApiTokens.map(x =>
+                      x.id === tk!.id
+                        ? { ...x, webhookSecret: editandoChave.trim() || undefined, atualizadoEm: new Date().toISOString() }
+                        : x
+                    ));
+                    setTokenDetalhesId(null);
+                    setFormTokenApi(f => ({ ...f, webhookSecret: '' }));
+                  }
                   return (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
                       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
@@ -2691,7 +2703,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
                             <h2 className="font-bold text-gray-900">Credenciais — {tk.nome}</h2>
                             <p className="text-xs text-gray-400 mt-0.5">{tk.seguradora}</p>
                           </div>
-                          <button onClick={() => setTokenDetalhesId(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
+                          <button onClick={() => { setTokenDetalhesId(null); setFormTokenApi(f => ({ ...f, webhookSecret: '' })); }} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={18} /></button>
                         </div>
                         <div className="p-5 space-y-4">
                           <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700">
@@ -2715,27 +2727,42 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
 
                           <div>
                             <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">Chave Secreta do Webhook</label>
-                            <p className="text-xs text-gray-400 mb-1">Gerada pela seguradora — usada para validar a assinatura HMAC das requisições.</p>
-                            {tk.webhookSecret ? (
-                              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                                <code className="flex-1 text-xs font-mono text-gray-800 break-all">{tk.webhookSecret}</code>
+                            <p className="text-xs text-gray-400 mb-1">Gerada pela seguradora — cole aqui quando ela fornecer.</p>
+                            <div className="flex items-center gap-2">
+                              <input
+                                value={editandoChave}
+                                onChange={e => setFormTokenApi(f => ({ ...f, webhookSecret: e.target.value }))}
+                                placeholder={tk.webhookSecret ? tk.webhookSecret : 'Cole a chave fornecida pela seguradora…'}
+                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              {tk.webhookSecret && !editandoChave && (
                                 <button
                                   onClick={() => copiarApi(tk.webhookSecret!)}
-                                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded shrink-0"
-                                  title="Copiar chave"
+                                  className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg shrink-0"
+                                  title="Copiar chave atual"
                                 >
-                                  {copiadoApi ? <Check size={13} /> : <Copy size={13} />}
+                                  {copiadoApi ? <Check size={14} /> : <Copy size={14} />}
                                 </button>
-                              </div>
-                            ) : (
-                              <div className="bg-gray-50 border border-dashed border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-400 italic">
-                                Nenhuma chave cadastrada para esta integração.
-                              </div>
+                              )}
+                            </div>
+                            {tk.webhookSecret && !editandoChave && (
+                              <p className="text-xs text-gray-400 mt-1">Chave já cadastrada. Digite uma nova para substituir.</p>
                             )}
                           </div>
                         </div>
-                        <div className="flex justify-end p-5 border-t border-gray-200">
-                          <button onClick={() => setTokenDetalhesId(null)} className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200">Fechar</button>
+                        <div className="flex justify-end gap-3 p-5 border-t border-gray-200">
+                          <button
+                            onClick={() => { setTokenDetalhesId(null); setFormTokenApi(f => ({ ...f, webhookSecret: '' })); }}
+                            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={salvarChave}
+                            className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-800"
+                          >
+                            <Save size={14} /> Salvar
+                          </button>
                         </div>
                       </div>
                     </div>
