@@ -1,126 +1,165 @@
 @import "tailwindcss";
 
 /* ─── Modo escuro via classe .dark no <html> ─────────────────────────────── */
-
-/* Habilita variante dark: baseada em classe para uso futuro com utilitários Tailwind */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ─── Overrides globais de dark mode ────────────────────────────────────────
-   Ficam fora de qualquer @layer, portanto têm precedência sobre @layer utilities
-   do Tailwind sem precisar de !important.
-   ─────────────────────────────────────────────────────────────────────────── */
+/* ─── Variáveis de dark mode ─────────────────────────────────────────────── */
+/*
+  Paleta: warm gray (Tailwind gray-*) em vez de slate puro.
+  Mais legível, menos fria, hierarquia clara.
 
-/* Corpo da página */
+  Backgrounds:
+    page    → #111827  (gray-900)
+    card    → #1f2937  (gray-800)
+    raised  → #374151  (gray-700) — hover, inputs
+    border  → #374151  (gray-700) leve / #4b5563 (gray-600) médio
+
+  Texto (contraste WCAG AA em todos os níveis):
+    primary   → #f9fafb  (gray-50)   — títulos
+    secondary → #f3f4f6  (gray-100)  — texto principal
+    body      → #e5e7eb  (gray-200)  — parágrafos
+    muted     → #9ca3af  (gray-400)  — labels, datas
+    subtle    → #6b7280  (gray-500)  — placeholders, ícones inativos
+*/
+
+/* ── Corpo ───────────────────────────────────────────────────────────────── */
 .dark body {
-  background-color: #0f172a;
-  color: #e2e8f0;
+  background-color: #111827;
+  color: #e5e7eb;
 }
 
 /* ── Backgrounds ─────────────────────────────────────────────────────────── */
-.dark .bg-white           { background-color: #1e293b; }
-.dark .bg-gray-50         { background-color: #0f172a; }
-.dark .bg-gray-100        { background-color: #1e293b; }
-.dark .bg-gray-200        { background-color: #334155; }
+.dark .bg-white           { background-color: #1f2937; }
+.dark .bg-gray-50         { background-color: #111827; }
+.dark .bg-gray-100        { background-color: #1f2937; }
+.dark .bg-gray-200        { background-color: #374151; }
 
-/* Backgrounds coloridos leves (badges / alertas) */
-.dark .bg-blue-50         { background-color: #172554; }
-.dark .bg-green-50        { background-color: #052e16; }
-.dark .bg-red-50          { background-color: #450a0a; }
-.dark .bg-orange-50       { background-color: #431407; }
-.dark .bg-yellow-50       { background-color: #422006; }
-.dark .bg-amber-50        { background-color: #451a03; }
-.dark .bg-purple-50       { background-color: #2e1065; }
+/* Badges e alertas coloridos — fundo com tinte de cor claramente visível */
+.dark .bg-blue-50         { background-color: #1e3058; }
+.dark .bg-green-50        { background-color: #0d3320; }
+.dark .bg-red-50          { background-color: #3a1520; }
+.dark .bg-orange-50       { background-color: #351a08; }
+.dark .bg-yellow-50       { background-color: #302e08; }
+.dark .bg-amber-50        { background-color: #32260a; }
+.dark .bg-purple-50       { background-color: #221540; }
+.dark .bg-indigo-50       { background-color: #1a1845; }
 
-.dark .bg-blue-100        { background-color: #1e3a8a; }
-.dark .bg-green-100       { background-color: #14532d; }
-.dark .bg-red-100         { background-color: #7f1d1d; }
-.dark .bg-orange-100      { background-color: #7c2d12; }
-.dark .bg-yellow-100      { background-color: #713f12; }
-.dark .bg-amber-100       { background-color: #78350f; }
-.dark .bg-purple-100      { background-color: #4a1d96; }
+.dark .bg-blue-100        { background-color: #1e3468; }
+.dark .bg-green-100       { background-color: #0d3a22; }
+.dark .bg-red-100         { background-color: #451a22; }
+.dark .bg-orange-100      { background-color: #3d200e; }
+.dark .bg-yellow-100      { background-color: #38340c; }
+.dark .bg-amber-100       { background-color: #3a2c0c; }
+.dark .bg-purple-100      { background-color: #2a1850; }
+.dark .bg-indigo-100      { background-color: #201e55; }
 
-/* ── Texto principal ─────────────────────────────────────────────────────── */
-.dark .text-gray-900      { color: #f1f5f9; }
-.dark .text-gray-800      { color: #e2e8f0; }
-.dark .text-gray-700      { color: #cbd5e1; }
-.dark .text-gray-600      { color: #94a3b8; }
-.dark .text-gray-500      { color: #64748b; }
-.dark .text-gray-400      { color: #475569; }
-.dark .text-gray-300      { color: #334155; }
+/* Botões sólidos — mantém azul primário mas com brilho ajustado */
+.dark .bg-blue-600        { background-color: #2563eb; }
+.dark .bg-blue-700        { background-color: #1d4ed8; }
 
-/* Texto colorido leve */
-.dark .text-blue-700      { color: #93c5fd; }
-.dark .text-blue-800      { color: #bfdbfe; }
-.dark .text-green-700     { color: #86efac; }
-.dark .text-green-800     { color: #bbf7d0; }
-.dark .text-red-700       { color: #fca5a5; }
-.dark .text-red-800       { color: #fecaca; }
-.dark .text-orange-700    { color: #fdba74; }
-.dark .text-orange-800    { color: #fed7aa; }
-.dark .text-yellow-700    { color: #fde047; }
-.dark .text-amber-700     { color: #fcd34d; }
-.dark .text-amber-900     { color: #fef3c7; }
-.dark .text-purple-700    { color: #d8b4fe; }
+/* ── Texto principal (escala bem calibrada) ──────────────────────────────── */
+.dark .text-gray-900      { color: #f9fafb; }   /* títulos */
+.dark .text-gray-800      { color: #f3f4f6; }   /* texto principal */
+.dark .text-gray-700      { color: #e5e7eb; }   /* corpo de texto */
+.dark .text-gray-600      { color: #9ca3af; }   /* labels, texto muted */
+.dark .text-gray-500      { color: #6b7280; }   /* muito muted */
+.dark .text-gray-400      { color: #9ca3af; }   /* ícones / texto auxiliar */
+.dark .text-gray-300      { color: #6b7280; }   /* separadores textuais */
+
+/* Texto colorido — vibrante o suficiente para contraste nos fundos escuros */
+.dark .text-blue-600      { color: #60a5fa; }
+.dark .text-blue-700      { color: #60a5fa; }
+.dark .text-blue-800      { color: #93c5fd; }
+.dark .text-green-600     { color: #34d399; }
+.dark .text-green-700     { color: #34d399; }
+.dark .text-green-800     { color: #6ee7b7; }
+.dark .text-red-600       { color: #f87171; }
+.dark .text-red-700       { color: #f87171; }
+.dark .text-red-800       { color: #fca5a5; }
+.dark .text-orange-600    { color: #fb923c; }
+.dark .text-orange-700    { color: #fb923c; }
+.dark .text-orange-800    { color: #fdba74; }
+.dark .text-yellow-700    { color: #fbbf24; }
+.dark .text-yellow-800    { color: #fcd34d; }
+.dark .text-amber-700     { color: #f59e0b; }
+.dark .text-amber-800     { color: #fbbf24; }
+.dark .text-amber-900     { color: #fcd34d; }
+.dark .text-purple-700    { color: #c084fc; }
+.dark .text-indigo-700    { color: #818cf8; }
 
 /* ── Bordas ──────────────────────────────────────────────────────────────── */
-.dark .border-gray-100    { border-color: #1e293b; }
-.dark .border-gray-200    { border-color: #334155; }
-.dark .border-gray-300    { border-color: #475569; }
+.dark .border-gray-100    { border-color: #1f2937; }
+.dark .border-gray-200    { border-color: #374151; }
+.dark .border-gray-300    { border-color: #4b5563; }
+.dark .border-gray-400    { border-color: #6b7280; }
+.dark .border-blue-100    { border-color: #1e3a8a; }
+.dark .border-blue-200    { border-color: #1e3a8a; }
+.dark .border-blue-300    { border-color: #2563eb; }
+.dark .border-green-200   { border-color: #14532d; }
+.dark .border-red-200     { border-color: #7f1d1d; }
 .dark .border-amber-200   { border-color: #78350f; }
 .dark .border-amber-300   { border-color: #92400e; }
-.dark .border-blue-200    { border-color: #1e3a8a; }
+.dark .border-indigo-200  { border-color: #312e81; }
 
-/* ── Divisores (divide-y, divide-gray-*) ─────────────────────────────────── */
-.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #1e293b; }
-.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #334155; }
-.dark .divide-y > :not([hidden]) ~ :not([hidden])        { border-color: #334155; }
+/* ── Divisores ───────────────────────────────────────────────────────────── */
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
+.dark .divide-y        > :not([hidden]) ~ :not([hidden]) { border-color: #374151; }
 
-/* ── Hover states ────────────────────────────────────────────────────────── */
-.dark .hover\:bg-gray-50:hover   { background-color: #334155; }
-.dark .hover\:bg-gray-100:hover  { background-color: #334155; }
-.dark .hover\:bg-blue-50:hover   { background-color: #1e3a8a; }
-.dark .hover\:bg-red-50:hover    { background-color: #7f1d1d; }
+/* ── Hover ───────────────────────────────────────────────────────────────── */
+.dark .hover\:bg-gray-50:hover    { background-color: #374151; }
+.dark .hover\:bg-gray-100:hover   { background-color: #374151; }
+.dark .hover\:bg-gray-200:hover   { background-color: #4b5563; }
+.dark .hover\:bg-blue-50:hover    { background-color: #1e3a8a; }
+.dark .hover\:bg-blue-700:hover   { background-color: #1e40af; }
+.dark .hover\:bg-blue-800:hover   { background-color: #1e3a8a; }
+.dark .hover\:bg-red-50:hover     { background-color: #7f1d1d; }
+.dark .hover\:bg-green-50:hover   { background-color: #14532d; }
+.dark .hover\:bg-indigo-50:hover  { background-color: #312e81; }
 
-/* ── Formulários: inputs, textareas, selects ─────────────────────────────── */
+/* ── Formulários ─────────────────────────────────────────────────────────── */
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
 .dark textarea,
 .dark select {
-  background-color: #1e293b;
-  color: #e2e8f0;
-  border-color: #475569;
+  background-color: #374151;
+  color: #f3f4f6;
+  border-color: #4b5563;
 }
 
 .dark input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
 .dark textarea:focus,
 .dark select:focus {
+  background-color: #374151;
   border-color: #3b82f6;
   outline: none;
 }
 
 .dark input::placeholder,
 .dark textarea::placeholder {
-  color: #64748b;
+  color: #6b7280;
 }
 
-/* Inputs desabilitados / read-only */
 .dark input:disabled,
 .dark textarea:disabled,
 .dark select:disabled {
-  background-color: #0f172a;
-  color: #64748b;
+  background-color: #1f2937;
+  color: #6b7280;
+  border-color: #374151;
 }
 
 /* ── Scrollbar ───────────────────────────────────────────────────────────── */
 .dark ::-webkit-scrollbar          { width: 6px; height: 6px; }
-.dark ::-webkit-scrollbar-track    { background: #0f172a; }
-.dark ::-webkit-scrollbar-thumb    { background: #334155; border-radius: 3px; }
-.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+.dark ::-webkit-scrollbar-track    { background: #111827; }
+.dark ::-webkit-scrollbar-thumb    { background: #374151; border-radius: 3px; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
 
-/* ── Sombras ─────────────────────────────────────────────────────────────── */
-.dark .shadow-lg   { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4); }
-.dark .shadow-2xl  { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.7); }
-.dark .shadow-xl   { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5); }
+/* ── Sombras — mais profundas no escuro ──────────────────────────────────── */
+.dark .shadow     { box-shadow: 0 1px 3px rgb(0 0 0 / 0.5); }
+.dark .shadow-md  { box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4); }
+.dark .shadow-lg  { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.6), 0 4px 6px -4px rgb(0 0 0 / 0.4); }
+.dark .shadow-xl  { box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.6), 0 8px 10px -6px rgb(0 0 0 / 0.5); }
+.dark .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.8); }
 
-/* ── Tela de login ───────────────────────────────────────────────────────── */
+/* ── Gradiente da tela de login ──────────────────────────────────────────── */
 .dark .from-blue-600 { --tw-gradient-from: #1e3a8a; }
-.dark .to-blue-800   { --tw-gradient-to: #0f172a; }
+.dark .to-blue-800   { --tw-gradient-to: #111827; }

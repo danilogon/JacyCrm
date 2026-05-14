@@ -33,6 +33,7 @@ interface Props {
   camposCustomizaveis?: CampoCustomizavel[];
   importacoes: ImportacaoLote[];
   setImportacoes: (items: ImportacaoLote[]) => void;
+  nextNegocioId: number;
 }
 
 const STATUS_LABELS: Record<StatusProspeccao, string> = {
@@ -179,6 +180,7 @@ export function ProspeccaoPage({
   origensProspeccao,
   camposCustomizaveis = [],
   importacoes, setImportacoes,
+  nextNegocioId,
 }: Props) {
   const { usuario } = useAuth();
   const isAdmin  = usuario?.role === 'admin';
@@ -254,8 +256,13 @@ export function ProspeccaoPage({
           if (filtroMes && m !== filtroMes) return false;
         }
         if (filtroRamo && p.ramo !== filtroRamo) return false;
-        if (q && !p.nomeCliente.toLowerCase().includes(q) &&
-            !p.cpfCnpjCliente.includes(q) && !p.ramo.toLowerCase().includes(q)) return false;
+        if (q) {
+          const negId = /^\d+$/.test(q) ? parseInt(q) : null;
+          if (!p.nomeCliente.toLowerCase().includes(q) &&
+              !p.cpfCnpjCliente.includes(q) &&
+              !p.ramo.toLowerCase().includes(q) &&
+              !(negId !== null && p.negocioId === negId)) return false;
+        }
         return true;
       })
       .sort((a, b) => a.dataContato.localeCompare(b.dataContato));
@@ -314,6 +321,7 @@ export function ProspeccaoPage({
 
     const novoSN: SeguroNovo = {
       id: generateId(),
+      negocioId: nextNegocioId,
       responsavelId: usuario.id,
       clienteId,
       nomeCliente: visualizando.nomeCliente,
@@ -394,6 +402,7 @@ export function ProspeccaoPage({
 
     const nova: Prospeccao = {
       id: generateId(),
+      negocioId: nextNegocioId,
       origem: formNova.origemId || 'manual',
       responsavelId: usuario?.id ?? '',
       clienteId,
@@ -495,6 +504,7 @@ export function ProspeccaoPage({
       const novas: Prospeccao[] = [];
       const linhasValidas: LinhaValida[] = [];
       const respNaoEncontrados: string[] = [];
+      let nextNegId = nextNegocioId;
 
       dataLines.forEach((line, idx) => {
         const lineNum = idx + 2;
@@ -551,6 +561,7 @@ export function ProspeccaoPage({
 
         novas.push({
           id: generateId(),
+          negocioId: nextNegId++,
           origem: 'manual' as const,
           responsavelId: resp?.id ?? '',
           clienteId: clienteVinc?.id,
@@ -696,19 +707,24 @@ export function ProspeccaoPage({
         <table className="w-full text-sm min-w-[550px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              {['Cliente','Ramo','Data','Origem',''].map((h, i) => (
+              {['Negócio','Cliente','Ramo','Data','Origem',''].map((h, i) => (
                 <th key={i} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtradas.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">Nenhuma prospecção encontrada</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400 text-sm">Nenhuma prospecção encontrada</td></tr>
             ) : filtradas.map(p => (
               <tr key={p.id}
                 onDoubleClick={() => setVisualizando(p)}
                 className="hover:bg-gray-50 cursor-pointer select-none transition-colors"
                 title="Duplo clique para ver detalhes">
+
+                {/* Negócio ID */}
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className="text-xs font-mono text-gray-500">#{p.negocioId ?? '—'}</span>
+                </td>
 
                 {/* Cliente */}
                 <td className="px-4 py-3">

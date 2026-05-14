@@ -16,6 +16,7 @@ import type {
   CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
   Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
+  ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura,
 } from '../types';
 
 // ─── Utilitários de conversão de chaves ──────────────────────
@@ -116,6 +117,9 @@ export async function fetchAll() {
     r_imp_parcelas,
     r_regras_parcelas,
     r_automacoes_parcelas,
+    r_clicksign_config,
+    r_modelos_assinatura,
+    r_envelopes_assinatura,
     // ── Tabelas grandes (paginadas) ──
     clientes,
     renovacoes,
@@ -142,6 +146,9 @@ export async function fetchAll() {
     supabase.from('importacoes_parcelas').select('*').order('criado_em', { ascending: false }),
     supabase.from('regras_parcelas').select('*').order('criado_em', { ascending: true }),
     supabase.from('automacoes_parcelas').select('*').order('prioridade', { ascending: true }),
+    supabase.from('configuracao_clicksign').select('*').eq('id', 1).maybeSingle(),
+    supabase.from('modelos_assinatura').select('*').order('criado_em', { ascending: true }),
+    supabase.from('envelopes_assinatura').select('*').order('criado_em', { ascending: false }),
     // ── Tabelas grandes (cada uma percorre todas as páginas internamente) ──
     fetchPaginated<Cliente>(
       (f, t) => supabase.from('clientes').select('*').range(f, t)),
@@ -198,6 +205,11 @@ export async function fetchAll() {
     empresa:  r_empresa.data
       ? rowToCamel<ConfiguracaoEmpresa & { id: number }>(r_empresa.data as Record<string, unknown>)
       : EMPRESA_DEFAULT,
+    clicksignConfig: r_clicksign_config.data
+      ? rowToCamel<ConfigClickSign>(r_clicksign_config.data as Record<string, unknown>)
+      : { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false },
+    modelosAssinatura: (r_modelos_assinatura.data || []).map(r => rowToCamel<ModeloAssinatura>(r as Record<string, unknown>)),
+    envelopesAssinatura: (r_envelopes_assinatura.data || []).map(r => rowToCamel<EnvelopeAssinatura>(r as Record<string, unknown>)),
   };
 }
 
@@ -409,5 +421,37 @@ export const db = {
       console.error('[db] upsert configuracao_empresa:', error.message);
       throw new Error(error.message);
     }
+  },
+
+  // Configuração ClickSign (singleton id=1)
+  upsertClicksignConfig: async (config: ConfigClickSign) => {
+    const { error } = await supabase
+      .from('configuracao_clicksign')
+      .upsert({ id: 1, ...objToSnake(config as unknown as Record<string, unknown>) });
+    if (error) console.error('[db] upsert configuracao_clicksign:', error.message);
+  },
+
+  // Modelos de Assinatura
+  upsertModelosAssinatura: (items: ModeloAssinatura[]) => upsertRows('modelos_assinatura', items as unknown as Record<string, unknown>[]),
+  deleteModelosAssinatura: (ids: string[]) => deleteRows('modelos_assinatura', ids),
+
+  // Envelopes de Assinatura
+  upsertEnvelopesAssinatura: (items: EnvelopeAssinatura[]) => upsertRows('envelopes_assinatura', items as unknown as Record<string, unknown>[]),
+  deleteEnvelopesAssinatura: (ids: string[]) => deleteRows('envelopes_assinatura', ids),
+
+  // Controle da última execução de automações de parcelas (compartilhado entre usuários)
+  getParcelasUltimaAutomacao: async (): Promise<string | null> => {
+    const { data } = await supabase
+      .from('configuracao_empresa')
+      .select('parcelas_ultima_automacao')
+      .eq('id', 1)
+      .maybeSingle();
+    return (data as { parcelas_ultima_automacao?: string } | null)?.parcelas_ultima_automacao ?? null;
+  },
+  setParcelasUltimaAutomacao: async (data: string): Promise<void> => {
+    await supabase
+      .from('configuracao_empresa')
+      .update({ parcelas_ultima_automacao: data })
+      .eq('id', 1);
   },
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -26,7 +26,8 @@ import type {
   Renovacao, SeguroNovo, Prospeccao, Cliente, Usuario, Seguradora, Ramo, FormaPagamento,
   ConfiguracoesMetas, MotivoPerda, CampoCustomizavel, ConfiguracaoEmpresa, TipoUsuario, Tarefa, OrigemProspeccao,
   ImportacaoLote, ModeloEmail, EmailDisparo, ConfigGatilho,
-  Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela,
+  Parcela, ImportacaoParcelas, RegraParcelaNegocio, AutomacaoParcela, EnvelopeAssinatura,
+  ConfigClickSign, ModeloAssinatura,
 } from './types';
 
 // ─── Helper: cria um setter que sincroniza listas com o Supabase ─────────────
@@ -124,6 +125,9 @@ function AppRoutes() {
   const [importacoesParcelas, setImportacoesParcelasState] = useState<ImportacaoParcelas[]>([]);
   const [regrasParcelas,     setRegrasParcelasState]     = useState<RegraParcelaNegocio[]>([]);
   const [automacoesParcelas, setAutomacoesParcelasState] = useState<AutomacaoParcela[]>([]);
+  const [envelopes,          setEnvelopesState]          = useState<EnvelopeAssinatura[]>([]);
+  const [clicksignConfig,    setClicksignConfigState]    = useState<ConfigClickSign>({ token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
+  const [clicksignModelos,   setClicksignModelosState]   = useState<ModeloAssinatura[]>([]);
 
   // Carrega todos os dados quando o usuário está autenticado
   useEffect(() => {
@@ -154,6 +158,9 @@ function AppRoutes() {
         setImportacoesParcelasState(data.importacoesParcelas);
         setRegrasParcelasState(data.regrasParcelas);
         setAutomacoesParcelasState(data.automacoesParcelas);
+        setEnvelopesState(data.envelopesAssinatura);
+        setClicksignConfigState(data.clicksignConfig);
+        setClicksignModelosState(data.modelosAssinatura);
         setLoading(false);
       })
       .catch((err: Error) => {
@@ -224,6 +231,90 @@ function AppRoutes() {
   const setAutomacoesParcelas = useCallback(
     makeSyncer(setAutomacoesParcelasState, db.upsertAutomacoesParcelas, db.deleteAutomacoesParcelas), []);
 
+  const setEnvelopesSync = useCallback(
+    makeSyncer(setEnvelopesState, db.upsertEnvelopesAssinatura, db.deleteEnvelopesAssinatura), []);
+
+  // Adapter: supports both direct array and functional updater (used internally by child pages)
+  const setEnvelopes = useCallback(
+    (value: EnvelopeAssinatura[] | ((val: EnvelopeAssinatura[]) => EnvelopeAssinatura[])) => {
+      if (typeof value === 'function') {
+        setEnvelopesState(prev => {
+          const next = value(prev);
+          setEnvelopesSync(next);
+          return next;
+        });
+      } else {
+        setEnvelopesSync(value);
+      }
+    }, [setEnvelopesSync]);
+
+  const setClicksignModelos = useCallback(
+    makeSyncer(setClicksignModelosState, db.upsertModelosAssinatura, db.deleteModelosAssinatura), []);
+
+  const setClicksignConfig = useCallback(async (config: ConfigClickSign) => {
+    setClicksignConfigState(config);
+    await db.upsertClicksignConfig(config);
+  }, []);
+
+  // ── Negócio ID: migração única e cálculo do próximo ID ──────────────────────
+  const migracaoNegocioIdRef = useRef(false);
+
+  useEffect(() => {
+    if (migracaoNegocioIdRef.current) return;
+    if (loading || loadError) return;
+
+    const semIdR = renovacoes.filter(r => !r.negocioId);
+    const semIdS = segurosNovos.filter(s => !s.negocioId);
+    const semIdP = prospeccoes.filter(p => !p.negocioId);
+    // Nada a migrar — só marca como feito se já há dados carregados
+    if (!semIdR.length && !semIdS.length && !semIdP.length) {
+      if (renovacoes.length || segurosNovos.length || prospeccoes.length) {
+        migracaoNegocioIdRef.current = true;
+      }
+      return;
+    }
+    // Há registros sem ID — roda a migração
+    migracaoNegocioIdRef.current = true;
+
+    const maxId = Math.max(
+      0,
+      ...renovacoes.map(r => r.negocioId ?? 0),
+      ...segurosNovos.map(s => s.negocioId ?? 0),
+      ...prospeccoes.map(p => p.negocioId ?? 0),
+    );
+
+    const todos = [
+      ...semIdR.map(r => ({ tipo: 'r' as const, id: r.id, criadoEm: r.criadoEm })),
+      ...semIdS.map(s => ({ tipo: 's' as const, id: s.id, criadoEm: s.criadoEm })),
+      ...semIdP.map(p => ({ tipo: 'p' as const, id: p.id, criadoEm: p.criadoEm })),
+    ].sort((a, b) => a.criadoEm.localeCompare(b.criadoEm));
+
+    let nextId = maxId + 1;
+    const renMap: Record<string, number> = {};
+    const snMap: Record<string, number> = {};
+    const prMap: Record<string, number> = {};
+    todos.forEach(t => {
+      const id = nextId++;
+      if (t.tipo === 'r') renMap[t.id] = id;
+      else if (t.tipo === 's') snMap[t.id] = id;
+      else prMap[t.id] = id;
+    });
+
+    if (Object.keys(renMap).length) setRenovacoes(renovacoes.map(r => renMap[r.id] ? { ...r, negocioId: renMap[r.id] } : r));
+    if (Object.keys(snMap).length)  setSegurosNovos(segurosNovos.map(s => snMap[s.id] ? { ...s, negocioId: snMap[s.id] } : s));
+    if (Object.keys(prMap).length)  setProspeccoes(prospeccoes.map(p => prMap[p.id] ? { ...p, negocioId: prMap[p.id] } : p));
+  }, [loading, loadError, renovacoes, segurosNovos, prospeccoes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const nextNegocioId = useMemo(() => {
+    const max = Math.max(
+      0,
+      ...renovacoes.map(r => r.negocioId ?? 0),
+      ...segurosNovos.map(s => s.negocioId ?? 0),
+      ...prospeccoes.map(p => p.negocioId ?? 0),
+    );
+    return max + 1;
+  }, [renovacoes, segurosNovos, prospeccoes]);
+
   // Singletons (metas e empresa)
   const setMetas = useCallback((newMetas: ConfiguracoesMetas) => {
     setMetasState(newMetas);
@@ -272,7 +363,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route element={<Layout renovacoes={renovacoes} segurosNovos={segurosNovos} tarefas={tarefas} />}>
+      <Route element={<Layout renovacoes={renovacoes} segurosNovos={segurosNovos} prospeccoes={prospeccoes} tarefas={tarefas} />}>
 
         {podeVerMetas && (
           <Route path="/metas" element={
@@ -347,6 +438,11 @@ function AppRoutes() {
               modelosEmail={modelosEmail}
               emailsDisparo={emailsDisparo}
               setEmailsDisparo={setEmailsDisparo}
+              nextNegocioId={nextNegocioId}
+              envelopes={envelopes}
+              setEnvelopes={setEnvelopes}
+              clicksignConfig={clicksignConfig}
+              clicksignModelos={clicksignModelos}
             />
           } />
         )}
@@ -373,6 +469,11 @@ function AppRoutes() {
               modelosEmail={modelosEmail}
               emailsDisparo={emailsDisparo}
               setEmailsDisparo={setEmailsDisparo}
+              nextNegocioId={nextNegocioId}
+              envelopes={envelopes}
+              setEnvelopes={setEnvelopes}
+              clicksignConfig={clicksignConfig}
+              clicksignModelos={clicksignModelos}
             />
           } />
         )}
@@ -397,6 +498,7 @@ function AppRoutes() {
               camposCustomizaveis={campos}
               importacoes={importacoes}
               setImportacoes={setImportacoes}
+              nextNegocioId={nextNegocioId}
             />
           } />
         )}
@@ -523,12 +625,16 @@ function AppRoutes() {
               setAutomacoesParcelas={setAutomacoesParcelas}
               parcelas={parcelas}
               setParcelas={setParcelas}
+              clicksignConfig={clicksignConfig}
+              setClicksignConfig={setClicksignConfig}
+              clicksignModelos={clicksignModelos}
+              setClicksignModelos={setClicksignModelos}
             />
           } />
         )}
 
         {(usuario.role === 'admin' || usuario.role === 'gestor') && (
-          <Route path="/assinaturas" element={<Assinaturas clientes={clientes} origens={origensProspeccao} />} />
+          <Route path="/assinaturas" element={<Assinaturas clientes={clientes} origens={origensProspeccao} usuarios={usuarios} envelopes={envelopes} setEnvelopes={setEnvelopes} renovacoes={renovacoes} segurosNovos={segurosNovos} config={clicksignConfig} modelos={clicksignModelos} />} />
         )}
 
         {usuario.role === 'admin' && (

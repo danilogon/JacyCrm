@@ -53,6 +53,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('[clicksign-cancel] Erro:', err);
-    return res.status(500).json({ ok: false, error: String(err) });
+    return res.status(200).json({ ok: false, error: String(err) });
   }
 }

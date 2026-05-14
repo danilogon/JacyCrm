@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Download, Upload, Edit2, MessageSquare, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock, Link2 } from 'lucide-react';
+import { Download, Upload, Edit2, X, Save, Search, UserCheck, AlertTriangle, Bell, Lock, Link2, FileSignature, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import * as XLSX from 'xlsx';
-import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, ImportacaoLote, ModeloEmail, EmailDisparo } from '../types';
+import { enviarDocumentoParaAssinatura } from '../lib/clicksign';
+import type { Renovacao, Prospeccao, StatusRenovacao, Usuario, Seguradora, Ramo, MotivoPerda, CampoCustomizavel, CampoCustomizadoValor, Cliente, Observacao, ArquivoAnexo, Tarefa, ImportacaoLote, ModeloEmail, EmailDisparo, ConfigClickSign, EnvelopeAssinatura, ModeloAssinatura } from '../types';
 import { ImportPreviewModal } from '../components/ImportPreviewModal';
 import type { LinhaValida, LinhaInvalida } from '../components/ImportPreviewModal';
 import { ObservacoesPanel } from '../components/ObservacoesPanel';
@@ -32,6 +33,11 @@ interface Props {
   modelosEmail?: ModeloEmail[];
   emailsDisparo?: EmailDisparo[];
   setEmailsDisparo?: (items: EmailDisparo[]) => void;
+  nextNegocioId: number;
+  envelopes: EnvelopeAssinatura[];
+  setEnvelopes: (value: EnvelopeAssinatura[] | ((val: EnvelopeAssinatura[]) => EnvelopeAssinatura[])) => void;
+  clicksignConfig: ConfigClickSign;
+  clicksignModelos: ModeloAssinatura[];
 }
 
 const STATUS_LABELS: Record<StatusRenovacao, string> = {
@@ -158,7 +164,7 @@ function ClienteSearch({ clientes, clienteSelecionado, onSelect }: ClienteSearch
   );
 }
 
-export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis, importacoes, setImportacoes, modelosEmail, emailsDisparo, setEmailsDisparo }: Props) {
+export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspeccoes, usuarios, seguradoras, motivos, clientes, setClientes, tarefas, setTarefas, camposCustomizaveis, importacoes, setImportacoes, modelosEmail, emailsDisparo, setEmailsDisparo, nextNegocioId, envelopes, setEnvelopes, clicksignConfig, clicksignModelos }: Props) {
   const { usuario } = useAuth();
   const isAdmin = usuario?.role === 'admin';
   const isGestor = usuario?.role === 'gestor';
@@ -191,6 +197,17 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
   const [filtroStatus, setFiltroStatus] = useState('');
   const [filtroResp, setFiltroResp] = useState(usuario?.role === 'usuario' ? usuario.id : '');
   const [filtroSemVinculo, setFiltroSemVinculo] = useState(false);
+  const [filtroNegocio, setFiltroNegocio] = useState('');
+  const [filtroAssinatura, setFiltroAssinatura] = useState('');
+
+
+  type ArquivoPopup = { campoNome: string; nome: string; dataBase64: string };
+  type PopupAssinatura = { registroId: string; clienteId?: string; nomeCliente: string; emailCliente: string; arquivos: ArquivoPopup[] };
+  const [popupAssinatura, setPopupAssinatura] = useState<PopupAssinatura | null>(null);
+  const [popupArquivosSelecionados, setPopupArquivosSelecionados] = useState<Set<number>>(new Set([0]));
+  const [popupEmail, setPopupEmail] = useState('');
+  const [popupEnviando, setPopupEnviando] = useState(false);
+  const [popupErro, setPopupErro] = useState<string | null>(null);
 
   // ── Auto-vínculo em lote ──────────────────────────────────────────────────
   type ResultadoAutoVinculo = { vinculadas: number; duplicados: string[]; naoEncontrados: string[] };
@@ -257,10 +274,16 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         if (filtroResp && r.responsavelId !== filtroResp) return false;
         if (usuario?.role === 'usuario' && r.responsavelId !== usuario.id) return false;
         if (filtroSemVinculo && r.clienteId) return false;
+        if (filtroNegocio && r.negocioId !== parseInt(filtroNegocio)) return false;
+        if (filtroAssinatura) {
+          const env = envelopes.find(e => e.origemRegistroId === r.id && e.origemTipo === 'renovacoes');
+          if (filtroAssinatura === 'nenhum') { if (env) return false; }
+          else { if (!env || env.status !== filtroAssinatura) return false; }
+        }
         return true;
       })
       .sort((a, b) => a.fimVigencia.localeCompare(b.fimVigencia));
-  }, [renovacoes, filtroAno, filtroMes, filtroStatus, filtroResp, filtroSemVinculo, usuario]);
+  }, [renovacoes, filtroAno, filtroMes, filtroStatus, filtroResp, filtroSemVinculo, filtroNegocio, filtroAssinatura, envelopes, usuario]);
 
   const usuariosVisiveis = useMemo(() =>
     usuarios.filter(u => u.ativo).sort((a, b) => a.nome.localeCompare(b.nome)), [usuarios]);
@@ -368,6 +391,28 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     };
     setRenovacoes(renovacoes.map(r => r.id === updated.id ? updated : r));
 
+    // Popup de assinatura eletrônica se status = renovado e há campos de arquivo
+    if (updated.status === 'renovado' && clicksignConfig.token) {
+      const camposArquivo = camposAplicaveis.filter(c => c.tipo === 'arquivo');
+      const arquivos: ArquivoPopup[] = [];
+      for (const campo of camposArquivo) {
+        const valorRaw = updated.camposCustomizados?.find(v => v.campoId === campo.id)?.valor ?? '';
+        const valores = Array.isArray(valorRaw) ? valorRaw : (valorRaw ? [valorRaw] : []);
+        for (const v of valores) {
+          try {
+            const arqInfo = JSON.parse(v) as { nome: string; dataBase64: string };
+            if (arqInfo.dataBase64) arquivos.push({ campoNome: campo.nome, nome: arqInfo.nome, dataBase64: arqInfo.dataBase64 });
+          } catch { /* ignore */ }
+        }
+      }
+      if (arquivos.length > 0) {
+        setPopupAssinatura({ registroId: updated.id, clienteId: updated.clienteId, nomeCliente: updated.nomeCliente, emailCliente: updated.emailCliente, arquivos });
+        setPopupArquivosSelecionados(new Set([0]));
+        setPopupEmail(updated.emailCliente);
+        setPopupErro(null);
+      }
+    }
+
     // Trigger email for status change (renovado / nao_renovada)
     if (updated.status === 'renovado' || updated.status === 'nao_renovada') {
       const gatilhoRen = updated.status === 'renovado' ? 'seguro_renovado' : 'seguro_nao_renovado';
@@ -406,6 +451,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
             : new Date().toISOString().split('T')[0];
           const novaProsp: Prospeccao = {
             id: generateId(),
+            negocioId: nextNegocioId,
             origem: 'renovacao_perdida',
             origemId: updated.id,
             responsavelId: updated.responsavelId,
@@ -467,6 +513,58 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
     const updated: Cliente = { ...clienteEditandoModal, ...formCliEdit } as Cliente;
     setClientes(clientes.map(c => c.id === updated.id ? updated : c));
     setClienteEditandoModal(null);
+  }
+
+  async function dispararAssinatura() {
+    if (!popupAssinatura) return;
+    const arquivosSel = popupAssinatura.arquivos.filter((_, i) => popupArquivosSelecionados.has(i));
+    if (arquivosSel.length === 0) return;
+    setPopupEnviando(true);
+    setPopupErro(null);
+    const modeloConfigurado = clicksignConfig.modeloIdRenovacoes
+      ? clicksignModelos.find(m => m.id === clicksignConfig.modeloIdRenovacoes)
+      : undefined;
+    const mensagem = modeloConfigurado
+      ? modeloConfigurado.mensagem
+          .replace(/\{\{nome\}\}/g, popupAssinatura.nomeCliente)
+          .replace(/\{\{email\}\}/g, popupEmail.trim())
+      : `Olá ${popupAssinatura.nomeCliente}, por favor assine o documento da sua renovação de seguro.`;
+    const novosEnvelopes: EnvelopeAssinatura[] = [];
+    const erros: string[] = [];
+    for (const arq of arquivosSel) {
+      const resultado = await enviarDocumentoParaAssinatura({
+        token:           clicksignConfig.token,
+        nomeArquivo:     arq.nome,
+        conteudoBase64:  arq.dataBase64,
+        nomeSignatario:  popupAssinatura.nomeCliente,
+        emailSignatario: popupEmail.trim(),
+        mensagem,
+      });
+      if (!resultado.ok) {
+        erros.push(`${arq.nome}: ${resultado.erro ?? 'Erro ao enviar'}`);
+      } else {
+        novosEnvelopes.push({
+          id:                   generateId(),
+          envelopeIdClicksign:  resultado.envelopeId!,
+          documentIdClicksign:  resultado.documentId,
+          origemTipo:           'renovacoes',
+          origemRegistroId:     popupAssinatura.registroId,
+          clienteId:            popupAssinatura.clienteId,
+          nomeDocumento:        arq.nome,
+          nomeSignatario:       popupAssinatura.nomeCliente,
+          emailSignatario:      popupEmail.trim(),
+          status:               'enviado',
+          linkAssinatura:       resultado.linkAssinatura,
+          avisoEnvio:           resultado.erro,
+          responsavelId:        usuario?.id ?? '',
+          criadoEm:             new Date().toISOString(),
+        });
+      }
+    }
+    setPopupEnviando(false);
+    if (novosEnvelopes.length > 0) setEnvelopes(prev => [...novosEnvelopes, ...prev]);
+    if (erros.length > 0) { setPopupErro(erros.join('\n')); return; }
+    setPopupAssinatura(null);
   }
 
   // ── XLSX: exportar dados ─────────────────────────────────────────────────
@@ -562,6 +660,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
       const novas: Renovacao[] = [];
       const linhasValidas: LinhaValida[] = [];
       const respNaoEncontrados: string[] = []; // nomes da planilha sem match no sistema
+      let nextNegId = nextNegocioId;
 
       dataLines.forEach((cols, idx) => {
         const lineNum = idx + 2; // +2: 1 base + 1 cabeçalho
@@ -647,6 +746,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
         const renovacaoNova: Renovacao = {
           id: generateId(),
+          negocioId: nextNegId++,
           responsavelId: resp?.id ?? '',
           clienteId: clienteVinc?.id,
           nomeCliente: clienteVinc?.nome ?? nome,
@@ -787,6 +887,25 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
         >
           <Link2 size={14} /> Sem vínculo
         </button>
+        <input
+          type="number"
+          placeholder="Negócio #"
+          value={filtroNegocio}
+          onChange={e => setFiltroNegocio(e.target.value)}
+          className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <select
+          value={filtroAssinatura}
+          onChange={e => setFiltroAssinatura(e.target.value)}
+          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">Assinatura: todas</option>
+          <option value="nenhum">Sem assinatura</option>
+          <option value="enviado">Aguardando assinatura</option>
+          <option value="assinado">Assinado</option>
+          <option value="cancelado">Cancelado</option>
+          <option value="expirado">Expirado</option>
+        </select>
         <span className="ml-auto self-center text-sm text-gray-500">{filtered.length} registro(s)</span>
       </div>
 
@@ -797,6 +916,7 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               {[
+                'Negócio',
                 'Cliente / Responsável',
                 'Vigência',
                 'Ramo',
@@ -814,11 +934,16 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="px-4 py-8 text-center text-gray-400">Nenhuma renovação encontrada</td></tr>
+              <tr><td colSpan={11} className="px-4 py-8 text-center text-gray-400">Nenhuma renovação encontrada</td></tr>
             ) : filtered.map(r => (
               <tr key={r.id} onDoubleClick={() => abrirEdicao(r)}
                 className={`hover:bg-gray-50 transition-colors cursor-pointer select-none ${isVencida(r) ? 'bg-red-50 hover:bg-red-100' : ''}`}
                 title="Duplo clique para abrir">
+
+                {/* Negócio ID */}
+                <td className="px-2 py-2 whitespace-nowrap">
+                  <span className="text-xs font-mono text-gray-500">#{r.negocioId ?? '—'}</span>
+                </td>
 
                 {/* Cliente + Responsável */}
                 <td className="px-2 py-2 max-w-[160px]">
@@ -895,27 +1020,23 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
 
                 {/* Status */}
                 <td className="px-2 py-2">
-                  <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[r.status]}`}>
-                    {STATUS_LABELS[r.status]}
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className={`inline-block px-1.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_COLORS[r.status]}`}>
+                      {STATUS_LABELS[r.status]}
+                    </span>
+                    {r.status === 'renovado' && (() => {
+                      const env = envelopes.find(e => e.origemRegistroId === r.id && e.origemTipo === 'renovacoes');
+                      const color = !env ? 'text-gray-400' : env.status === 'enviado' ? 'text-yellow-500' : env.status === 'assinado' ? 'text-green-600' : 'text-red-500';
+                      const tip = !env ? 'Sem assinatura eletrônica' : env.status === 'enviado' ? 'Aguardando assinatura' : env.status === 'assinado' ? 'Documento assinado' : 'Assinatura cancelada/expirada';
+                      return <span title={tip}><FileSignature size={11} className={color} /></span>;
+                    })()}
+                  </div>
                   {r.motivoPerdaId && (
                     <div className="text-gray-400 mt-0.5 truncate max-w-[100px]">{motivos.find(m => m.id === r.motivoPerdaId)?.nome}</div>
                   )}
                 </td>
 
-                {/* Ações */}
-                <td className="px-2 py-2">
-                  <div className="flex items-center gap-0.5">
-                    <button onClick={() => abrirEdicao(r)} className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded" title="Editar">
-                      <Edit2 size={13} />
-                    </button>
-                    {r.observacoes.length > 0 && (
-                      <span className="flex items-center gap-0.5 text-gray-400">
-                        <MessageSquare size={11} />{r.observacoes.length}
-                      </span>
-                    )}
-                  </div>
-                </td>
+                <td className="px-2 py-2" />
               </tr>
             ))}
           </tbody>
@@ -1558,6 +1679,78 @@ export function Renovacoes({ renovacoes, setRenovacoes, prospeccoes, setProspecc
           onConfirmar={confirmarImportRenovacoes}
           onCancelar={() => setPreviewImport(null)}
         />
+      )}
+
+      {/* Popup: disparar para assinatura eletrônica */}
+      {popupAssinatura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-900">Enviar para Assinatura Eletrônica</h2>
+              <button onClick={() => setPopupAssinatura(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-gray-600">
+                Renovação de <span className="font-medium text-gray-800">{popupAssinatura.nomeCliente}</span> — selecione os documentos a enviar para assinatura eletrônica.
+              </p>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {popupAssinatura.arquivos.map((arq, i) => (
+                  <label key={i} className="flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={popupArquivosSelecionados.has(i)}
+                      onChange={e => {
+                        setPopupArquivosSelecionados(prev => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(i); else next.delete(i);
+                          return next;
+                        });
+                      }}
+                      className="mt-0.5 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-500">{arq.campoNome}</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{arq.nome}</p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">E-mail do cliente</label>
+                <input
+                  type="email"
+                  value={popupEmail}
+                  onChange={e => setPopupEmail(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+              {popupErro && (
+                <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                  <AlertTriangle size={15} className="shrink-0 mt-0.5" />
+                  <span className="whitespace-pre-wrap">{popupErro}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+              <button onClick={() => setPopupAssinatura(null)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50">
+                Agora não
+              </button>
+              <button
+                onClick={dispararAssinatura}
+                disabled={popupEnviando || !popupEmail.trim() || popupArquivosSelecionados.size === 0}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-60"
+              >
+                {popupEnviando
+                  ? <><Loader2 size={14} className="animate-spin" /> Enviando…</>
+                  : 'Disparar para assinatura'
+                }
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

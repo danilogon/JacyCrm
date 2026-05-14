@@ -8,6 +8,10 @@ export interface ConfigClickSign {
   nomePadrao: string;
   webhookSecret: string;
   ativo: boolean;
+  /** ID do ModeloAssinatura usado automaticamente ao fechar Renovações */
+  modeloIdRenovacoes?: string;
+  /** ID do ModeloAssinatura usado automaticamente ao fechar Seguros Novos */
+  modeloIdSegurosNovos?: string;
 }
 
 export interface ModeloAssinatura {
@@ -26,6 +30,8 @@ export interface EnvelopeAssinatura {
   documentIdClicksign?: string; // ID do documento v3 / chave v1 para matching do webhook
   documentoStorageUrl?: string; // URL permanente no Supabase Storage após assinatura
   origemId?: string;            // ID da OrigemProspeccao para classificar o documento
+  origemTipo?: 'seguros_novos' | 'renovacoes' | 'manual'; // módulo que gerou o envio
+  origemRegistroId?: string;    // ID do SeguroNovo ou Renovacao vinculado
   nomeDocumento: string;
   nomeSignatario: string;
   emailSignatario: string;
@@ -114,6 +120,8 @@ export interface Usuario {
   acessoParcelas?: boolean;
   /** Pode importar planilha XLSX de parcelas */
   podeImportarParcelas?: boolean;
+  /** Acesso à aba de Assinaturas Eletrônicas */
+  acessoAssinaturas?: boolean;
 }
 
 export type StatusRenovacao =
@@ -175,6 +183,7 @@ export interface CampoCustomizadoValor {
 
 export interface Renovacao {
   id: string;
+  negocioId?: number;
   responsavelId: string;
   clienteId?: string;
   nomeCliente: string;
@@ -202,6 +211,7 @@ export interface Renovacao {
 
 export interface SeguroNovo {
   id: string;
+  negocioId?: number;
   responsavelId: string;
   clienteId?: string;
   nomeCliente: string;
@@ -227,6 +237,7 @@ export interface SeguroNovo {
 
 export interface Prospeccao {
   id: string;
+  negocioId?: number;
   origem: string;
   origemId?: string;
   responsavelId: string;

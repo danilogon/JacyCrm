@@ -3,15 +3,16 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { ErrorBoundary } from './ErrorBoundary';
-import type { Renovacao, SeguroNovo, Tarefa } from '../types';
+import type { Renovacao, SeguroNovo, Prospeccao, Tarefa } from '../types';
 
 interface Props {
   renovacoes: Renovacao[];
   segurosNovos: SeguroNovo[];
+  prospeccoes: Prospeccao[];
   tarefas: Tarefa[];
 }
 
-export function Layout({ renovacoes, segurosNovos, tarefas }: Props) {
+export function Layout({ renovacoes, segurosNovos, prospeccoes, tarefas }: Props) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const closeMobile = useCallback(() => setMobileOpen(false), []);
@@ -41,6 +42,7 @@ export function Layout({ renovacoes, segurosNovos, tarefas }: Props) {
         <Header
           renovacoes={renovacoes}
           segurosNovos={segurosNovos}
+          prospeccoes={prospeccoes}
           onMenuToggle={toggleMobile}
         />
         <main className="flex-1 p-3 sm:p-6 overflow-auto">

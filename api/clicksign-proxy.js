@@ -45,6 +45,7 @@ export default async function handler(req, res) {
 
     res.status(upstream.status).json(data);
   } catch (err) {
-    res.status(502).json({ error: `Falha ao conectar ao ClickSign: ${err.message}` });
+    console.error('[clicksign-proxy] Erro de conexão:', err.message);
+    res.status(200).json({ error: `Falha ao conectar ao ClickSign: ${err.message}` });
   }
 }

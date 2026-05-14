@@ -78,7 +78,7 @@ export default async function handler(req, res) {
   const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!SUPABASE_URL || !SUPABASE_KEY) {
-    return res.status(500).json({
+    return res.status(200).json({
       error: 'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY não configurados no servidor.',
     });
   }
@@ -101,7 +101,7 @@ export default async function handler(req, res) {
 
     const pdfBuf = await downloadPdf(token, envelopeId, documentKey);
     if (!pdfBuf?.length) {
-      return res.status(502).json({ error: 'Não foi possível baixar o PDF do ClickSign.' });
+      return res.status(200).json({ error: 'Não foi possível baixar o PDF do ClickSign.' });
     }
 
     const safeName = (nomeDocumento || 'documento-assinado.pdf')
@@ -123,7 +123,7 @@ export default async function handler(req, res) {
 
     if (!uploadRes.ok) {
       const err = await uploadRes.text();
-      return res.status(502).json({ error: `Erro ao salvar no Supabase Storage: ${err}` });
+      return res.status(200).json({ error: `Erro ao salvar no Supabase Storage: ${err}` });
     }
 
     const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`;
@@ -132,6 +132,6 @@ export default async function handler(req, res) {
 
   } catch (err) {
     console.error('[clicksign-archive] Erro:', err);
-    return res.status(500).json({ error: String(err) });
+    return res.status(200).json({ error: String(err) });
   }
 }

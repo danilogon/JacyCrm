@@ -5,7 +5,6 @@ import { AutomacoesParcelasConfig } from '../components/AutomacoesParcelasConfig
 import { FORMAS_PAGAMENTO_PADRAO } from '../pages/Parcelas';
 import { formatCurrency, formatPercent, generateId } from '../utils/formatters';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { useLocalStorage } from '../hooks/useLocalStorage';
 import { testarConexao } from '../lib/clicksign';
 
 interface Props {
@@ -46,6 +45,10 @@ interface Props {
   setAutomacoesParcelas: (a: AutomacaoParcela[]) => void;
   parcelas: Parcela[];
   setParcelas: (p: Parcela[]) => void;
+  clicksignConfig: ConfigClickSign;
+  setClicksignConfig: (c: ConfigClickSign) => void;
+  clicksignModelos: ModeloAssinatura[];
+  setClicksignModelos: (items: ModeloAssinatura[]) => void;
 }
 
 type Tab = 'empresa' | 'seguradoras' | 'ramos' | 'formas_pagamento' | 'metas' | 'motivos' | 'campos' | 'tipos_usuario' | 'origens_prospeccao' | 'regras_parcelas' | 'importacoes' | 'assinaturas';
@@ -178,9 +181,13 @@ function FaixasEditor({ faixas, onChange, tipo }: { faixas: FaixaMeta[]; onChang
 
 // ─── Config Assinaturas Eletrônicas ─────────────────────────────────────────
 
-function ConfigAssinaturas() {
-  const [config, setConfig] = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
-  const [modelos, setModelos] = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
+interface ConfigAssinaturasProps {
+  config: ConfigClickSign;
+  setConfig: (config: ConfigClickSign) => void;
+  modelos: ModeloAssinatura[];
+  setModelos: (items: ModeloAssinatura[]) => void;
+}
+function ConfigAssinaturas({ config, setConfig, modelos, setModelos }: ConfigAssinaturasProps) {
 
   const [tokenVisivel, setTokenVisivel]   = useState(false);
   const [secretVisivel, setSecretVisivel] = useState(false);
@@ -225,7 +232,7 @@ function ConfigAssinaturas() {
     const secret  = formSecret.trim();
 
     // Salva ANTES do teste para garantir que o dado nunca se perde
-    setConfig(c => ({ ...c, token, emailPadrao: email, nomePadrao: nome, webhookSecret: secret }));
+    setConfig({ ...config, token, emailPadrao: email, nomePadrao: nome, webhookSecret: secret });
 
     setSalvando(true);
     setTesteStatus('idle');
@@ -319,7 +326,7 @@ function ConfigAssinaturas() {
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-700">Integração ativa</span>
             <button
-              onClick={() => setConfig(c => ({ ...c, token: formToken.trim(), emailPadrao: formEmail.trim(), nomePadrao: formNome.trim(), webhookSecret: formSecret.trim(), ativo: !c.ativo }))}
+              onClick={() => setConfig({ ...config, token: formToken.trim(), emailPadrao: formEmail.trim(), nomePadrao: formNome.trim(), webhookSecret: formSecret.trim(), ativo: !config.ativo })}
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${config.ativo ? 'bg-blue-600' : 'bg-gray-300'}`}
             >
               <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${config.ativo ? 'translate-x-4' : 'translate-x-0.5'}`} />
@@ -431,6 +438,40 @@ function ConfigAssinaturas() {
         </div>
       </div>
 
+      {/* Vinculação de modelos por ação */}
+      {modelos.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-xl">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800">Modelo por Ação</h2>
+            <p className="text-xs text-gray-400 mt-0.5">Escolha qual modelo de mensagem é usado automaticamente ao disparar a assinatura.</p>
+          </div>
+          <div className="p-5 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ao fechar uma Renovação</label>
+              <select
+                value={config.modeloIdRenovacoes ?? ''}
+                onChange={e => setConfig({ ...config, modeloIdRenovacoes: e.target.value || undefined })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Nenhum (mensagem genérica) —</option>
+                {modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ao fechar um Seguro Novo</label>
+              <select
+                value={config.modeloIdSegurosNovos ?? ''}
+                onChange={e => setConfig({ ...config, modeloIdSegurosNovos: e.target.value || undefined })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Nenhum (mensagem genérica) —</option>
+                {modelos.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modelos de mensagem */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden max-w-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
@@ -537,7 +578,7 @@ function ConfigAssinaturas() {
 
 // ─── Configuracoes principal ─────────────────────────────────────────────────
 
-export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas }: Props) {
+export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, formasPagamento, setFormasPagamento, metas, setMetas, motivos, setMotivos, campos, setCampos, empresa, setEmpresa, tiposUsuario, setTiposUsuario, origensProspeccao, setOrigensProspeccao, importacoes, setImportacoes, renovacoes, setRenovacoes, segurosNovos, setSegurosNovos, prospeccoes, setProspeccoes, clientes, setClientes, usuarios, regrasParcelas, setRegrasParcelas, importacoesParcelas, setImportacoesParcelas, automacoesParcelas, setAutomacoesParcelas, parcelas, setParcelas, clicksignConfig, setClicksignConfig, clicksignModelos, setClicksignModelos }: Props) {
   const [tab, setTab] = useState<Tab>('empresa');
 
   // Seguradoras state
@@ -2727,7 +2768,7 @@ export function Configuracoes({ seguradoras, setSeguradoras, ramos, setRamos, fo
       })()}
 
       {/* ── Assinaturas Eletrônicas ────────────────────────────── */}
-      {tab === 'assinaturas' && <ConfigAssinaturas />}
+      {tab === 'assinaturas' && <ConfigAssinaturas config={clicksignConfig} setConfig={setClicksignConfig} modelos={clicksignModelos} setModelos={setClicksignModelos} />}
     </div>
   );
 }

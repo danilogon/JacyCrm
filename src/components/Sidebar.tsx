@@ -78,7 +78,7 @@ export function Sidebar({ onNavigate }: Props) {
     { to: '/clientes',      icon: Users,         label: 'Clientes',      show: true, badge: 0 },
     { to: '/parcelas',      icon: CreditCard,    label: 'Parcelas',      show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoParcelas ?? false), badge: 0 },
     { to: '/emails',        icon: Mail,          label: 'E-mails',       show: usuario.role === 'admin', badge: 0 },
-    { to: '/assinaturas',   icon: FileSignature, label: 'Assinaturas',   show: usuario.role === 'admin' || usuario.role === 'gestor', badge: 0 },
+    { to: '/assinaturas',   icon: FileSignature, label: 'Assinaturas',   show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoAssinaturas ?? false), badge: 0 },
     { to: '/usuarios',      icon: UserCog,       label: 'Usuários',      show: usuario.role === 'admin', badge: 0 },
     { to: '/configuracoes', icon: Settings,      label: 'Configurações', show: usuario.role === 'admin', badge: 0 },
   ];
@@ -155,7 +155,7 @@ export function Sidebar({ onNavigate }: Props) {
                 className={`shrink-0 transition-transform duration-200 ${dashboardOpen ? 'rotate-180' : ''}`} />
             </button>
             {dashboardOpen && (
-              <div className="mt-0.5 ml-3 pl-3 border-l border-blue-800 space-y-0.5">
+              <div className="mt-0.5 ml-3 pl-3 border-l border-blue-900 space-y-0.5">
                 {dashboardSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
                   <NavLink key={to} to={to} onClick={onNavigate}
                     className={({ isActive }) =>
@@ -197,7 +197,7 @@ export function Sidebar({ onNavigate }: Props) {
             </button>
 
             {!collapsed && negociosOpen && (
-              <div className="mt-0.5 ml-3 pl-3 border-l border-blue-800 space-y-0.5">
+              <div className="mt-0.5 ml-3 pl-3 border-l border-blue-900 space-y-0.5">
                 {negociosSublinks.filter(l => l.show).map(({ to, icon: Icon, label }) => (
                   <NavLink key={to} to={to} onClick={onNavigate}
                     className={({ isActive }) =>

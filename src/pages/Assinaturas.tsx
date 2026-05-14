@@ -1,20 +1,28 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   FileSignature, Plus, X, Upload, CheckCircle, Clock, XCircle,
-  AlertTriangle, Search, RefreshCw, User, FileDown, Loader2, Ban,
+  AlertTriangle, Search, RefreshCw, User, FileDown, Loader2,
 } from 'lucide-react';
-import { useLocalStorage } from '../hooks/useLocalStorage';
+import { useAuth } from '../context/AuthContext';
 import {
   enviarDocumentoParaAssinatura, baixarDocumentoAssinado,
   buscarDocumentId, buscarStatusEnvelope, arquivarDocumento, cancelarEnvelope,
 } from '../lib/clicksign';
 import { generateId } from '../utils/formatters';
 import { supabase } from '../lib/supabase';
-import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente, OrigemProspeccao } from '../types';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import type { ConfigClickSign, ModeloAssinatura, EnvelopeAssinatura, StatusEnvelope, Cliente, OrigemProspeccao, Usuario, Renovacao, SeguroNovo } from '../types';
 
 interface Props {
   clientes: Cliente[];
   origens: OrigemProspeccao[];
+  usuarios: Usuario[];
+  envelopes: EnvelopeAssinatura[];
+  setEnvelopes: (value: EnvelopeAssinatura[] | ((val: EnvelopeAssinatura[]) => EnvelopeAssinatura[])) => void;
+  renovacoes: Renovacao[];
+  segurosNovos: SeguroNovo[];
+  config: ConfigClickSign;
+  modelos: ModeloAssinatura[];
 }
 
 const STATUS_LABEL: Record<StatusEnvelope, string> = {
@@ -52,10 +60,8 @@ function diasDesdeEnvio(iso: string): string {
   return `${diff} dias`;
 }
 
-export function Assinaturas({ clientes, origens }: Props) {
-  const [config]    = useLocalStorage<ConfigClickSign>('clicksign_config', { token: '', emailPadrao: '', nomePadrao: '', webhookSecret: '', ativo: false });
-  const [modelos]   = useLocalStorage<ModeloAssinatura[]>('clicksign_modelos', []);
-  const [envelopes, setEnvelopes] = useLocalStorage<EnvelopeAssinatura[]>('clicksign_envelopes', []);
+export function Assinaturas({ clientes, origens, usuarios, envelopes, setEnvelopes, renovacoes, segurosNovos, config, modelos }: Props) {
+  const { usuario } = useAuth();
 
   const [modalAberto, setModalAberto]       = useState(false);
   const [enviando, setEnviando]             = useState(false);
@@ -355,6 +361,7 @@ export function Assinaturas({ clientes, origens }: Props) {
       envelopeIdClicksign:  resultado.envelopeId!,
       documentIdClicksign:  resultado.documentId,
       origemId:             form.origemId || undefined,
+      origemTipo:           'manual',
       nomeDocumento:        arquivo.nome,
       nomeSignatario:       form.nomeSignatario.trim(),
       emailSignatario:      form.emailSignatario.trim(),
@@ -363,7 +370,7 @@ export function Assinaturas({ clientes, origens }: Props) {
       linkAssinatura:       resultado.linkAssinatura,
       avisoEnvio:           resultado.erro,
       clienteId:            clienteSelecionado?.id,
-      responsavelId:        '',
+      responsavelId:        usuario?.id ?? '',
       criadoEm:             new Date().toISOString(),
     };
 
@@ -484,13 +491,15 @@ export function Assinaturas({ clientes, origens }: Props) {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Negócio</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Cliente</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">E-mail enviado</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Origem</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Enviado em</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Usuário</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Documento</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 whitespace-nowrap">Cancelar</th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -498,8 +507,24 @@ export function Assinaturas({ clientes, origens }: Props) {
                   const cliente = clientes.find(c => c.id === env.clienteId);
                   const origem  = origensAtivas.find(o => o.id === env.origemId);
 
+                  const negocioId = (() => {
+                    if (env.origemTipo === 'renovacoes')
+                      return renovacoes.find(r => r.id === env.origemRegistroId)?.negocioId;
+                    if (env.origemTipo === 'seguros_novos')
+                      return segurosNovos.find(s => s.id === env.origemRegistroId)?.negocioId;
+                    return undefined;
+                  })();
+
                   return (
                     <tr key={env.id} className="hover:bg-gray-50">
+
+                      {/* Negócio */}
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        {negocioId
+                          ? <span className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded font-medium">#{negocioId}</span>
+                          : <span className="text-gray-300">—</span>
+                        }
+                      </td>
 
                       {/* Cliente */}
                       <td className="px-4 py-3">
@@ -528,6 +553,11 @@ export function Assinaturas({ clientes, origens }: Props) {
                       <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
                         <div>{formatDate(env.criadoEm)}</div>
                         <div className="text-gray-400 mt-0.5">{diasDesdeEnvio(env.criadoEm)}</div>
+                      </td>
+
+                      {/* Usuário solicitante */}
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                        {usuarios.find(u => u.id === env.responsavelId)?.nome ?? <span className="text-gray-300">—</span>}
                       </td>
 
                       {/* Status */}
@@ -560,42 +590,23 @@ export function Assinaturas({ clientes, origens }: Props) {
                         )}
                       </td>
 
-                      {/* Cancelar */}
-                      <td className="px-4 py-3">
+                      {/* Ação cancelar */}
+                      <td className="px-3 py-3 text-right">
                         {env.status === 'enviado' && (
-                          <>
-                            {cancelandoId === env.id ? (
-                              <span className="flex items-center gap-1 text-xs text-gray-400">
-                                <Loader2 size={12} className="animate-spin" /> Cancelando…
-                              </span>
-                            ) : confirmCancelId === env.id ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => confirmarCancelamento(env)}
-                                  className="text-[11px] px-2 py-0.5 bg-red-600 text-white rounded font-medium hover:bg-red-700"
-                                >
-                                  Confirmar
-                                </button>
-                                <button
-                                  onClick={() => { setConfirmCancelId(null); setErroCancel(null); }}
-                                  className="text-[11px] px-2 py-0.5 border border-gray-300 text-gray-500 rounded hover:bg-gray-50"
-                                >
-                                  Não
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => { setConfirmCancelId(env.id); setErroCancel(null); }}
-                                title="Cancelar envelope"
-                                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
-                              >
-                                <Ban size={12} /> Cancelar
-                              </button>
-                            )}
-                            {erroCancel?.id === env.id && (
-                              <p className="text-[10px] text-red-600 mt-1 max-w-[160px]">{erroCancel.msg}</p>
-                            )}
-                          </>
+                          cancelandoId === env.id ? (
+                            <Loader2 size={14} className="animate-spin text-gray-400 mx-auto" />
+                          ) : (
+                            <button
+                              onClick={() => { setConfirmCancelId(env.id); setErroCancel(null); }}
+                              title="Cancelar assinatura"
+                              className="p-1 rounded text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <X size={15} />
+                            </button>
+                          )
+                        )}
+                        {erroCancel?.id === env.id && (
+                          <p className="text-[10px] text-red-600 mt-1 text-left">{erroCancel.msg}</p>
                         )}
                       </td>
 
@@ -794,6 +805,18 @@ export function Assinaturas({ clientes, origens }: Props) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmCancelId}
+        title="Cancelar assinatura"
+        message="Deseja cancelar este envelope de assinatura? O documento será cancelado no ClickSign e o cliente não poderá mais assinar."
+        confirmLabel="Cancelar assinatura"
+        onConfirm={() => {
+          const env = envelopes.find(e => e.id === confirmCancelId);
+          if (env) confirmarCancelamento(env);
+        }}
+        onCancel={() => { setConfirmCancelId(null); setErroCancel(null); }}
+      />
     </div>
   );
 }

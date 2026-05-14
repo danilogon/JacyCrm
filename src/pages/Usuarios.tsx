@@ -47,6 +47,7 @@ type FormUsuario = {
   configRamos: ConfigRamoUsuario[];
   acessoParcelas: boolean;
   podeImportarParcelas: boolean;
+  acessoAssinaturas: boolean;
 };
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Administrador', gestor: 'Gestor', usuario: 'Usuário' };
@@ -73,6 +74,7 @@ const formVazio: FormUsuario = {
   configRamos: [],
   acessoParcelas: false,
   podeImportarParcelas: false,
+  acessoAssinaturas: false,
 };
 
 function Ck({ v, label, onChange }: { v: boolean; label: string; onChange: (v: boolean) => void }) {
@@ -139,6 +141,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       configRamos: u.configRamos ?? [],
       acessoParcelas: u.acessoParcelas ?? false,
       podeImportarParcelas: u.podeImportarParcelas ?? false,
+      acessoAssinaturas: u.acessoAssinaturas ?? false,
     }));
   }
 
@@ -171,6 +174,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
       configRamos:        u.configRamos        ?? [],
       acessoParcelas:     u.acessoParcelas     ?? false,
       podeImportarParcelas: u.podeImportarParcelas ?? false,
+      acessoAssinaturas:  u.acessoAssinaturas  ?? false,
     });
     setEditando(u);
     setCriando(false);
@@ -236,6 +240,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
         configRamos:        form.configRamos.length > 0 ? form.configRamos : undefined,
         acessoParcelas:     form.acessoParcelas || undefined,
         podeImportarParcelas: form.podeImportarParcelas || undefined,
+        acessoAssinaturas:  form.acessoAssinaturas || undefined,
       };
 
       if (criando) {
@@ -466,6 +471,7 @@ export function Usuarios({ usuarios, setUsuarios, metas, tiposUsuario, ramos }: 
                     <Ck v={form.podeImportarParcelas} label="Pode importar planilha de parcelas" onChange={v => setForm(f => ({...f, podeImportarParcelas: v}))} />
                   </div>
                 )}
+                <Ck v={form.acessoAssinaturas} label="Acesso a Assinaturas Eletrônicas" onChange={v => setForm(f => ({...f, acessoAssinaturas: v}))} />
               </div>
 
               <div className="border-t border-gray-100 pt-4 space-y-3">

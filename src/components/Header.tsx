@@ -3,11 +3,12 @@ import { Search, Bell, LogOut, Sun, Moon, Menu } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import type { Renovacao, SeguroNovo } from '../types';
+import type { Renovacao, SeguroNovo, Prospeccao } from '../types';
 
 interface Props {
   renovacoes: Renovacao[];
   segurosNovos: SeguroNovo[];
+  prospeccoes: Prospeccao[];
   onMenuToggle: () => void;
 }
 
@@ -25,7 +26,7 @@ type SearchResult = {
   route: string;
 };
 
-export function Header({ renovacoes, segurosNovos, onMenuToggle }: Props) {
+export function Header({ renovacoes, segurosNovos, prospeccoes, onMenuToggle }: Props) {
   const { usuario, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
@@ -35,9 +36,12 @@ export function Header({ renovacoes, segurosNovos, onMenuToggle }: Props) {
 
   const results: SearchResult[] = (() => {
     const q = search.trim().toLowerCase();
-    if (q.length < 2) return [];
+    if (q.length < 1) return [];
+    const negId = /^\d+$/.test(q.trim()) ? parseInt(q.trim()) : null;
+
     const rv: SearchResult[] = renovacoes
       .filter(r =>
+        (negId !== null && r.negocioId === negId) ||
         r.nomeCliente?.toLowerCase().includes(q) ||
         r.emailCliente?.toLowerCase().includes(q) ||
         r.cpfCnpjCliente?.includes(q) ||
@@ -46,11 +50,12 @@ export function Header({ renovacoes, segurosNovos, onMenuToggle }: Props) {
         r.seguradoraAnterior?.toLowerCase().includes(q) ||
         r.seguradoraNova?.toLowerCase().includes(q)
       )
-      .slice(0, 4)
-      .map(r => ({ id: r.id, tipo: 'Renovação', nome: r.nomeCliente, detalhe: `${r.ramo} · ${r.fimVigencia}`, route: '/renovacoes' }));
+      .slice(0, 3)
+      .map(r => ({ id: r.id, tipo: 'Renovação', nome: r.nomeCliente, detalhe: `#${r.negocioId ?? '—'} · ${r.ramo} · ${r.fimVigencia}`, route: '/renovacoes' }));
 
     const sn: SearchResult[] = segurosNovos
       .filter(s =>
+        (negId !== null && s.negocioId === negId) ||
         s.nomeCliente?.toLowerCase().includes(q) ||
         s.emailCliente?.toLowerCase().includes(q) ||
         s.cpfCnpjCliente?.includes(q) ||
@@ -58,10 +63,21 @@ export function Header({ renovacoes, segurosNovos, onMenuToggle }: Props) {
         s.status?.toLowerCase().includes(q) ||
         s.seguradora?.toLowerCase().includes(q)
       )
-      .slice(0, 4)
-      .map(s => ({ id: s.id, tipo: 'Seg. Novo', nome: s.nomeCliente, detalhe: `${s.ramo} · ${s.inicioVigencia}`, route: '/seguros-novos' }));
+      .slice(0, 3)
+      .map(s => ({ id: s.id, tipo: 'Seg. Novo', nome: s.nomeCliente, detalhe: `#${s.negocioId ?? '—'} · ${s.ramo} · ${s.inicioVigencia}`, route: '/seguros-novos' }));
 
-    return [...rv, ...sn].slice(0, 8);
+    const pr: SearchResult[] = prospeccoes
+      .filter(p =>
+        (negId !== null && p.negocioId === negId) ||
+        p.nomeCliente?.toLowerCase().includes(q) ||
+        p.emailCliente?.toLowerCase().includes(q) ||
+        p.cpfCnpjCliente?.includes(q) ||
+        p.ramo?.toLowerCase().includes(q)
+      )
+      .slice(0, 3)
+      .map(p => ({ id: p.id, tipo: 'Prospecção', nome: p.nomeCliente, detalhe: `#${p.negocioId ?? '—'} · ${p.ramo} · ${p.dataContato}`, route: '/prospeccao' }));
+
+    return [...rv, ...sn, ...pr].slice(0, 8);
   })();
 
   useEffect(() => {
