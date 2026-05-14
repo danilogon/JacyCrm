@@ -92,7 +92,7 @@ export function Sidebar({ onNavigate }: Props) {
     }`;
 
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-60'} bg-blue-950 text-white flex flex-col h-screen shrink-0 transition-all duration-200`}>
+    <aside className={`${collapsed ? 'w-14' : 'w-60'} bg-blue-950 text-white flex flex-col min-h-screen shrink-0 transition-all duration-200`}>
 
       {/* Logo + Toggle */}
       <div className={`border-b border-blue-900 flex items-center ${collapsed ? 'flex-col gap-3 py-4 px-2' : 'p-4 gap-2'}`}>
@@ -125,8 +125,8 @@ export function Sidebar({ onNavigate }: Props) {
         )}
       </div>
 
-      {/* Nav — área scrollável (Dashboard + Negócios) */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
+      {/* Nav */}
+      <nav className="flex-1 p-2 space-y-0.5">
 
         {/* Grupo Dashboard */}
         {(collapsed ? (
@@ -230,10 +230,12 @@ export function Sidebar({ onNavigate }: Props) {
           </div>
         )}
 
-      </nav>
+        {/* Divisor visual */}
+        <div className="py-1">
+          <div className="border-t border-blue-900/60" />
+        </div>
 
-      {/* Links fixos do rodapé — sempre visíveis independente do scroll */}
-      <div className="border-t border-blue-900/60 p-2 space-y-0.5">
+        {/* Links do rodapé (Tarefas, Clientes, Usuários, Configurações) */}
         {bottomLinks.filter(l => l.show).map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}
@@ -258,7 +260,8 @@ export function Sidebar({ onNavigate }: Props) {
             )}
           </NavLink>
         ))}
-      </div>
+
+      </nav>
 
       {/* Versão */}
       {!collapsed && (
