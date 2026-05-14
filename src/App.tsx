@@ -554,6 +554,7 @@ function AppRoutes() {
               clientes={clientes}
               setClientes={setClientes}
               ramos={ramos}
+              regrasParcelas={regrasParcelas}
               automacoesParcelas={automacoesParcelas}
               empresa={empresa}
               formasPagamento={formasPagamento}

@@ -6,7 +6,7 @@ import {
 import * as XLSX from 'xlsx';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela, Tarefa } from '../types';
+import type { Parcela, ImportacaoParcelas, Cliente, Observacao, ArquivoAnexo, StatusParcela, Ramo, AutomacaoParcela, ConfiguracaoEmpresa, FormaPagamento, LogParcela, Tarefa, RegraParcelaNegocio } from '../types';
 import { TarefasPanel } from '../components/TarefasPanel';
 import { aplicarAutomacoes } from '../utils/automacoesParcelas';
 import { db } from '../lib/db';
@@ -23,6 +23,7 @@ interface Props {
   clientes: Cliente[];
   setClientes: (c: Cliente[]) => void;
   ramos: Ramo[];
+  regrasParcelas: RegraParcelaNegocio[];
   automacoesParcelas: AutomacaoParcela[];
   empresa: ConfiguracaoEmpresa;
   formasPagamento: FormaPagamento[];
@@ -163,7 +164,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true, tarefas, setTarefas }: Props) {
+export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImportacoesParcelas, clientes, ramos, regrasParcelas, automacoesParcelas, empresa, formasPagamento, podeImportarParcelas = true, tarefas, setTarefas }: Props) {
   const { usuario } = useAuth();
   const location = useLocation();
   const navigateParcelas = useNavigate();
@@ -390,6 +391,29 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
     return { tratar, emTratativa, valorAberto, primeirasPendentes, prazoUrgente, analiseCritica };
   }, [parcelas]);
 
+  // ── Resolução de ramo por prefixo de apólice ─────────────────────────────
+  /**
+   * Retorna o ramo identificado pelas regras cadastradas em Configurações.
+   * Prioridade: regras com seguradora específica > regras genéricas.
+   * Retorna '' se nenhuma regra bater.
+   */
+  function resolverRamoPorApolice(apolice: string, seguradora: string): string {
+    const regrasAtivas = regrasParcelas.filter(r => r.ativo && r.apolicePrefix);
+    const upper = apolice.toUpperCase();
+    // Tenta primeiro regras específicas para a seguradora
+    const especifica = regrasAtivas.find(r =>
+      r.seguradora && r.seguradora === seguradora &&
+      upper.startsWith((r.apolicePrefix ?? '').toUpperCase())
+    );
+    if (especifica) return especifica.ramo;
+    // Depois regras genéricas (sem seguradora)
+    const generica = regrasAtivas.find(r =>
+      !r.seguradora &&
+      upper.startsWith((r.apolicePrefix ?? '').toUpperCase())
+    );
+    return generica ? generica.ramo : '';
+  }
+
   // ── Importação XLSX ───────────────────────────────────────────────────────
   async function importarXLSX(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -502,6 +526,8 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               tipo: 'importacao',
               descricao: `Dados atualizados por importação: ${file.name}`,
             };
+            // Se a parcela ainda não tem ramo, tenta resolver pelo prefixo da apólice
+            const ramoAtualiz = existing.ramo || resolverRamoPorApolice(apolice, seguradora);
             updated.push({
               ...existing,
               nomeCliente,
@@ -511,6 +537,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
               valorParcela,
               seguradora,
               formaPagamento,
+              ramo: ramoAtualiz || existing.ramo,
               ultimaAtualizacao: dataImport,
               atualizadoEm: agora,
               logs: [...(existing.logs ?? []), logAtualiz],
@@ -528,6 +555,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             tipo: 'importacao',
             descricao: `Parcela importada do arquivo ${file.name}`,
           };
+          const ramoResolvido = resolverRamoPorApolice(apolice, seguradora);
           const nova: Parcela = {
             id: generateId(),
             chaveUnica: chave,
@@ -541,6 +569,7 @@ export function Parcelas({ parcelas, setParcelas, importacoesParcelas, setImport
             valorParcela,
             seguradora,
             formaPagamento,
+            ramo: ramoResolvido || undefined,
             status: 'importada',
             observacoes: [],
             logs: [logImport],
