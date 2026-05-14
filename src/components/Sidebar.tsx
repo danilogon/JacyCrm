@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCw, PlusCircle, Target, Users, Settings,
-  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, BookOpen, Mail, CreditCard, ScanSearch, FileSignature,
+  UserCog, Shield, ChevronLeft, ChevronRight, ChevronDown, Briefcase, DollarSign, TrendingUp, Factory, BookOpen, Mail, CreditCard, ScanSearch, FileSignature, CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { Tarefa } from '../types';
@@ -76,6 +76,7 @@ export function Sidebar({ onNavigate }: Props) {
 
   const bottomLinks = [
     { to: '/clientes',      icon: Users,         label: 'Clientes',      show: true, badge: 0 },
+    { to: '/tarefas',       icon: CheckSquare,   label: 'Tarefas',       show: true, badge: 0 },
     { to: '/parcelas',      icon: CreditCard,    label: 'Parcelas',      show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoParcelas ?? false), badge: 0 },
     { to: '/emails',        icon: Mail,          label: 'E-mails',       show: usuario.role === 'admin', badge: 0 },
     { to: '/assinaturas',   icon: FileSignature, label: 'Assinaturas',   show: usuario.role === 'admin' || usuario.role === 'gestor' || (usuario.acessoAssinaturas ?? false), badge: 0 },
@@ -91,7 +92,7 @@ export function Sidebar({ onNavigate }: Props) {
     }`;
 
   return (
-    <aside className={`${collapsed ? 'w-14' : 'w-60'} bg-blue-950 text-white flex flex-col min-h-screen shrink-0 transition-all duration-200`}>
+    <aside className={`${collapsed ? 'w-14' : 'w-60'} bg-blue-950 text-white flex flex-col h-screen shrink-0 transition-all duration-200`}>
 
       {/* Logo + Toggle */}
       <div className={`border-b border-blue-900 flex items-center ${collapsed ? 'flex-col gap-3 py-4 px-2' : 'p-4 gap-2'}`}>
@@ -124,8 +125,8 @@ export function Sidebar({ onNavigate }: Props) {
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 p-2 space-y-0.5">
+      {/* Nav — área scrollável (Dashboard + Negócios) */}
+      <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
 
         {/* Grupo Dashboard */}
         {(collapsed ? (
@@ -229,12 +230,10 @@ export function Sidebar({ onNavigate }: Props) {
           </div>
         )}
 
-        {/* Divisor visual */}
-        <div className="py-1">
-          <div className="border-t border-blue-900/60" />
-        </div>
+      </nav>
 
-        {/* Links do rodapé (Tarefas, Clientes, Usuários, Configurações) */}
+      {/* Links fixos do rodapé — sempre visíveis independente do scroll */}
+      <div className="border-t border-blue-900/60 p-2 space-y-0.5">
         {bottomLinks.filter(l => l.show).map(({ to, icon: Icon, label, badge }) => (
           <NavLink
             key={to}
@@ -259,8 +258,7 @@ export function Sidebar({ onNavigate }: Props) {
             )}
           </NavLink>
         ))}
-
-      </nav>
+      </div>
 
       {/* Versão */}
       {!collapsed && (
